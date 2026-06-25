@@ -1,5 +1,6 @@
 node_modules/
 .env
-data/
+data/sessions.json
+data/payments.json
 *.log
 .DS_Store
