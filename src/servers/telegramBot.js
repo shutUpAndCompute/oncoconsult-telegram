@@ -19,8 +19,26 @@ class TelegramAdapter {
     this.bot = null;
   }
 
-  initialize(token) {
-    this.bot = new TelegramBot(token, { polling: true });
+  async initialize(token) {
+    this.bot = new TelegramBot(token, { 
+      polling: false,
+      request: {
+        agentOptions: {
+          keepAlive: true,
+          keepAliveMsecs: 1000
+        }
+      }
+    });
+
+    this.bot.on('polling_error', async (err) => {
+      console.error(`[polling_error]:`, err.message || err);
+    });
+
+    try {
+      await this.bot.startPolling();
+    } catch (err) {
+      console.error('Failed to start polling:', err.message);
+    }
     
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
