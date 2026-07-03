@@ -54,10 +54,11 @@ class PersistenceManager {
 }
 
 class ConsultationManager {
-  constructor() {
+  constructor(doctorRouter = null) {
     this.persistence = new PersistenceManager();
     this.sessions = this.persistence.sessions;
     this.consultations = this.persistence.consultations;
+    this.doctorRouter = doctorRouter;
   }
 
   getSession(phoneNumber) {
@@ -78,6 +79,7 @@ class ConsultationManager {
         patientProfile: null,
         profileStep: null,
         pendingPayment: null,
+        selectedPersona: 'patient',
         isCaregiver: false,
         caregiverConsentGiven: false,
         caregiverName: null,
@@ -104,15 +106,37 @@ class ConsultationManager {
     this.persistence.saveSessions();
   }
 
+  addMediaToConsultation(phoneNumber, media) {
+    const consultation = this.getConsultationByPatient(phoneNumber);
+    const session = this.sessions.get(phoneNumber);
+    
+    if (consultation) {
+      consultation.messages.push({
+        type: 'media',
+        media,
+        sender: 'patient',
+        timestamp: new Date()
+      });
+      this.persistence.saveConsultations();
+    }
+    
+    if (session) {
+      session.media.push(media);
+      session.lastActivityAt = new Date();
+      this.persistence.saveSessions();
+    }
+  }
+
   getDoctorIdForPatient(phoneNumber) {
     const session = this.sessions.get(phoneNumber);
     return session?.doctorId || null;
   }
 
   releaseDoctorIfAssigned(phoneNumber) {
-    const doctorId = this.getDoctorIdForPatient(phoneNumber);
-    if (doctorId) {
-      this.releaseDoctor(doctorId);
+    const session = this.sessions.get(phoneNumber);
+    const doctorId = session?.doctorId;
+    if (doctorId && this.doctorRouter) {
+      this.doctorRouter.releaseDoctor(doctorId);
     }
   }
 
@@ -120,6 +144,17 @@ class ConsultationManager {
     const session = this.getSession(phoneNumber);
     const doctorId = session.doctorId;
     const hadConsultation = session.consultationId ? true : false;
+    const preservedProfile = session.patientProfile;
+    const preservedMedia = session.media || [];
+    const preservedPersona = session.selectedPersona;
+    const preservedCaregiverData = {
+      isCaregiver: session.isCaregiver,
+      caregiverConsentGiven: session.caregiverConsentGiven,
+      caregiverName: session.caregiverName,
+      patientName: session.patientName,
+      caregiverRelationship: session.caregiverRelationship,
+      caregiverReason: session.caregiverReason
+    };
     
     this.releaseDoctorIfAssigned(phoneNumber);
     
@@ -134,16 +169,12 @@ class ConsultationManager {
       doctorId: null,
       consultationId: null,
       flowState: 'welcome',
-      media: [],
+      media: preservedMedia,
       invalidSelections: 0,
-      patientProfile: session.patientProfile,
+      patientProfile: preservedProfile,
       profileStep: null,
-      isCaregiver: session.isCaregiver,
-      caregiverConsentGiven: session.caregiverConsentGiven,
-      caregiverName: session.caregiverName,
-      patientName: session.patientName,
-      caregiverRelationship: session.caregiverRelationship,
-      caregiverReason: session.caregiverReason
+      ...preservedCaregiverData,
+      selectedPersona: preservedPersona || 'patient'
     });
     this.persistence.saveSessions();
     
@@ -160,7 +191,7 @@ class ConsultationManager {
   createConsultation(phoneNumber, doctorId, sessionData) {
     if (!sessionData || !sessionData.paymentVerified) {
       console.error("Cannot initiate consultation: Payment has not been verified.");
-      this.releaseDoctor(doctorId);
+      if (this.doctorRouter) this.doctorRouter.releaseDoctor(doctorId);
       return null;
     }
 
@@ -234,6 +265,97 @@ class ConsultationManager {
     } else {
       console.warn(`Cannot store raw query data: Consultation ID ${consultationId} not found.`);
     }
+  }
+
+  hasActiveOrPendingConsultation(patientPhone) {
+    return Array.from(this.consultations.values()).some(
+      c => c.patientPhone === patientPhone && ['active', 'pending'].includes(c.status)
+    );
+  }
+
+  createPendingConsultation(phoneNumber, session) {
+    const consultationId = `pending_${Date.now()}`;
+    const consultation = {
+      id: consultationId,
+      patientPhone: phoneNumber,
+      status: 'pending',
+      startedAt: new Date(),
+      cancerType: session?.cancerType || null,
+      media: session?.media || [],
+      patientProfile: session?.patientProfile || null,
+      isCaregiver: session?.isCaregiver || false,
+      caregiverName: session?.caregiverName || null,
+      patientName: session?.patientName || null,
+      caregiverRelationship: session?.caregiverRelationship || null,
+      caregiverReason: session?.caregiverReason || null
+    };
+    this.consultations.set(consultationId, consultation);
+    this.persistence.saveConsultations();
+    return consultation;
+  }
+
+  getPendingConsultationByPatient(patientPhone) {
+    return Array.from(this.consultations.values()).find(
+      c => c.patientPhone === patientPhone && c.status === 'pending'
+    );
+  }
+
+  cleanupStalePendingConsultations(maxAgeHours = 24) {
+    const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
+    let cleaned = 0;
+    for (const [id, c] of this.consultations) {
+      if (c.status === 'pending' && new Date(c.startedAt).getTime() < cutoff) {
+        this.consultations.delete(id);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) this.persistence.saveConsultations();
+    return cleaned;
+  }
+
+  cleanupStaleSessions(idleMinutes = 1440) {
+    const cutoff = Date.now() - idleMinutes * 60 * 1000;
+    let cleaned = 0;
+    for (const [phone, s] of this.sessions) {
+      if (new Date(s.lastActivityAt).getTime() < cutoff) {
+        this.sessions.delete(phone);
+        cleaned++;
+      }
+    }
+    if (cleaned > 0) this.persistence.saveSessions();
+    return cleaned;
+  }
+
+cleanupAllStale(pendingAgeHours = 24, idleMinutes = 1440) {
+    return {
+      pendingConsultations: this.cleanupStalePendingConsultations(pendingAgeHours),
+      staleSessions: this.cleanupStaleSessions(idleMinutes)
+    };
+  }
+
+  closeConsultation(consultationId, closedBy = 'admin') {
+    const consultation = this.consultations.get(consultationId);
+    if (!consultation) return false;
+    
+    if (consultation.status === 'active' || consultation.status === 'pending') {
+      consultation.status = 'closed';
+      consultation.closedAt = new Date();
+      consultation.closedBy = closedBy;
+      this.persistence.saveConsultations();
+      
+      const session = this.sessions.get(consultation.patientPhone);
+      if (session) {
+        session.consultationId = null;
+        session.flowState = 'welcome';
+        this.persistence.saveSessions();
+      }
+      return true;
+    }
+    return false;
+  }
+
+  getConsultationById(consultationId) {
+    return this.consultations.get(consultationId) || null;
   }
 }
 

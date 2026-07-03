@@ -49,7 +49,7 @@ class PaymentService {
     return Math.round(baseAmount * (1 - discount / 100));
   }
 
-  generatePaymentLinkSync(phoneNumber, amount, discountPercent = 0) {
+  generatePaymentLinkSync(phoneNumber, amount = 0, discountPercent = 0) {
     const finalAmount = this.calculateDiscount(amount, discountPercent);
     const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const upiLink = `upi://pay?pa=doctor@upi&pn=Oncology%20Consultation&tid=${transactionId}&tr=${transactionId}&am=${finalAmount}&cu=INR`;
@@ -62,18 +62,21 @@ class PaymentService {
       discountPercent,
       status: 'pending',
       createdAt: new Date(),
-      expiresAt
+      expiresAt,
+      feePending: amount === 0
     });
     this.savePayments();
 
     return {
       transactionId,
       upiLink: `https://pay.upi/${transactionId}`,
-      message: `Pay via UPI: ${upiLink}\nOr click: https://pay.upi/${transactionId}\n\n⏳ Link expires in 24 hours.\n💡 Original: ₹${amount} | Discount: ${discountPercent}% | You pay: ₹${finalAmount}`
+      message: amount === 0
+        ? `Transaction created. Fee will be determined by admin. Transaction ID: ${transactionId}`
+        : `Pay via UPI: ${upiLink}\nOr click: https://pay.upi/${transactionId}\n\n⏳ Link expires in 24 hours.\n💡 You pay: ₹${finalAmount}`
     };
   }
 
-  async generatePaymentLink(phoneNumber, amount, discountPercent = 0) {
+  async generatePaymentLink(phoneNumber, amount = 0, discountPercent = 0) {
     const finalAmount = this.calculateDiscount(amount, discountPercent);
     const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const upiLink = `upi://pay?pa=doctor@upi&pn=Oncology%20Consultation&tid=${transactionId}&tr=${transactionId}&am=${finalAmount}&cu=INR`;
@@ -86,14 +89,17 @@ class PaymentService {
       discountPercent,
       status: 'pending',
       createdAt: new Date(),
-      expiresAt
+      expiresAt,
+      feePending: amount === 0
     });
     this.savePayments();
 
     return {
       transactionId,
       upiLink: `https://pay.upi/${transactionId}`,
-      message: `Pay via UPI: ${upiLink}\nOr click: https://pay.upi/${transactionId}\n\n⏳ Link expires in 24 hours.\n💡 Original: ₹${amount} | Discount: ${discountPercent}% | You pay: ₹${finalAmount}`
+      message: amount === 0 
+        ? `Transaction created. Fee will be determined by admin. Transaction ID: ${transactionId}`
+        : `Pay via UPI: ${upiLink}\nOr click: https://pay.upi/${transactionId}\n\n⏳ Link expires in 24 hours.\n💡 Amount: ₹${finalAmount}`
     };
   }
 
@@ -129,6 +135,17 @@ class PaymentService {
       }
     }
     this.savePayments();
+  }
+
+  setFee(transactionId, amount, adminNote = '') {
+    const payment = this.payments.get(transactionId);
+    if (!payment) return false;
+    
+    payment.amount = amount;
+    payment.adminNote = adminNote;
+    payment.feeSetAt = new Date();
+    this.savePayments();
+    return true;
   }
 
   async handlePaymentWebhook(req, res) {
