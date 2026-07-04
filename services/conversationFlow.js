@@ -178,6 +178,8 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
       case FlowStates.PROFILE_STATE: return '📍 Please enter your state:';
       case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
+      case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: return '📎 Please upload eligibility documents for your selected discount category (ration card, Ayushman card, etc.):';
+      case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
       case FlowStates.PROFILE_CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.PROFILE_TREATING_HOSPITAL: return '🏥 Please enter the treating hospital name:';
       case FlowStates.PROFILE_TREATMENT_STATUS: return `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;

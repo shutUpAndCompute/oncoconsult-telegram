@@ -436,6 +436,27 @@ this.bot.on('photo', async (msg) => {
          const photo = msg.photo[msg.photo.length - 1];
          const fileId = photo.file_id;
       
+// Handle discount document upload for profile completion
+      if (session?.profileStep === 'discount_documents') {
+        const profile = session.patientProfile || {};
+        profile.discountDocuments = profile.discountDocuments || [];
+        profile.discountDocuments.push({
+          id: `doc_${Date.now()}`,
+          type: 'image',
+          fileId: null, // Will be set after we get the actual file
+          uploadedAt: new Date()
+        });
+        consultationManager.updateSession(String(chatId), { patientProfile: profile, profileStep: 'cancer_type', flowState: FlowStates.PROFILE });
+        const categoryLabel = profile.discountCategory?.replace(/_/g, ' ') || 'selected';
+        await this.bot.sendMessage(chatId,
+          `✅ Discount document upload acknowledged for *${categoryLabel}*.` + `
+
+Continue profile setup...` + InteractiveMenus.cancerTypes,
+          { parse_mode: 'Markdown' }
+        );
+        return;
+      }
+
       const session = consultationManager.getSession(String(chatId));
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'image', fileId, reportType, receivedAt: new Date() };
