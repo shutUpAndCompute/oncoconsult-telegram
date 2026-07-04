@@ -94,9 +94,18 @@ class TelegramAdapter {
           .filter(c => c.status === 'active').length;
         await this.bot.sendMessage(chatId, `${InteractiveMenus.adminMenu}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (persona.isCaregiver()) {
-        const patientInfo = session?.patientName ? `\nPatient: ${session.patientName}` : '';
-        const mediaInfo = session?.media?.length ? `\nDocs: ${session.media.length}` : '';
-        await this.bot.sendMessage(chatId, `*${roleLabel} Mode*${patientInfo}${mediaInfo}\n\nAsk questions on behalf of your patient.\n\n9. Status\n0. Switch Role`, { parse_mode: 'Markdown' });
+        // Check if caregiver has linked patient
+        const linkedPatientPhone = session?.linkedPatientPhone;
+        if (!linkedPatientPhone) {
+          // Need to link to patient first
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.CAREGIVER_PATIENT_LINK });
+          await this.bot.sendMessage(chatId, InteractiveMenus.caregiverPatientLink, { parse_mode: 'Markdown' });
+        } else {
+          const linkedSession = consultationManager.getSession(linkedPatientPhone);
+          const patientInfo = linkedSession?.patientProfile?.name ? `\nPatient: ${linkedSession.patientProfile.name}` : '';
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.CAREGIVER_MENU });
+          await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(linkedSession?.patientProfile?.name), { parse_mode: 'Markdown' });
+        }
       } else if (persona.isDoctor()) {
         const activeConsultation = Array.from(consultationManager.consultations.values())
           .find(c => c.doctorId === persona.type && c.status === 'active');

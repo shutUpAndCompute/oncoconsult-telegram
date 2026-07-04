@@ -9,6 +9,8 @@ const FlowStates = {
   ROLE_SELECT: 'role_select',
   CAREGIVER_AUTH: 'caregiver_auth',
   CAREGIVER_CONSENT_ACK: 'caregiver_consent_ack',
+  CAREGIVER_PATIENT_LINK: 'caregiver_patient_link',
+  CAREGIVER_MENU: 'caregiver_menu',
   PROFILE: 'profile',
   PROFILE_AADHAAR: 'profile_aadhaar',
   PROFILE_ADDRESS: 'profile_address',
@@ -207,6 +209,12 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.CAREGIVER_CONSENT_ACK:
         return this.handleCaregiverConsentAck(selection, phoneNumber, session);
 
+      case FlowStates.CAREGIVER_PATIENT_LINK:
+        return this.handleCaregiverPatientLink(phoneNumber, message, session);
+
+      case FlowStates.CAREGIVER_MENU:
+        return this.handleCaregiverMenuSelection(selection, phoneNumber, session);
+
       case FlowStates.CANCER_TYPE:
         return this.handleCancerTypeSelection(selection);
         
@@ -298,6 +306,57 @@ case FlowStates.CONSULTATION:
       };
     }
     return this.startPatientProfile(phoneNumber);
+  }
+
+  handleCaregiverPatientLink(phoneNumber, message, session) {
+    const patientPhone = message.trim();
+    
+    if (!patientPhone || !patientPhone.match(/^d{10}$/)) {
+      return {
+        nextState: FlowStates.CAREGIVER_PATIENT_LINK,
+        response: `📲 *Link to Patient*
+
+Enter the patient's phone number (10 digits):
+
+Example: 9876543210`
+      };
+    }
+    
+    this.consultationManager.updateSession(phoneNumber, {
+      linkedPatientPhone: patientPhone
+    });
+    
+    const linkedSession = this.consultationManager.getSession(patientPhone);
+    if (linkedSession?.patientProfile) {
+      return {
+        nextState: FlowStates.CAREGIVER_MENU,
+        response: InteractiveMenus.caregiverMenu(linkedSession.patientProfile.name || patientPhone)
+      };
+    }
+    
+    return {
+      nextState: FlowStates.CAREGIVER_MENU,
+      response: InteractiveMenus.caregiverMenu(patientPhone)
+    };
+  }
+
+  handleCaregiverMenuSelection(selection, phoneNumber, session) {
+    const flowMap = {
+      '1': () => ({ nextState: FlowStates.CANCER_TYPE, response: InteractiveMenus.cancerTypes }),
+      '2': () => ({ nextState: FlowStates.BILLING, response: InteractiveMenus.billing }),
+      '3': () => ({ nextState: FlowStates.REPORT_UPLOAD, response: '📎 Send your diagnostic report (image/PDF)' }),
+      '4': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
+      '5': () => ({ nextState: FlowStates.ADMIN_FALLBACK, response: this.handleAdminFallback(phoneNumber, '') }),
+      '6': () => ({ nextState: FlowStates.WELCOME, response: '🗑️ Type /clear to delete all chat history and end consultations.' }),
+      '7': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.personaSelect('caregiver') })
+    };
+    
+    const handler = flowMap[selection];
+    if (handler) {
+      return handler();
+    }
+    return { nextState: FlowStates.CAREGIVER_MENU, response: InteractiveMenus.caregiverMenu(session?.patientName) };
   }
 
   startPatientProfile(phoneNumber) {
