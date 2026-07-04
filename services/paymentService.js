@@ -1,4 +1,24 @@
-const crypto = require('crypto');
+const DISCOUNT_TIERS = {
+  bpl_ews: 100,
+  ayushman_bharat: 100,
+  senior_citizen: 50,
+  defence_exservicemen: 50,
+  paramilitary: 50,
+  police: 50,
+  pwd: 50,
+  sc_st: 25,
+  minority_community: 25,
+  rural_tribal_resident: 25,
+  e_shram: 25,
+  farmer: 25,
+  government_employee: 25,
+  freedom_fighter_dependent: 25,
+  healthcare_worker: 25,
+  teacher_angadiwadi: 25,
+  journalist: 25,
+  widow_single_woman: 25,
+  none: 0
+};
 const fs = require('fs');
 const path = require('path');
 
@@ -47,6 +67,18 @@ class PaymentService {
   calculateDiscount(baseAmount, discountPercent) {
     const discount = Math.min(Math.max(discountPercent, 0), 100);
     return Math.round(baseAmount * (1 - discount / 100));
+  }
+
+  getDiscountPercentForCategory(category) {
+    return DISCOUNT_TIERS[category] || 0;
+  }
+
+  calculatePatientDiscount(baseAmount, patientProfile) {
+    if (!patientProfile || !patientProfile.discountCategory) return baseAmount;
+    if (patientProfile.discountVerificationStatus !== 'verified') return baseAmount;
+    
+    const discountPercent = DISCOUNT_TIERS[patientProfile.discountCategory] || 0;
+    return this.calculateDiscount(baseAmount, discountPercent);
   }
 
   generatePaymentLinkSync(phoneNumber, amount = 0, discountPercent = 0) {
@@ -189,3 +221,4 @@ class PaymentService {
 }
 
 module.exports = PaymentService;
+module.exports.DISCOUNT_TIERS = DISCOUNT_TIERS;

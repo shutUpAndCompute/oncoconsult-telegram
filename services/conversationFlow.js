@@ -1,5 +1,6 @@
 const { CancerSpecializations } = require('../models/doctor');
 const MasterDataManager = require('../services/masterDataManager');
+const { DISCOUNT_CATEGORIES, TREATMENT_STATUSES } = require('../models/patient');
 
 const masterData = new MasterDataManager();
 
@@ -9,6 +10,22 @@ const FlowStates = {
   CAREGIVER_AUTH: 'caregiver_auth',
   CAREGIVER_CONSENT_ACK: 'caregiver_consent_ack',
   PROFILE: 'profile',
+  PROFILE_AADHAAR: 'profile_aadhaar',
+  PROFILE_ADDRESS: 'profile_address',
+  PROFILE_PINCODE: 'profile_pincode',
+  PROFILE_STATE: 'profile_state',
+  PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
+  PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
+  PROFILE_CANCER_TYPE: 'profile_cancer_type',
+  PROFILE_DIAGNOSIS_DATE: 'profile_diagnosis_date',
+  PROFILE_TREATING_HOSPITAL: 'profile_treating_hospital',
+  PROFILE_TREATMENT_STATUS: 'profile_treatment_status',
+  PROFILE_ONCOLOGIST_NAME: 'profile_oncologist_name',
+  PROFILE_MEDICAL_REPORTS: 'profile_medical_reports',
+  PROFILE_EMERGENCY_CONTACT_NAME: 'profile_emergency_contact_name',
+  PROFILE_EMERGENCY_CONTACT_NUMBER: 'profile_emergency_contact_number',
+  PROFILE_EMERGENCY_CONTACT_RELATION: 'profile_emergency_contact_relation',
+  PROFILE_CONSENTS: 'profile_consents',
   DATA_SHARING_CONSENT: 'data_sharing_consent',
   CANCER_TYPE: 'cancer_type',
   REPORT_UPLOAD: 'report_upload',
@@ -33,9 +50,9 @@ const InteractiveMenus = {
 6️⃣ Clear History
 7️⃣ 👤 Profile & Roles
 
-Reply with number or type your question`,
+Reply with number`,
 
-  personaSelect: (currentPersona) => `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'none'}\n\n1️⃣ Patient Mode\n2️⃣ Caregiver Mode\n0️⃣ Back to Menu
+  personaSelect: (currentPersona) => `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n1️⃣ Patient Mode\n2️⃣ Caregiver Mode\n0️⃣ Main Menu
 
 Reply with number`,
 
@@ -56,7 +73,17 @@ Reply with number`,
     text += `*Name:* ${profile.name || 'Not set'}\n`;
     text += `*Age:* ${profile.age || 'Not set'}\n`;
     text += `*Gender:* ${profile.gender || 'Not set'}\n`;
-    text += `*Location:* ${profile.location || 'Not set'}\n`;
+    text += `*Aadhaar:* ${profile.aadhaarNumber ? 'Provided' : 'Not set'}\n`;
+    text += `*Address:* ${profile.address || 'Not set'}\n`;
+    text += `*Pin Code:* ${profile.pinCode || 'Not set'}\n`;
+    text += `*State:* ${profile.state || 'Not set'}\n`;
+    text += `*Cancer Type:* ${profile.cancerType || 'Not set'}\n`;
+    text += `*Treating Hospital:* ${profile.treatingHospital || 'Not set'}\n`;
+    text += `*Treatment Status:* ${profile.treatmentStatus || 'Not set'}\n`;
+    text += `*Medical Reports:* ${profile.medicalReports?.length || 0} uploaded\n`;
+    text += `*Emergency Contact:* ${profile.emergencyContactName || 'Not set'} (${profile.emergencyContactRelation || 'Not set'})\n`;
+    text += `*Discount Category:* ${profile.discountCategory || 'none'}\n`;
+    text += `*Discount Status:* ${profile.discountVerificationStatus || 'not_applied'}\n`;
     if (isCaregiver && profile.caregiverName) {
       text += `\n*Caregiver Name:* ${profile.caregiverName}\n`;
     }
@@ -70,7 +97,7 @@ Reply with number`,
     return text;
   },
 
-  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nCITY:<location>\n\nOr reply FIELD:VALUE on separate lines.`,
+  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nAADHAAR:<number>\nADDRESS:<full address>\nCITY:<location>\n\nOr reply FIELD:VALUE on separate lines.`,
 
   roleApplication: `📝 *Apply for Role*\n\n1️⃣ Doctor\n2️⃣ Caregiver\n3️⃣ Support\n4️⃣ Cancel
 
@@ -99,11 +126,11 @@ Roles require admin approval. Select a role to apply for.`,
 
   cancerTypes: `🔍 *Select Cancer Type*\n\n1️⃣ Lung Cancer\n2️⃣ Breast Cancer\n3️⃣ Prostate Cancer\n4️⃣ Liver Cancer\n5️⃣ Pancreatic\n6️⃣ Ovarian\n7️⃣ Blood Cancer\n8️⃣ Other/General\n\nReply with number`,
 
-  billing: `💰 *Consultation Pricing*\n\n• First Consultation: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number`,
+  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\n• Discount available based on eligibility (BPL/Ayushman: 100%, Senior/Defence: 50%, Others: 25%)\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
-  consent: `📋 *Data Sharing Consent*\n\nDo you consent to share anonymized medical data with Jaivika Healthcare Research Foundation for research and commercial purposes?\n\n1. Yes, I consent\n2. No, I do not consent`,
+  consent: `📋 *Data Sharing & Discount Consent*\n\nYour consultation fee supports our non-profit clinical initiative for Indians.\n\nBy sharing your medical data (consultation details and reports), you automatically qualify for a base discount on consultation fees.\n\nAdditionally, if you have socio-economic eligibility (BPL, Ayushman, Senior Citizen, etc.), sharing this information allows our admins to apply further discounts at their discretion.\n\n1. ✅ Yes, I consent to share anonymized medical data and eligibility information\n2. ❌ No, I do not consent (proceed without discounts)`,
 
-  caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nAs an authorized caregiver, you can provide consent on behalf of the patient.\n\nI acknowledge that:\n- I am authorized to act on patient's behalf\n- I understand the data will be used for research/commercial purposes\n- This consent is recorded with caregiver attribution\n\n1. ✅ I acknowledge and provide consent\n2. ❌ No consent (proceed without sharing)`,
+  caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nAs an authorized caregiver, you provide consent on behalf of the patient.\n\nI acknowledge that:\n- Patient will automatically receive a base discount for sharing consultation data\n- Additional socio-economic discounts may apply at admin discretion\n- This consent is recorded with caregiver attribution\n\n1. ✅ I acknowledge and provide consent\n2. ❌ No consent (proceed without discounts)`,
 
   paymentRequested: `📩 *Payment Request Sent*\n\nYour admin has been notified. They will review your case and send a payment link with the consultation fee.`,
 
@@ -115,7 +142,11 @@ Roles require admin approval. Select a role to apply for.`,
 
   withdrawalSuccess: `✅ *Consultation Withdrawn*\n\nYour pending consultation has been cancelled. All uploaded documents are saved.\nYou can request a new consultation anytime from the main menu.`,
 
-  closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0. Back to Menu`
+  closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0. Back to Menu`,
+
+  discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
+
+  consentsMenu: `📋 *Mandatory Consents*\n\nPlease confirm all consents to proceed:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n4. Back to Menu\n\nReply with number to confirm each`,
 };
 
 class ConversationFlow {
@@ -141,6 +172,18 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.CONSULTATION_WITHDRAW: return InteractiveMenus.withdrawalConfirm;
       case FlowStates.ADMIN_MENU: return InteractiveMenus.adminMenu;
       case FlowStates.ADMIN_CLOSE_CONSULTATION: return InteractiveMenus.closeConsultationPrompt;
+      case FlowStates.PROFILE_AADHAAR: return '🆔 Please enter your Aadhaar number:';
+      case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
+      case FlowStates.PROFILE_STATE: return '📍 Please enter your state:';
+      case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
+      case FlowStates.PROFILE_CANCER_TYPE: return InteractiveMenus.cancerTypes;
+      case FlowStates.PROFILE_TREATING_HOSPITAL: return '🏥 Please enter the treating hospital name:';
+      case FlowStates.PROFILE_TREATMENT_STATUS: return `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;
+      case FlowStates.PROFILE_EMERGENCY_CONTACT_NAME: return '📞 Please enter emergency contact name:';
+      case FlowStates.PROFILE_EMERGENCY_CONTACT_NUMBER: return '📱 Please enter emergency contact number:';
+      case FlowStates.PROFILE_EMERGENCY_CONTACT_RELATION: return '👨‍👩‍👧‍👦 Please enter your relationship to the patient:';
+      case FlowStates.PROFILE_MEDICAL_REPORTS: return '📎 Please upload at least one medical report (biopsy, imaging, discharge summary):';
+      case FlowStates.PROFILE_CONSENTS: return InteractiveMenus.consentsMenu;
       default: return InteractiveMenus.main(persona);
     }
   }
@@ -539,7 +582,12 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
   isProfileComplete(session) {
     const p = session.patientProfile;
-    return !!(p && p.name && p.age && p.gender && p.location);
+    if (!p) return false;
+    return !!(p.name && p.age && p.gender && p.aadhaarNumber && p.address && p.state &&
+      p.cancerType && p.treatingHospital && p.treatmentStatus &&
+      p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
+      p.medicalReports && p.medicalReports.length > 0 &&
+      p.consentTeleconsultation && p.consentDataSharing && p.consentDPDP);
   }
 
   getGreeting(phoneNumber) {
@@ -605,11 +653,63 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         break;
       case 'gender':
         profile.gender = trimmed;
-        nextStep = 'location';
-        nextPrompt = 'Please enter your city/location:';
+        nextStep = 'aadhaar';
+        nextPrompt = '🆔 Please enter your Aadhaar number (mandatory):';
         break;
-      case 'location':
-        profile.location = trimmed;
+      case 'aadhaar':
+        profile.aadhaarNumber = trimmed;
+        nextStep = 'address';
+        nextPrompt = '🏠 Please enter your full address (mandatory):';
+        break;
+      case 'address':
+        profile.address = trimmed;
+        nextStep = 'state';
+        nextPrompt = '📍 Please enter your state (mandatory):';
+        break;
+      case 'state':
+        profile.state = trimmed;
+        nextStep = 'cancer_type';
+        nextPrompt = InteractiveMenus.cancerTypes;
+        break;
+      case 'cancer_type':
+        const cancerMap = { '1': 'lung', '2': 'breast', '3': 'prostate', '4': 'liver', '5': 'pancreatic', '6': 'ovarian', '7': 'blood', '8': 'general' };
+        if (!cancerMap[trimmed]) {
+          return { nextState: FlowStates.PROFILE, response: InteractiveMenus.cancerTypes, data: {} };
+        }
+        profile.cancerType = cancerMap[trimmed];
+        nextStep = 'treating_hospital';
+        nextPrompt = '🏥 Please enter the treating hospital name (mandatory):';
+        break;
+      case 'treating_hospital':
+        profile.treatingHospital = trimmed;
+        nextStep = 'treatment_status';
+        nextPrompt = `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;
+        break;
+      case 'treatment_status':
+        if (!['1', '2', '3', '4'].includes(trimmed)) {
+          return { nextState: FlowStates.PROFILE, response: `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`, data: {} };
+        }
+        const statusMap = { '1': 'newly_diagnosed', '2': 'under_treatment', '3': 'post_treatment', '4': 'relapsed' };
+        profile.treatmentStatus = statusMap[trimmed];
+        nextStep = 'medical_reports';
+        nextPrompt = '📎 Please upload at least one medical report (mandatory - biopsy, imaging, discharge summary):';
+        break;
+      case 'medical_reports':
+        nextStep = 'emergency_contact_name';
+        nextPrompt = '📞 Please enter emergency contact name (mandatory):';
+        break;
+      case 'emergency_contact_name':
+        profile.emergencyContactName = trimmed;
+        nextStep = 'emergency_contact_number';
+        nextPrompt = '📱 Please enter emergency contact number (mandatory):';
+        break;
+      case 'emergency_contact_number':
+        profile.emergencyContactNumber = trimmed;
+        nextStep = 'emergency_contact_relation';
+        nextPrompt = '👨‍👩‍👧‍👦 Please enter your relationship to the patient (mandatory):';
+        break;
+      case 'emergency_contact_relation':
+        profile.emergencyContactRelation = trimmed;
         nextStep = 'completed';
         break;
       default:
