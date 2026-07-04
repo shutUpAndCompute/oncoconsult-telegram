@@ -283,7 +283,7 @@ class TelegramAdapter {
       const success = conversationFlow.setFee(phoneNumber, session.paymentTransaction, amount, adminNote);
       
       if (success) {
-        await this.bot.sendMessage(phoneNumber, 
+        await this.bot.sendMessage(userRegistry.getUserByPhone(phoneNumber)?.chatId || phoneNumber, 
           `💰 *Fee Determined*\n\nYour consultation fee: ₹${amount}\n${adminNote ? `_${adminNote}_` : ''}\n\nAdmin will send payment link shortly.`,
           { parse_mode: 'Markdown' }
         ).catch(() => {});
@@ -897,6 +897,13 @@ await this.bot.sendMessage(
   async routeQuery(chatId, message, session) {
     const intent = this.classifyIntent(message);
     
+    // Handle MSG_ADMIN for patients to contact admin
+    const msgAdminMatch = message.match(/^MSG_ADMINs+(.*)$/i);
+    if (msgAdminMatch) {
+      await this.notifyAdmin(chatId, `📩 *Patient Message*:\n\nPatient Chat ID: ${chatId}\n\n${msgAdminMatch[1]}`);
+      return { message: `✅ Message sent to admin. They will respond shortly.` };
+    }
+    
     switch (intent) {
       case 'payment':
         const paymentInfo = await paymentService.generatePaymentLink(String(chatId), 0);
@@ -984,7 +991,7 @@ await this.bot.sendMessage(
 
   async sendToPatient(phoneNumber, message) {
     try {
-      await this.bot.sendMessage(phoneNumber, message, { parse_mode: 'Markdown' });
+      await this.bot.sendMessage(userRegistry.getUserByPhone(phoneNumber)?.chatId || phoneNumber, message, { parse_mode: 'Markdown' });
     } catch (error) {
       console.error('Telegram send error:', error);
     }

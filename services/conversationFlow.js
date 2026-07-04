@@ -316,15 +316,16 @@ case FlowStates.CONSULTATION:
     const profile = session.patientProfile || {};
     
     if (selection === '1') {
-      profile.dataSharingConsent = true;
-      profile.consentType = 'caregiver';
+      profile.consentTeleconsultation = true;
+      profile.consentDataSharing = true;
+      profile.consentDPDP = true;
       this.consultationManager.updateSession(phoneNumber, {
         patientProfile: profile,
         caregiverConsentGiven: true
       });
       return {
-        nextState: FlowStates.WELCOME,
-        response: `✅ Consent acknowledged and saved!\n\n${this.getGreeting(phoneNumber)}`,
+        nextState: FlowStates.PROFILE,
+        response: `✅ Consent acknowledged. Please complete your profile to proceed.`,
         data: {}
       };
     }
@@ -332,8 +333,8 @@ case FlowStates.CONSULTATION:
       caregiverConsentGiven: true
     });
     return {
-      nextState: FlowStates.WELCOME,
-      response: `✅ Profile saved (no data sharing consent).\n\n${this.getGreeting(phoneNumber)}`,
+      nextState: FlowStates.PROFILE,
+      response: `ℹ️ You may proceed without consent. Complete your profile to access consultations.`,
       data: {}
     };
   }
@@ -380,6 +381,10 @@ case FlowStates.CONSULTATION:
     if (pendingConsultation) {
       this.consultationManager.consultations.delete(pendingConsultation.id);
       this.consultationManager.persistence.saveConsultations();
+    }
+
+    if (session?.doctorId) {
+      this.consultationManager.releaseDoctorIfAssigned(phoneNumber);
     }
 
     this.consultationManager.updateSession(phoneNumber, {

@@ -20,6 +20,7 @@ const DISCOUNT_TIERS = {
   none: 0
 };
 const fs = require('fs');
+const crypto = require('crypto');
 const path = require('path');
 
 class PaymentService {
@@ -169,6 +170,7 @@ class PaymentService {
     payment.amount = amount;
     payment.adminNote = adminNote;
     payment.feeSetAt = new Date();
+    payment.feePending = false;
     this.savePayments();
     return true;
   }

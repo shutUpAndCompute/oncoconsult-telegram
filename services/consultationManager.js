@@ -123,6 +123,16 @@ class ConsultationManager {
     
     if (session) {
       session.media.push(media);
+      if (session.patientProfile) {
+        session.patientProfile.medicalReports = session.patientProfile.medicalReports || [];
+        session.patientProfile.medicalReports.push({
+          id: media.id || `rep_${Date.now()}`,
+          fileId: media.fileId,
+          type: media.type,
+          reportType: media.reportType || 'general',
+          uploadedAt: new Date()
+        });
+      }
       session.lastActivityAt = new Date();
       this.persistence.saveSessions();
     }
