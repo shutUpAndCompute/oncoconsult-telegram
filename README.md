@@ -2,9 +2,38 @@
 
 A non-profit clinical initiative providing secondary opinions and consultations for cancer patients in India via Telegram.
 
-## Overview
+## BotFather Setup
 
-OncoConsult connects patients with oncologists through an interactive Telegram bot, facilitating medical consultations while maintaining data privacy and offering socio-economic based discounts.
+1. Open Telegram, search for **@BotFather**
+2. Send `/newbot` and follow prompts
+3. Get your bot TOKEN (format: `123456:ABC-DEF...`)
+4. Start chat with your bot: `/start`
+
+## Quick Setup (2 minutes)
+
+```bash
+npm install
+cp .env.example .env
+# Edit .env with your bot token from BotFather
+npm run dev  # Runs on port 3001
+```
+
+## Environment Variables
+
+```env
+TELEGRAM_BOT_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew-fg
+ADMIN_PHONES=+919999999999,+918888888888
+SUPPORT_PHONES=+917777777777,+916666666666
+DATA_DIR=./data
+PAYMENT_WEBHOOK_SECRET=your-secret  # Optional: for webhook signature verification
+```
+
+## Privacy: Users Cannot See Each Other's Messages
+
+- Each user has a **unique chat ID** with the bot
+- Messages are routed via chat ID, not phone number
+- Doctor registration uses Telegram chat ID (not phone)
+- **No broadcast or group functionality** - all 1:1
 
 ## Features
 
@@ -32,8 +61,8 @@ OncoConsult connects patients with oncologists through an interactive Telegram b
 
 ## Discount System
 
-### Automatic Discounts
-- **10% base discount** - For patients sharing consultation data and medical reports
+### Automatic Discounts (No Eligibility Documents Required)
+- **10% base discount** - For patients sharing consultation data AND medical reports
 - **5% discount** - For patients providing data sharing consent only
 
 ### Socio-Economic Categories (Requires Document Verification)
@@ -47,6 +76,11 @@ OncoConsult connects patients with oncologists through an interactive Telegram b
 - **Patients/Caregivers**: See generic discount disclaimer only
 - **Admins/Doctors/Super-admins**: Can view full discount tiers and apply discretionary discounts
 
+### Business Rules
+- All discounts are guidance for profitability
+- Admins can apply any discount regardless of claimed eligibility
+- Admin override takes precedence over category discounts
+
 ## Mandatory Profile Fields
 
 Patients must provide:
@@ -56,35 +90,6 @@ Patients must provide:
 4. **Emergency**: Contact name, phone number, relationship
 5. **Documents**: At least one medical report
 6. **Consents**: Teleconsultation, Data sharing, DPDP Act compliance
-
-## Installation
-
-```bash
-npm install
-```
-
-## Configuration
-
-Create `.env` file with:
-```
-BOT_TOKEN=your_telegram_bot_token
-ADMIN_PHONES=919876543210,919876543211
-DATA_DIR=./data
-PAYMENT_WEBHOOK_SECRET=your_secret
-```
-
-## Usage
-
-```bash
-# Start production server
-npm start
-
-# Development mode
-npm run dev
-
-# Run tests
-npm test
-```
 
 ## File Structure
 
@@ -139,6 +144,15 @@ npm test
 - `/menu` - Show current menu
 - `/apply ROLE` - Apply for role (doctor, caregiver, support)
 - `/roles` - View applied roles
+
+## Deployment
+
+```bash
+npm install --production
+node src/index.js
+```
+
+Polling mode works without webhooks. No public URL needed.
 
 ## License
 
