@@ -571,8 +571,10 @@ await this.bot.sendMessage(
       return;
     }
 
+    // Find consultation by doctor telegramId (stored in consultation.doctorId)
+    const doctorTelegramId = String(chatId);
     const consultation = Array.from(consultationManager.consultations.values())
-      .find(c => c.doctorId === doctor.id && c.status === 'active');
+      .find(c => c.doctorId === doctorTelegramId && c.status === 'active');
 
     // Handle doctor closing consultation (either their own or by providing ID)
     const closeMatch = message.match(/^CLOSE\s+(\S+)$/i);
@@ -580,7 +582,7 @@ await this.bot.sendMessage(
       const consultationId = closeMatch[1];
       const targetConsultation = consultationManager.getConsultationById(consultationId);
       
-      if (targetConsultation && (targetConsultation.doctorId === doctor.id || persona.isAdmin())) {
+      if (targetConsultation && (targetConsultation.doctorId === doctorTelegramId || persona.isAdmin())) {
         const success = consultationManager.closeConsultation(consultationId, 'doctor');
         if (success) {
           await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);

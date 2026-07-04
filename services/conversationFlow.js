@@ -128,7 +128,7 @@ Roles require admin approval. Select a role to apply for.`,
 
   cancerTypes: `🔍 *Select Cancer Type*\n\n1️⃣ Lung Cancer\n2️⃣ Breast Cancer\n3️⃣ Prostate Cancer\n4️⃣ Liver Cancer\n5️⃣ Pancreatic\n6️⃣ Ovarian\n7️⃣ Blood Cancer\n8️⃣ Other/General\n\nReply with number`,
 
-  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\n• Discount available based on eligibility (BPL/Ayushman: 100%, Senior/Defence: 50%, Others: 25%)\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
+  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
   consent: `📋 *Data Sharing & Discount Consent*\n\nTo qualify for any discounts, you MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, you will be considered for full-fee consultation.\n\nOur administrators will review your eligibility and determine applicable discounts at their discretion.\n\n1. ✅ I consent to share medical data and eligibility information for discount consideration\n2. ❌ No consent (proceed without discount eligibility)`,
 
@@ -216,6 +216,9 @@ case FlowStates.CAREGIVER_AUTH:
 
       case FlowStates.CAREGIVER_MENU:
         return this.handleCaregiverMenuSelection(selection, phoneNumber, session);
+
+      case FlowStates.DOCTOR_MENU:
+        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu('Doctor', false) };
 
       case FlowStates.CANCER_TYPE:
         return this.handleCancerTypeSelection(selection);
