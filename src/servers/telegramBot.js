@@ -454,6 +454,9 @@ this.bot.on('photo', async (msg) => {
 Continue profile setup...` + InteractiveMenus.cancerTypes,
           { parse_mode: 'Markdown' }
         );
+        
+        // Notify admin for verification
+        await this.notifyAdminsDiscountDocument(String(chatId), categoryLabel, fileId || 'uploaded');
         return;
       }
 
@@ -1082,6 +1085,26 @@ await this.bot.sendMessage(
       try {
         await this.bot.sendMessage(admin,
           `👤 *New Caregiver Registration*\n\nUser Chat ID: ${chatId}\nAwaiting caregiver info and approval.`,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (error) {
+        console.error(`Failed to notify admin ${admin}:`, error);
+      }
+    }
+  }
+
+  async notifyAdminsDiscountDocument(chatId, categoryLabel, fileId) {
+    const admins = process.env.ADMIN_PHONES ? process.env.ADMIN_PHONES.split(',') : [];
+    for (const admin of admins) {
+      try {
+        await this.bot.sendMessage(admin,
+          `🏛️ *Discount Document Uploaded*
+
+Patient: ${chatId}
+Category: ${categoryLabel}
+Document: ${fileId || 'view in session'}
+
+Review and verify in admin panel.`,
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
