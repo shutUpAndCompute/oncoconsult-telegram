@@ -60,11 +60,14 @@ class DoctorProfile {
     this.followupFee = data.followupFee || 800;
     this.languages = data.languages || ['en'];
     this.hospital = data.hospital || '';
+    this.city = data.city || '';
+    this.state = data.state || '';
     this.rating = data.rating || 5.0;
     this.bio = data.bio || '';
     this.workingHours = data.workingHours || { start: '09:00', end: '17:00' };
     this.timezone = data.timezone || 'Asia/Kolkata';
     this.maxPatientsPerDay = data.maxPatientsPerDay || 20;
+    this.activeConsultations = data.activeConsultations || 0;
   }
 
   canHandle(cancerType) {

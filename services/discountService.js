@@ -16,13 +16,9 @@ class DiscountService {
     return VIEWABLE_ROLES.includes(persona);
   }
 
-  static canApplyDiscounts(persona) {
-    return VIEWABLE_ROLES.includes(persona);
-  }
-
   static getDiscountInfo(persona) {
     if (!this.canViewDiscounts(persona)) {
-      return `💡 *Discount Information*\n\nSharing your medical eligibility information (consultation data and reports) may qualify you for discounts at the discretion of our administrators.`;
+      return `💡 *Discount Information*\n\nAll discounts are at the discretion of administrators. To be considered for discounts, you must share eligibility documents (medical reports and socio-economic category documentation).`;
     }
 
     const tiers = Object.entries(DISCOUNT_TIERS)
@@ -30,70 +26,85 @@ class DiscountService {
       .map(([cat, pct]) => `${cat.replace(/_/g, ' ').toUpperCase()}: ${pct}%`)
       .join('\n');
 
-    return `🏛️ *Discount Tiers (Admin Reference)*\n\n${tiers}\n\nAll discounts are guidance. Admin may apply any discount at their discretion to maintain profitability.`;
+    return `🏛️ *Discount Tiers (Indicative for Admin Reference)*\n\n${tiers}\n\nAll discounts are discretionary. Apply based on case merit and profitability.`;
   }
 
-  static calculateBaseDiscount(patientProfile) {
-    if (!patientProfile) return 0;
+  static generateIndicativeBreakdown(baseAmount, patientProfile) {
+    if (!patientProfile) {
+      return {
+        originalAmount: baseAmount,
+        appliedDiscounts: [],
+        totalDiscountPercent: 0,
+        finalAmount: baseAmount
+      };
+    }
+
+    const breakdown = {
+      originalAmount: baseAmount,
+      appliedDiscounts: [],
+      totalDiscountPercent: 0,
+      finalAmount: baseAmount
+    };
 
     if (patientProfile.medicalReports?.length > 0 && patientProfile.cancerType) {
-      return 10;
+      breakdown.appliedDiscounts.push({ type: 'medical_sharing', percent: 0, label: 'Medical Data Shared - eligible for discount consideration' });
     }
 
-    if (patientProfile.consentDataSharing) {
-      return 5;
+    if (patientProfile.discountCategory && patientProfile.discountCategory !== 'none' && patientProfile.discountDocuments?.length > 0) {
+      breakdown.appliedDiscounts.push({
+        type: 'socio_economic',
+        percent: DISCOUNT_TIERS[patientProfile.discountCategory] || 0,
+        label: `${patientProfile.discountCategory.replace(/_/g, ' ')} (${DISCOUNT_TIERS[patientProfile.discountCategory] || 0}% indicative - DOCUMENTS REQUIRED)`
+      });
     }
 
-    return 0;
+    return breakdown;
   }
 
-  static calculateTotalDiscount(baseAmount, patientProfile, adminOverridePercent = 0) {
-    let totalDiscount = 0;
+  static presentPaymentEstimate(baseAmount, patientProfile, adminAppliedDiscount = 0, adminNote = '') {
+    let message = `💰 *Payment Estimate*\n\n`;
+    message += `Base Amount: ₹${baseAmount}\n\n`;
 
-    const baseDiscount = this.calculateBaseDiscount(patientProfile);
-    totalDiscount = Math.max(totalDiscount, baseDiscount);
-
-    if (patientProfile?.discountVerificationStatus === 'verified' && patientProfile?.discountCategory) {
-      const categoryDiscount = DISCOUNT_TIERS[patientProfile.discountCategory] || 0;
-      totalDiscount = Math.max(totalDiscount, categoryDiscount);
+    if (patientProfile) {
+      const breakdown = this.generateIndicativeBreakdown(baseAmount, patientProfile);
+      
+      if (breakdown.appliedDiscounts.length > 0) {
+        message += `*Eligibility Indicators:*\n`;
+        breakdown.appliedDiscounts.forEach(d => {
+          message += `• ${d.label}\n`;
+        });
+        message += `\n⚠️ Final discount is at admin discretion. You may opt out of any discount and pay the full amount.\n`;
+      }
     }
 
-    const finalDiscount = adminOverridePercent > 0 ? adminOverridePercent : totalDiscount;
-
-    return {
-      originalAmount: baseAmount,
-      totalDiscountPercent: finalDiscount,
-      finalAmount: Math.round(baseAmount * (1 - finalDiscount / 100)),
-      baseDiscountPercent: baseDiscount,
-      categoryDiscountPercent: patientProfile?.discountCategory ? DISCOUNT_TIERS[patientProfile.discountCategory] : 0,
-      adminOverridePercent
-    };
-  }
-
-  static applyAdminDiscount(phoneNumber, consultationId, discountPercent, adminPhone, adminNote = '') {
-    const consultation = require('./consultationManager').prototype.getConsultationById(consultationId);
-    if (!consultation) return false;
-
-    consultation.adminAppliedDiscount = discountPercent;
-    consultation.adminDiscountNote = adminNote;
-    consultation.discountAppliedBy = adminPhone;
-    consultation.discountAppliedAt = new Date();
-
-    return true;
-  }
-
-  static getPricingInfo(persona) {
-    const basePrices = {
-      first_consultation: 1500,
-      followup: 800,
-      report_review: 500
-    };
-
-    if (!this.canViewDiscounts(persona)) {
-      return `💰 *Consultation Pricing*\n\n• First Consultation: ₹${basePrices.first_consultation}\n• Follow-up: ₹${basePrices.followup}\n• Report Review: ₹${basePrices.report_review}\n\n💡 Sharing eligibility information may qualify you for discounts at admin discretion.`;
+    if (adminAppliedDiscount > 0) {
+      const finalAmount = Math.round(baseAmount * (1 - adminAppliedDiscount / 100));
+      message += `\n📊 *Admin Proposed Discount:* ${adminAppliedDiscount}%\n`;
+      message += `*Final Amount:* ₹${finalAmount}\n\n`;
+      message += `Reply with:\n1. Accept discount (proceed to payment)\n2. Opt out (pay full ₹${baseAmount})\n3. Request review`;
+    } else {
+      message += `\nReply with:\n1. Proceed with payment (₹${baseAmount})\n2. Request review`;
     }
 
-    return `💰 *Pricing & Discounts*\n\nBase Fees:\n• First Consultation: ₹${basePrices.first_consultation}\n• Follow-up: ₹${basePrices.followup}\n• Report Review: ₹${basePrices.report_review}\n\nAutomatic discounts applied for eligible patients.`;
+    if (adminNote) {
+      message += `\n\nAdmin Note: ${adminNote}`;
+    }
+
+    return message;
+  }
+
+  static getPaymentOptionsMessage(baseAmount, adminAppliedDiscount = 0) {
+    const finalAmount = adminAppliedDiscount > 0 
+      ? Math.round(baseAmount * (1 - adminAppliedDiscount / 100)) 
+      : baseAmount;
+    
+    return `💳 *Payment Options*\n\n` +
+      `Base Amount: ₹${baseAmount}\n` +
+      `${adminAppliedDiscount > 0 ? `Proposed Discount: ${adminAppliedDiscount}%\nFinal Amount: ₹${finalAmount}\n\n` : ''}` +
+      `Choose your preferred option:\n\n` +
+      `1. Accept discount and proceed to payment\n` +
+      `2. Opt out of discounts (pay ₹${baseAmount})\n` +
+      `3. Request review from admin`;
   }
 }
 

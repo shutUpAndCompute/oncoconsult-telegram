@@ -30,15 +30,57 @@ const validateMediaType = (contentType, url) => {
   return false;
 };
 
-const simpleRateLimit = (req, res, next) => {
-  const phoneNumber = req.body.From;
-  if (!phoneNumber) return next();
-  next();
-};
+const rateLimitStore = new Map();
+
+function createRateLimiter(options = rateLimit) {
+  const { windowMs, max, message } = options;
+  
+  return (req, res, next) => {
+    const key = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const now = Date.now();
+    
+    if (!rateLimitStore.has(key)) {
+      rateLimitStore.set(key, []);
+    }
+    
+    const requests = rateLimitStore.get(key);
+    const validRequests = requests.filter(time => now - time < windowMs);
+    
+    if (validRequests.length >= max) {
+      const retryAfter = Math.ceil((windowMs - (now - validRequests[0])) / 1000);
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: message || 'Too many requests', retryAfter });
+    }
+    
+    validRequests.push(now);
+    rateLimitStore.set(key, validRequests);
+    next();
+  };
+}
+
+const simpleRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: 'Too many requests, please slow down'
+});
+
+const adminRateLimit = createRateLimiter({
+  windowMs: 60 * 1000,
+  max: 60,
+  message: 'Too many admin requests'
+});
 
 const validateWebhook = (req, res, next) => {
   const signature = req.headers['x-twilio-signature'];
   next();
 };
 
-module.exports = { rateLimit, simpleRateLimit, validateWebhook, validateMediaType, ALLOWED_MIME_TYPES };
+module.exports = { 
+  rateLimit, 
+  createRateLimiter, 
+  simpleRateLimit, 
+  adminRateLimit,
+  validateWebhook, 
+  validateMediaType, 
+  ALLOWED_MIME_TYPES 
+};

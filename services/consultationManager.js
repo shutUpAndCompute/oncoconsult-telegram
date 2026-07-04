@@ -85,7 +85,8 @@ class ConsultationManager {
         caregiverName: null,
         patientName: null,
         caregiverRelationship: null,
-        caregiverReason: null
+        caregiverReason: null,
+        consentsGiven: false
       });
       this.persistence.saveSessions();
     }
@@ -155,6 +156,7 @@ class ConsultationManager {
       caregiverRelationship: session.caregiverRelationship,
       caregiverReason: session.caregiverReason
     };
+    const preservedConsents = session.consentsGiven || false;
     
     this.releaseDoctorIfAssigned(phoneNumber);
     
@@ -174,6 +176,7 @@ class ConsultationManager {
       patientProfile: preservedProfile,
       profileStep: null,
       ...preservedCaregiverData,
+      ...preservedConsents,
       selectedPersona: preservedPersona || 'patient'
     });
     this.persistence.saveSessions();
@@ -282,6 +285,7 @@ class ConsultationManager {
       startedAt: new Date(),
       cancerType: session?.cancerType || null,
       media: session?.media || [],
+      medicalReports: session?.patientProfile?.medicalReports || [],
       patientProfile: session?.patientProfile || null,
       isCaregiver: session?.isCaregiver || false,
       caregiverName: session?.caregiverName || null,

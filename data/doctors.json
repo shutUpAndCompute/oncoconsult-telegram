@@ -20,7 +20,10 @@
       "en",
       "hi"
     ],
-    "hospital": "Apollo Hospitals, Delhi"
+    "hospital": "Apollo Hospitals, Delhi",
+    "city": "Delhi",
+    "telegramId": null,
+    "available": true
   },
   {
     "id": "doc_002",
@@ -44,7 +47,10 @@
       "en",
       "gu"
     ],
-    "hospital": "Tata Memorial, Mumbai"
+    "hospital": "Tata Memorial, Mumbai",
+    "city": "Mumbai",
+    "telegramId": null,
+    "available": true
   },
   {
     "id": "doc_003",
@@ -67,7 +73,10 @@
       "en",
       "ur"
     ],
-    "hospital": "CMC, Vellore"
+    "hospital": "CMC, Vellore",
+    "city": "Vellore",
+    "telegramId": null,
+    "available": true
   },
   {
     "id": "doc_004",
@@ -87,6 +96,9 @@
       "en",
       "ml"
     ],
-    "hospital": "Palliative Care Center, Kerala"
+    "hospital": "Palliative Care Center, Kerala",
+    "city": "Kerala",
+    "telegramId": null,
+    "available": true
   }
 ]

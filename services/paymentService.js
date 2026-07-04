@@ -73,13 +73,6 @@ class PaymentService {
     return DISCOUNT_TIERS[category] || 0;
   }
 
-  calculatePatientDiscount(baseAmount, patientProfile) {
-    if (!patientProfile || !patientProfile.discountCategory) return baseAmount;
-    if (patientProfile.discountVerificationStatus !== 'verified') return baseAmount;
-    
-    const discountPercent = DISCOUNT_TIERS[patientProfile.discountCategory] || 0;
-    return this.calculateDiscount(baseAmount, discountPercent);
-  }
 
   generatePaymentLinkSync(phoneNumber, amount = 0, discountPercent = 0) {
     const finalAmount = this.calculateDiscount(amount, discountPercent);

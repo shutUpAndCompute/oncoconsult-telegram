@@ -1,1 +1,56 @@
-{"specialties":["oncologist","surgeon","radiologist","pathologist","radio_oncologist","surgical_oncologist","medical_oncologist","hematologist","oncology_nurse","gynecological_oncologist","pediatric_oncologist","gastrointestinal_oncologist","urological_oncologist","plastic_oncologist","nuclear_medicine","palliative_care","psycho_oncology"],"cancerTypes":["lung_oncology","breast_oncology","prostate_oncology","colorectal_oncology","liver_oncology","pancreatic_oncology","ovarian_oncology","uterine_oncology","cervical_oncology","skin_oncology","melanoma_oncology","neuro_oncology","spinal_oncology","hematologic_oncology","leukemia","lymphoma","myeloma","head_neck_oncology","esophageal_oncology","gastric_oncology","bladder_oncology","kidney_oncology","general_oncology"],"fees":{"firstConsultation":1500,"followup":800,"reportReview":500},"discounts":{"research":30,"commercial":15}}
+{
+  "specialties": [
+    "oncologist",
+    "surgeon",
+    "radiologist",
+    "pathologist",
+    "radio_oncologist",
+    "surgical_oncologist",
+    "medical_oncologist",
+    "hematologist",
+    "oncology_nurse",
+    "gynecological_oncologist",
+    "pediatric_oncologist",
+    "gastrointestinal_oncologist",
+    "urological_oncologist",
+    "plastic_oncologist",
+    "nuclear_medicine",
+    "palliative_care",
+    "psycho_oncology"
+  ],
+  "cancerTypes": [
+    "lung_oncology",
+    "breast_oncology",
+    "prostate_oncology",
+    "colorectal_oncology",
+    "liver_oncology",
+    "pancreatic_oncology",
+    "ovarian_oncology",
+    "uterine_oncology",
+    "cervical_oncology",
+    "skin_oncology",
+    "melanoma_oncology",
+    "neuro_oncology",
+    "spinal_oncology",
+    "hematologic_oncology",
+    "leukemia",
+    "lymphoma",
+    "myeloma",
+    "head_neck_oncology",
+    "esophageal_oncology",
+    "gastric_oncology",
+    "bladder_oncology",
+    "kidney_oncology",
+    "general_oncology"
+  ],
+  "consultationFees": {
+    "firstConsultation": 1500,
+    "followup": 800,
+    "reportReview": 500
+  },
+  "discounts": {
+    "research": 30,
+    "commercial": 15
+  },
+  "createdAt": "2026-06-29T15:34:58.800Z"
+}

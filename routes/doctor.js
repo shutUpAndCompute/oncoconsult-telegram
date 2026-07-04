@@ -4,23 +4,52 @@ const ConsultationManager = require('../services/consultationManager');
 const DoctorRouter = require('../services/doctorRouter');
 const DoctorPersistence = require('../services/doctorPersistence');
 const { DoctorProfile, DoctorSpecialties } = require('../models/doctor');
+const { simpleRateLimit } = require('../middleware/validation');
+
+function sanitizePhone(phone) {
+  if (!phone) return null;
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length === 0) return null;
+  return digits;
+}
 
 const consultationManager = new ConsultationManager();
 const doctorRouter = new DoctorRouter();
 const doctorPersistence = new DoctorPersistence();
 
-router.get('/list', (req, res) => {
+router.get('/list', simpleRateLimit, (req, res) => {
   const doctors = doctorPersistence.getDoctors();
   res.json(doctors);
 });
 
-router.post('/register', (req, res) => {
-  const doctor = doctorPersistence.addDoctor(req.body);
-  res.json({ success: true, doctor: doctor.id });
+router.post('/register', simpleRateLimit, (req, res) => {
+  const { name, phoneNumber, specialty, cancerTypes } = req.body;
+  
+  if (!name || !specialty) {
+    return res.status(400).json({ error: 'name and specialty required' });
+  }
+  
+  const doctor = doctorPersistence.addDoctor({
+    name,
+    phoneNumber: sanitizePhone(phoneNumber),
+    specialty,
+    cancerTypes: Array.isArray(cancerTypes) ? cancerTypes : []
+  });
+  
+  if (doctor) {
+    res.json({ success: true, doctor: doctor.id });
+  } else {
+    res.status(500).json({ error: 'Failed to register doctor' });
+  }
 });
 
-router.put('/:doctorId', (req, res) => {
-  const { doctorId } = req.params;
+router.put('/:doctorId', simpleRateLimit, (req, res) => {
+  const doctorId = sanitizePhone(req.params.doctorId);
+  
+  if (!doctorId) {
+    return res.status(400).json({ error: 'Invalid doctorId' });
+  }
+  
   const updated = doctorPersistence.updateDoctor(doctorId, req.body);
   if (updated) {
     res.json({ success: true, doctor: updated });
@@ -29,21 +58,36 @@ router.put('/:doctorId', (req, res) => {
   }
 });
 
-router.delete('/:doctorId', (req, res) => {
-  const { doctorId } = req.params;
+router.delete('/:doctorId', simpleRateLimit, (req, res) => {
+  const doctorId = sanitizePhone(req.params.doctorId);
+  
+  if (!doctorId) {
+    return res.status(400).json({ error: 'Invalid doctorId' });
+  }
+  
   const removed = doctorPersistence.removeDoctor(doctorId);
   res.json({ success: removed });
 });
 
-router.get('/consultations/:doctorId', (req, res) => {
-  const { doctorId } = req.params;
+router.get('/consultations/:doctorId', simpleRateLimit, (req, res) => {
+  const doctorId = sanitizePhone(req.params.doctorId);
+  
+  if (!doctorId) {
+    return res.status(400).json({ error: 'Invalid doctorId' });
+  }
+  
   const consultations = Array.from(consultationManager.consultations.values())
     .filter(c => c.doctorId === doctorId && c.status === 'active');
   res.json(consultations);
 });
 
-router.post('/assign', async (req, res) => {
+router.post('/assign', simpleRateLimit, async (req, res) => {
   const { patientChatId, doctorId, adminPhone } = req.body;
+  
+  if (!patientChatId || !doctorId) {
+    return res.status(400).json({ error: 'patientChatId and doctorId required' });
+  }
+  
   const consultation = Array.from(consultationManager.consultations.values())
     .find(c => c.patientPhone === patientChatId);
   
@@ -69,8 +113,13 @@ router.post('/assign', async (req, res) => {
   res.json({ assigned: true });
 });
 
-router.post('/complete', (req, res) => {
+router.post('/complete', simpleRateLimit, (req, res) => {
   const { doctorId, patientPhone } = req.body;
+  
+  if (!doctorId || !patientPhone) {
+    return res.status(400).json({ error: 'doctorId and patientPhone required' });
+  }
+  
   const session = consultationManager.getSession(patientPhone);
   if (session && session.doctorId === doctorId) {
     consultationManager.endConsultation(session.consultationId);

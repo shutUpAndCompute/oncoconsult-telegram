@@ -61,25 +61,21 @@ PAYMENT_WEBHOOK_SECRET=your-secret  # Optional: for webhook signature verificati
 
 ## Discount System
 
-### Automatic Discounts (No Eligibility Documents Required)
-- **10% base discount** - For patients sharing consultation data AND medical reports
-- **5% discount** - For patients providing data sharing consent only
+### Key Rules
+- **All discounts are discretionary** - Admin/Super-admin decide amount to maintain profitability
+- **Document sharing is MANDATORY** for any discount consideration
+- **Patients can opt out** of any offered discount and pay full amount
 
-### Socio-Economic Categories (Requires Document Verification)
-| Category | Discount | Required Document |
-|----------|----------|-------------------|
+### Socio-Economic Categories (Indicative - Admin Reference Only)
+| Category | Indicative Discount | Required Document |
+|----------|--------------------|-------------------|
 | BPL/EWS, Ayushman Bharat | 100% | Ration card, Ayushman card |
 | Senior Citizen, Defence/Ex-servicemen, Paramilitary, Police, PwD | 50% | Age proof, ECHS/CSD card, UDID |
 | SC/ST, Minority, Rural/Tribal, e-Shram, Farmer, Govt Employee, Freedom Fighter dependent, Healthcare Worker, Teacher/Anganwadi, Journalist, Widow/Single Woman | 25% | Caste certificate, Community certificate, Employee ID, etc. |
 
 ### Access Control
 - **Patients/Caregivers**: See generic discount disclaimer only
-- **Admins/Doctors/Super-admins**: Can view full discount tiers and apply discretionary discounts
-
-### Business Rules
-- All discounts are guidance for profitability
-- Admins can apply any discount regardless of claimed eligibility
-- Admin override takes precedence over category discounts
+- **Admins/Doctors/Super-admins**: Can view full indicative discount tiers
 
 ## Mandatory Profile Fields
 

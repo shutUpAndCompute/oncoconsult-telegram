@@ -15,7 +15,7 @@ class DoctorRouter {
     return CancerSpecializations[cancerType?.toUpperCase()] || CancerSpecializations.GENERAL;
   }
 
-  async findAvailableDoctor(cancerType, specialty = null) {
+  async findAvailableDoctor(cancerType, specialty = null, patientCity = null) {
     const doctors = this.getDoctors();
     
     let availableDoctors = doctors.filter(doc => {
@@ -24,21 +24,53 @@ class DoctorRouter {
       return doc.cancerTypes.includes(cancerType) || doc.cancerTypes.includes('general');
     });
 
-    if (availableDoctors.length > 0) {
-      const doctor = availableDoctors[0];
-      this.persistence.updateDoctor(doctor.id, { available: false });
+    if (availableDoctors.length === 0) return null;
+
+    const cityMatchDoctors = availableDoctors.filter(
+      doc => (doc.city || '').toLowerCase() === (patientCity || '').toLowerCase()
+    );
+
+    if (cityMatchDoctors.length > 0) {
+      const doctor = cityMatchDoctors.sort((a, b) => (a.activeConsultations || 0) - (b.activeConsultations || 0))[0];
+      this.persistence.updateDoctor(doctor.id, { activeConsultations: (doctor.activeConsultations || 0) + 1 });
       return {
         id: doctor.id,
         name: doctor.name,
         specialization: doctor.specialty,
-        fee: doctor.consultationFee
+        fee: doctor.consultationFee,
+        city: doctor.city
       };
     }
-    return null;
+
+    const doctor = availableDoctors.sort((a, b) => {
+      const consultsA = a.activeConsultations || 0;
+      const consultsB = b.activeConsultations || 0;
+      if (consultsA !== consultsB) return consultsA - consultsB;
+      return (b.rating || 0) - (a.rating || 0);
+    })[0];
+
+    this.persistence.updateDoctor(doctor.id, { activeConsultations: (doctor.activeConsultations || 0) + 1 });
+    return {
+      id: doctor.id,
+      name: doctor.name,
+      specialization: doctor.specialty,
+      fee: doctor.consultationFee,
+      city: doctor.city
+    };
   }
 
   releaseDoctor(doctorId) {
-    this.persistence.updateDoctor(doctorId, { available: true });
+    const doctor = this.getDoctors().find(d => d.id === doctorId);
+    if (doctor) {
+      this.persistence.updateDoctor(doctorId, { 
+        available: true,
+        activeConsultations: Math.max(0, (doctor.activeConsultations || 1) - 1)
+      });
+    }
+  }
+
+  completeConsultation(doctorId) {
+    this.releaseDoctor(doctorId);
   }
 
   getDoctorByPhone(phoneNumber) {
