@@ -821,6 +821,43 @@ await this.bot.sendMessage(
       return;
     }
 
+    const assignDoctorMatch = trimmed.match(/^ASSIGN_DOCTOR\s+(\S+)\s+(\S+)$/i);
+    if (assignDoctorMatch) {
+      if (!isAdmin && !isSuperAdmin) {
+        await this.bot.sendMessage(chatId, '❌ Only admin can assign doctors.');
+        return;
+      }
+      const [, consultationId, doctorId] = assignDoctorMatch;
+      const consultation = consultationManager.getConsultationById(consultationId);
+      
+      if (!consultation) {
+        await this.bot.sendMessage(chatId, '❌ Consultation not found.');
+        return;
+      }
+      
+      const success = consultationManager.assignDoctor(consultationId, String(doctorId), String(chatId));
+      if (success) {
+        await this.bot.sendMessage(chatId, `✅ Doctor ${doctorId} assigned to ${consultationId}`);
+        // Notify the doctor
+        const doctor = doctorPersistence.getDoctorById(doctorId);
+        if (doctor?.telegramId) {
+          await this.bot.sendMessage(doctor.telegramId, 
+            `📩 *New Consultation Assigned*
+
+Consultation: ${consultationId}
+Patient: ${consultation.patientPhone}
+Documents: ${consultation.media?.length || 0}
+
+Reply to start consultation.`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
+        }
+      } else {
+        await this.bot.sendMessage(chatId, '❌ Failed to assign doctor.');
+      }
+      return;
+    }
+
     const rejectDoctorMatch = trimmed.match(/^REJECT_DOCTOR\s+(\S+)$/i);
     if (rejectDoctorMatch) {
       if (!isSuperAdmin) {
@@ -896,7 +933,40 @@ await this.bot.sendMessage(
       }
       
       const success = consultationManager.closeConsultation(consultationId, 'admin');
+      const verifyDiscountMatch = trimmed.match(/^VERIFY_DISCOUNT\s+(\S+)\s+(approved|rejected)(?:\s+(.*))?$/i);
+    if (verifyDiscountMatch) {
+      const [, patientPhone, status, reason] = verifyDiscountMatch;
+      const session = consultationManager.getSession(patientPhone);
+      if (session?.patientProfile) {
+        session.patientProfile.discountVerificationStatus = status;
+        session.patientProfile.discountRejectionReason = reason || '';
+        consultationManager.updateSession(patientPhone, { patientProfile: session.patientProfile });
+        await this.bot.sendMessage(chatId, `✅ Discount ${status} for patient ${patientPhone}${reason ? `: ${reason}` : ''}`);
+        await this.bot.sendMessage(patientPhone, 
+          status === 'approved' 
+            ? `✅ Your discount eligibility has been approved. Admin will apply the discount to your consultation.`
+            : `❌ Discount verification failed: ${reason || 'Please check your documents and try again.'}`,
+          { parse_mode: 'Markdown' }
+        ).catch(() => {});
+      } else {
+        await this.bot.sendMessage(chatId, `❌ Patient ${patientPhone} not found.`);
+      }
+      return;
+    }
+
+    const verifyPaymentMatch = trimmed.match(/^VERIFY_PAYMENT\s+(\S+)$/i);
+    if (verifyPaymentMatch) {
+      const [, transactionId] = verifyPaymentMatch;
+      const success = paymentService.verifyPaymentManual(transactionId);
       if (success) {
+        await this.bot.sendMessage(chatId, `✅ Payment verified for transaction ${transactionId}`);
+      } else {
+        await this.bot.sendMessage(chatId, `❌ Payment verification failed. Transaction not found.`);
+      }
+      return;
+    }
+
+  if (success) {
         await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
         await this.bot.sendMessage(consultation.patientPhone, 
           `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 

@@ -980,7 +980,27 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const flowMap = {
       '1': () => this.getPendingRequests(phoneNumber),
       '2': () => this.getActiveConsultations(phoneNumber),
-      '3': () => this.getCloseConsultationPrompt(),
+      '3': () => ({ nextState: FlowStates.ADMIN_MENU, response: `👨‍⚕️ *Assign Doctor*
+
+Enter: ASSIGN_DOCTOR <consultation_id> <doctor_id>
+
+Example: ASSIGN_DOCTOR cons_1234567890 doc_9876543210
+
+Or reply CONSULTATION_ID to list available doctors.` }),
+      '4': () => ({ nextState: FlowStates.ADMIN_MENU, response: `📎 *Verify Discount Document*
+
+Enter: VERIFY_DISCOUNT <patient_phone> <approved/rejected> [reason]
+
+Example: VERIFY_DISCOUNT 9876543210 approved
+
+Pending documents: checking...` }),
+      '5': () => ({ nextState: FlowStates.ADMIN_MENU, response: `💳 *Verify Payment*
+
+Enter: VERIFY_PAYMENT <transaction_id>
+
+Example: VERIFY_PAYMENT txn_abc123` }),
+      '6': () => this.getCloseConsultationPrompt(),
+      '7': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
       '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
