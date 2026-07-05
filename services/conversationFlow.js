@@ -79,6 +79,8 @@ Reply with number`,
   adminApproveCaregiverInput: `👤 *Approve Caregiver*\n\nEnter patient phone number to approve:\n\n0. Back to Menu`,
   adminApproveSupportInput: `🛎️ *Approve Support*\n\nEnter user phone number to approve:\n\n0. Back to Menu`,
   adminRegisterDoctorInput: `📝 *Register Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: John Smith, Medical Oncology, 9876543210, lung,breast\n\n0. Back to Menu`,
+  adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
+  adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
   caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
 
 Linked to: ${patientName}
@@ -220,6 +222,8 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT: return InteractiveMenus.adminAssignDoctorInput;
       case FlowStates.ADMIN_REMOVE_DOCTOR_INPUT: return InteractiveMenus.adminRemoveDoctorInput;
       case FlowStates.ADMIN_REJECT_DOCTOR_INPUT: return InteractiveMenus.adminRejectDoctorInput;
+      case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT: return InteractiveMenus.adminVerifyDiscountInput;
+      case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: return InteractiveMenus.adminVerifyPaymentInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
       case FlowStates.PROFILE_AADHAAR: return '🆔 Please enter your Aadhaar number:';
       case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
@@ -314,6 +318,12 @@ case FlowStates.CONSULTATION:
 
       case FlowStates.ADMIN_REJECT_DOCTOR_INPUT:
         return this.handleAdminRejectDoctorInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT:
+        return this.handleAdminVerifyDiscountInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT:
+        return this.handleAdminVerifyPaymentInput(message, phoneNumber, session);
 
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT:
         return this.handleAdminMessageDoctorInput(message, phoneNumber, session);
@@ -1202,6 +1212,41 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
+  }
+
+  handleAdminVerifyDiscountInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    if (trimmed === '0') {
+      return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
+    }
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) {
+      return { nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: `❌ Format: PHONE approved/rejected [reason]\n\n0. Back` };
+    }
+    const [patientPhone, status, ...reasonParts] = parts;
+    const reason = reasonParts.join(' ') || '';
+    const patientSession = this.consultationManager.getSession(patientPhone);
+    if (!patientSession?.patientProfile) {
+      return { nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: `❌ Patient ${patientPhone} not found\n\n0. Back` };
+    }
+    patientSession.patientProfile.discountVerificationStatus = status;
+    patientSession.patientProfile.discountRejectionReason = reason;
+    this.consultationManager.updateSession(patientPhone, { patientProfile: patientSession.patientProfile });
+    return {
+      nextState: FlowStates.ADMIN_MENU,
+      response: `✅ Discount ${status} for patient ${patientPhone}${reason ? `: ${reason}` : ''}\n\n${InteractiveMenus.adminMenu}`
+    };
+  }
+
+  handleAdminVerifyPaymentInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    if (trimmed === '0') {
+      return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
+    }
+    return {
+      nextState: FlowStates.ADMIN_MENU,
+      response: `💳 To verify payment, use: VERIFY_PAYMENT ${trimmed}\n\n0. Back to Menu`
+    };
   }
 
   handleAdminRoleApprovalsSelection(selection, phoneNumber, session) {
