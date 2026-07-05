@@ -7,8 +7,8 @@ oncoconsult-telegram/
 │   ├── servers/telegramBot.js     # Main bot handler (602 lines)
 │   └── index.js                   # Express server entry (43 lines)
 ├── services/
-│   ├── conversationFlow.js          # Menu/state machine (869 lines)
-│   ├── consultationManager.js       # Session/consultation persistence (331 lines)
+│   ├── conversationFlow.js   # Menu/state machine (1395 lines)
+│   ├── consultationManager.js  # Session/consultation persistence (331 lines)
 │   ├── doctorPersistence.js         # Doctor data persistence (203 lines)
 │   ├── adminRegistry.js             # Admin registry (108 lines)
 │   ├── doctorRouter.js              # Doctor assignment logic (85 lines)
@@ -48,7 +48,10 @@ REGISTER_DOCTOR → approval OR INVITE_DOCTOR (admin) → /accept → ACTIVE DOC
 
 ### Admin Journey
 ```
-/start → WELCOME → ADMIN_MENU → INVITE_DOCTOR or direct commands
+/start → WELCOME → ADMIN_MENU → 
+  ADMIN_ROLE_APPROVALS (view/approve) OR
+  ADMIN_DOCTOR_MANAGEMENT (list/assign/remove) OR
+  PROFILE_VIEW → PROFILE_MENU
 ```
 
 ## Key Features Verified

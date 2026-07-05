@@ -120,8 +120,42 @@ flowchart TD
     F -->|No| G[Payment pending - wait]
     F -->|Yes| H[Forward to patient via chatId]
     
-    H --> I[Admin CC on message]
-```
+H --> I[Admin CC on message]
+ ```
+
+## Admin Flow
+
+```mermaid
+flowchart TD
+    A[Admin sends /start] --> B[Show Admin Menu]
+    B --> C["1. Pending Requests\n2. Active Consultations\n3. Role Approvals\n4. Doctor Management\n5. My Profile\n0. Switch Role"]
+    
+    C -->|3| D[Role Approvals Menu]
+    D --> D1["1. View Role Applications\n2. Approve Doctor\n3. Approve Caregiver\n4. Approve Support\n5. Register Doctor\n6. Invite Doctor\n7. Back"]
+    D1 -->|2| D2[Enter phone to approve doctor]
+    D1 -->|5| D3[Enter: NAME, SPECIALTY, PHONE, CANCERS]
+    D1 -->|6| D4[Enter: NAME, SPECIALTY, PHONE, CANCERS]
+    D2 -->|0| D
+    D3 -->|0| D
+    D4 -->|0| D
+    D1 -->|7| B
+    
+    C -->|4| E[Doctor Management Menu]
+    E --> E1["1. List Doctors\n2. List Pending Doctors\n3. Assign Doctor\n4. Remove Doctor\n5. Message Doctor\n6. Back"]
+    E1 -->|1| E2[Show all doctors]
+    E1 -->|2| E3[Show pending doctor requests]
+    E1 -->|3| E4[Assign: CONSULTATION_ID DOCTOR_ID]
+    E1 -->|4| E5[Remove: DOCTOR_ID]
+    E1 -->|5| E6[Message: DOCTOR_ID MESSAGE]
+    E1 -->|6| B
+    E2 --> E
+    E3 --> E
+    E4 --> E
+    E5 --> E
+    E6 --> E
+    
+    C -->|0| F[Switch Role Menu]
+ ```
 
 ## Raw Data Handling
 

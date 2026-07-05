@@ -48,10 +48,10 @@ PAYMENT_WEBHOOK_SECRET=your-secret  # Optional: for webhook signature verificati
 ### Admin Features
 - **Pending Consultations** - Review and assign consultations to doctors
 - **Active Consultations** - Monitor ongoing consultations
-- **Close Consultation** - End consultations with `/close CONSULTATION_ID`
+- **Role Approvals** - View/approve doctor, caregiver, support applications via menu
+- **Doctor Management** - Register, invite, list, assign, remove doctors via menu
+- **Close Consultation** - End consultations with `/CLOSE CONSULTATION_ID`
 - **Fee Management** - Set consultation fees via `/feebased PHONE AMOUNT [NOTE]`
-- **Doctor Registration** - Register and manage oncologists
-- **Role Approval** - Approve/reject doctor and support role applications
 
 ### Doctor Features
 - **Consultation Assignment** - Receive assigned patients automatically
@@ -125,12 +125,10 @@ Patients must provide:
 - `/resume` - Resume session
 
 ### Admin Commands
-- `/feebased PHONE AMOUNT` - Set consultation fee
+- Menu-driven: Role Approvals, Doctor Management (with back/0 navigation)
+- `PAY <phone> <amount> <r%> <c%>` - Set consultation fee
 - `CLOSE CONSULTATION_ID` - Close consultation
-- `REGISTER NAME PHONE SPECIALTY CANCERS` - Register doctor
-- `INVITE_DOCTOR NAME PHONE SPECIALTY CANCERS` - Invite doctor
-- `APPROVE_DOCTOR ID` - Approve doctor registration
-- `MSG_PATIENT PHONE MESSAGE` - Message patient
+- Slash command equivalents: `/register`, `/approve_doctor`, `/invite_doctor`, `/msg_patient`
 
 ### Doctor Commands
 - `MSG_ADMIN MESSAGE` - Contact admin
