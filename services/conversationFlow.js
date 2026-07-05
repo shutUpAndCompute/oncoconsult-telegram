@@ -51,7 +51,6 @@ const FlowStates = {
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
   ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
   DOCTOR_MENU: 'doctor_menu',
-  CAREGIVER_MENU: 'caregiver_menu',
   PROFILE_VIEW: 'profile_view',
   PROFILE_EDIT: 'profile_edit',
   ROLE_APPLICATION: 'role_application'
@@ -78,9 +77,26 @@ Reply with number`,
   adminApproveCaregiverInput: `👤 *Approve Caregiver*\n\nEnter patient phone number to approve:\n\n0. Back to Menu`,
   adminApproveSupportInput: `🛎️ *Approve Support*\n\nEnter user phone number to approve:\n\n0. Back to Menu`,
   adminRegisterDoctorInput: `📝 *Register Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: John Smith, Medical Oncology, 9876543210, lung,breast\n\n0. Back to Menu`,
+  caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
+
+Linked to: ${patientName}
+
+1️⃣ Select Cancer Type
+2️⃣ View Pricing
+3️⃣ Upload Reports
+4️⃣ My Consultations
+5️⃣ Talk to Admin
+6️⃣ Clear History
+7️⃣ 👤 Profile & Roles
+
+0️⃣ Switch Role
+
+Reply with number`,
   adminInviteDoctorInput: `📧 *Invite Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: Jane Doe, Surgical Oncology, 9876543210, lung\n\n0. Back to Menu`,
 
-  doctorRegister: `📝 *Doctor Registration*\n\nPlease provide your full name and specialization.\n\nExample: John Smith, Medical Oncology`,
+  roleSelect: `👤 *Role Selection*\n\n1️⃣ I am the patient\n2️⃣ I am helping someone else (caregiver)\n\nReply with number`,
+
+  caregiverAuth: `⚠️ *Caregiver Authorization*\n\nCaregivers can act on behalf of patients with additional acknowledgment.\n\n1️⃣ I am authorized to act on patient's behalf\n2️⃣ I am the patient myself\n\nReply with number`,
 
   mobileCollection: `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`,
 
@@ -359,7 +375,7 @@ case FlowStates.CONSULTATION:
   handleCaregiverAuthSelection(selection, phoneNumber) {
     if (selection === '1') {
       this.consultationManager.updateSession(phoneNumber, {
-        profileStep: 'caregiver_info',
+        profileStep: 'caregiver_name',
         isCaregiver: true,
         caregiverConsentGiven: false
       });
@@ -374,14 +390,17 @@ case FlowStates.CONSULTATION:
   handleCaregiverPatientLink(phoneNumber, message, session) {
     const patientPhone = message.trim();
     
-    if (!patientPhone || !patientPhone.match(/^d{10}$/)) {
+    if (!patientPhone || !patientPhone.match(/^\d{10}$/)) {
       return {
         nextState: FlowStates.CAREGIVER_PATIENT_LINK,
-        response: `📲 *Link to Patient*
-
-Enter the patient's phone number (10 digits):
-
-Example: 9876543210`
+        response: `📲 *Link to Patient*\n\nEnter the patient's phone number (10 digits):\n\nExample: 9876543210\n\n0. Back to Menu`
+      };
+    }
+    
+    if (patientPhone === '0') {
+      return {
+        nextState: FlowStates.WELCOME,
+        response: InteractiveMenus.main('caregiver')
       };
     }
     
@@ -390,20 +409,16 @@ Example: 9876543210`
     });
     
     const linkedSession = this.consultationManager.getSession(patientPhone);
-    if (linkedSession?.patientProfile) {
-      return {
-        nextState: FlowStates.CAREGIVER_MENU,
-        response: InteractiveMenus.caregiverMenu(linkedSession.patientProfile.name || patientPhone)
-      };
-    }
+    const patientName = linkedSession?.patientProfile?.name || 'patient';
     
     return {
-      nextState: FlowStates.CAREGIVER_MENU,
-      response: InteractiveMenus.caregiverMenu(patientPhone)
+      nextState: FlowStates.WELCOME,
+      response: `✅ Linked to ${patientName} (${patientPhone})\n\n${InteractiveMenus.main('caregiver')}`
     };
   }
 
   handleCaregiverMenuSelection(selection, phoneNumber, session) {
+    const mainMenu = InteractiveMenus.main('caregiver');
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CANCER_TYPE, response: InteractiveMenus.cancerTypes }),
       '2': () => ({ nextState: FlowStates.BILLING, response: InteractiveMenus.billing }),
