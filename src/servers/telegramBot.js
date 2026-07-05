@@ -770,7 +770,14 @@ await this.bot.sendMessage(
         consultationFee: 1500
       }, String(chatId));
       
-      await this.bot.sendMessage(chatId, `✅ Doctor invited: ${invitation.id} (${name})\nThey must accept via /accept command.`);
+      await this.bot.sendMessage(chatId, `✅ Doctor invited: ${invitation.id} (${name})\nInvitation sent.`);
+      
+      // Notify the invited doctor if we have their telegram ID or phone
+      if (invitation.telegramId) {
+        await this.bot.sendMessage(invitation.telegramId, 
+          `📩 You've been invited to join as an oncology doctor at our clinic.\n\nName: ${name}\nSpecialty: ${specialty}\n\nSend /accept to activate your account.`
+        ).catch(() => {});
+      }
       return;
     }
 
@@ -933,7 +940,19 @@ Reply to start consultation.`,
       }
       
       const success = consultationManager.closeConsultation(consultationId, 'admin');
-      const verifyDiscountMatch = trimmed.match(/^VERIFY_DISCOUNT\s+(\S+)\s+(approved|rejected)(?:\s+(.*))?$/i);
+      if (success) {
+        await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
+        await this.bot.sendMessage(consultation.patientPhone, 
+          `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 
+          { parse_mode: 'Markdown' }
+        ).catch(() => {});
+      } else {
+        await this.bot.sendMessage(chatId, '❌ Failed to close consultation.');
+      }
+      return;
+    }
+    
+    const verifyDiscountMatch = trimmed.match(/^VERIFY_DISCOUNT\s+(\S+)\s+(approved|rejected)(?:\\s+(.*))?$/i);
     if (verifyDiscountMatch) {
       const [, patientPhone, status, reason] = verifyDiscountMatch;
       const session = consultationManager.getSession(patientPhone);
@@ -955,28 +974,6 @@ Reply to start consultation.`,
     }
 
     const verifyPaymentMatch = trimmed.match(/^VERIFY_PAYMENT\s+(\S+)$/i);
-    if (verifyPaymentMatch) {
-      const [, transactionId] = verifyPaymentMatch;
-      const success = paymentService.verifyPaymentManual(transactionId);
-      if (success) {
-        await this.bot.sendMessage(chatId, `✅ Payment verified for transaction ${transactionId}`);
-      } else {
-        await this.bot.sendMessage(chatId, `❌ Payment verification failed. Transaction not found.`);
-      }
-      return;
-    }
-
-  if (success) {
-        await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
-        await this.bot.sendMessage(consultation.patientPhone, 
-          `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 
-          { parse_mode: 'Markdown' }
-        ).catch(() => {});
-      } else {
-        await this.bot.sendMessage(chatId, '❌ Failed to close consultation.');
-      }
-      return;
-    }
 
     await this.bot.sendMessage(chatId, 
       'Admin commands:\n1. Admin Menu\n2. LIST_DOCTORS\n3. LIST_MY_DOCTORS\n4. LIST_PENDING_DOCTORS\n5. REGISTER <name> <phone> <specialty> <cancers>\n6. INVITE_DOCTOR <name> <phone> <specialty> <cancers>\n7. REMOVE_DOCTOR <id>\n8. MSG_DOCTOR <id> <message>\n9. Status\n0. Switch Role\n\nCLOSE <consultation_id> to end consultation',
