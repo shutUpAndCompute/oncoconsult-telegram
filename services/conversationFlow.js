@@ -52,6 +52,7 @@ const FlowStates = {
   ADMIN_REMOVE_DOCTOR_INPUT: 'admin_remove_doctor_input',
   ADMIN_REJECT_DOCTOR_INPUT: 'admin_reject_doctor_input',
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
+  ADMIN_REASSIGN_DOCTOR_INPUT: 'admin_reassign_doctor_input',
   ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
   ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
   DOCTOR_MENU: 'doctor_menu',
@@ -74,7 +75,7 @@ Reply with number`,
 
   adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ My Profile\n6️⃣ View Patient Profiles\n0️⃣ Switch Role\n\nReply with number`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n5️⃣ Register Doctor\n6️⃣ Invite Doctor\n7️⃣ Back to Menu\n\nReply with number`,
-  adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Remove Doctor\n5️⃣ Reject Doctor\n6️⃣ Message Doctor\n7️⃣ View Patient Profiles\n0️⃣ Back to Menu\n\nReply with number`,
+  adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Reassign Doctor\n5️⃣ Remove Doctor\n6️⃣ Reject Doctor\n7️⃣ Message Doctor\n8️⃣ View Patient Profiles\n0️⃣ Back to Menu\n\nReply with number`,
   adminAssignDoctorInput: `🔗 *Assign Doctor*\n\nEnter consultation ID and doctor ID:\n\nFormat: CONSULTATION_ID DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
   adminRemoveDoctorInput: `🗑️ *Remove Doctor*\n\nEnter doctor ID:\n\n0. Back to Menu`,
   adminRejectDoctorInput: `❌ *Reject Doctor*\n\nEnter doctor request ID:\n\n0. Back to Menu`,
@@ -86,6 +87,7 @@ Reply with number`,
   adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
   adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
+  adminReassignDoctorInput: `🔁 *Reassign Doctor*\n\nEnter: CONSULTATION_ID NEW_DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
   profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
   doctorSelect: (doctors) => {
     let text = `👨‍⚕️ *Select Doctor*\n\n`;
@@ -270,6 +272,7 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: return InteractiveMenus.adminVerifyPaymentInput;
       case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: return InteractiveMenus.adminMessagePatientInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT: return InteractiveMenus.adminReassignDoctorInput;
       case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
       case FlowStates.PROFILE_PINCODE: return '📮 Please enter your 6-digit pin code:';
       case FlowStates.PROFILE_DIAGNOSIS_DATE: return '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Back to Menu';
@@ -381,6 +384,9 @@ case FlowStates.CONSULTATION:
 
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT:
         return this.handleAdminMessageDoctorInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT:
+        return this.handleAdminReassignDoctorInput(message, phoneNumber, session);
 
       case FlowStates.PROFILE_REMOVE_ROLE:
         return this.handleRemoveRole(message, phoneNumber, session);
@@ -1223,10 +1229,11 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       '1': () => this.listDoctors(phoneNumber),
       '2': () => this.listPendingDoctors(phoneNumber),
       '3': () => ({ nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT, response: InteractiveMenus.adminAssignDoctorInput }),
-      '4': () => ({ nextState: FlowStates.ADMIN_REMOVE_DOCTOR_INPUT, response: InteractiveMenus.adminRemoveDoctorInput }),
-      '5': () => ({ nextState: FlowStates.ADMIN_REJECT_DOCTOR_INPUT, response: InteractiveMenus.adminRejectDoctorInput }),
-      '6': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
-      '7': () => ({ nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu }),
+      '4': () => ({ nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT, response: InteractiveMenus.adminReassignDoctorInput }),
+      '5': () => ({ nextState: FlowStates.ADMIN_REMOVE_DOCTOR_INPUT, response: InteractiveMenus.adminRemoveDoctorInput }),
+      '6': () => ({ nextState: FlowStates.ADMIN_REJECT_DOCTOR_INPUT, response: InteractiveMenus.adminRejectDoctorInput }),
+      '7': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
+      '8': () => ({ nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu }),
       '0': () => ({ nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu })
     };
     const handler = flowMap[selection];
