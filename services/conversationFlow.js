@@ -106,7 +106,9 @@ Reply with number`,
 
   mobileCollection: `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`,
 
-  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Back to Menu
+  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Remove Role
+6️⃣ Switch Role
+7️⃣ Back to Menu
 
 Reply with number`,
 
@@ -970,7 +972,9 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       '2': () => this.handleEditProfile(phoneNumber),
       '3': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: InteractiveMenus.roleApplication }),
       '4': () => this.handleMyRoles(phoneNumber),
-      '5': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+      '5': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: '📝 Enter role to remove: doctor/caregiver/support\n\n0. Back to Menu' }),
+      '6': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.personaSelect() }),
+      '7': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
     const handler = flowMap[selection];
