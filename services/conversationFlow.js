@@ -72,9 +72,9 @@ Reply with number`,
 
 Reply with number`,
 
-  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ My Profile\n0️⃣ Switch Role\n\nReply with number`,
+  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ My Profile\n6️⃣ View Patient Profiles\n0️⃣ Switch Role\n\nReply with number`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n5️⃣ Register Doctor\n6️⃣ Invite Doctor\n7️⃣ Back to Menu\n\nReply with number`,
-  adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Remove Doctor\n5️⃣ Reject Doctor\n6️⃣ Message Doctor\n7️⃣ Back to Menu\n\nReply with number`,
+  adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Remove Doctor\n5️⃣ Reject Doctor\n6️⃣ Message Doctor\n7️⃣ View Patient Profiles\n0️⃣ Back to Menu\n\nReply with number`,
   adminAssignDoctorInput: `🔗 *Assign Doctor*\n\nEnter consultation ID and doctor ID:\n\nFormat: CONSULTATION_ID DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
   adminRemoveDoctorInput: `🗑️ *Remove Doctor*\n\nEnter doctor ID:\n\n0. Back to Menu`,
   adminRejectDoctorInput: `❌ *Reject Doctor*\n\nEnter doctor request ID:\n\n0. Back to Menu`,
@@ -143,11 +143,7 @@ Reply with number`,
 
   mobileCollection: `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`,
 
-  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Remove Role
-6️⃣ Switch Role
-7️⃣ Back to Menu
-
-Reply with number`,
+  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Remove Role\n6️⃣ My Doctors\n7️⃣ Switch Role\n8️⃣ Back to Menu\n\nReply with number`,
 
   profileView: (profile, isCaregiver) => {
     let text = `📋 *Your Profile*\n\n`;
@@ -199,7 +195,7 @@ Roles require admin approval. Select a role to apply for.`,
     return text;
   },
 
-  doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Profile\n\nOr reply to patient messages in consultation.`,
+  doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Profile\n3️⃣ My Patients\n\nOr reply to patient messages in consultation.`,
 
   roleSelect: `👤 *Role Selection*
 
@@ -324,7 +320,7 @@ case FlowStates.CAREGIVER_AUTH:
         return this.handleCaregiverMenuSelection(selection, phoneNumber, session);
 
       case FlowStates.DOCTOR_MENU:
-        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu('Doctor', false) };
+        return this.handleDoctorMenuSelection(selection, phoneNumber, session);
 
       case FlowStates.CANCER_TYPE:
         return this.handleCancerTypeSelection(selection);
@@ -1061,8 +1057,9 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       '3': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: InteractiveMenus.roleApplication }),
       '4': () => this.handleMyRoles(phoneNumber),
       '5': () => ({ nextState: FlowStates.PROFILE_REMOVE_ROLE, response: InteractiveMenus.profileRemoveRole }),
-      '6': () => this.handleSwitchRole(phoneNumber, session),
-      '7': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+      '6': () => this.handleViewMyDoctors(phoneNumber, session),
+      '7': () => this.handleSwitchRole(phoneNumber, session),
+      '8': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
     const handler = flowMap[selection];
@@ -1210,6 +1207,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       '3': () => ({ nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals }),
       '4': () => ({ nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement }),
       '5': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '6': () => this.handleViewAllPatients(phoneNumber),
       '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
@@ -1751,6 +1749,32 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     return {
       nextState: FlowStates.DOCTOR_MENU,
       response: InteractiveMenus.profileLinkedPatients(patients)
+    };
+  }
+
+  handleViewAllPatients(phoneNumber) {
+    const patients = [];
+    for (const [phone, session] of this.consultationManager.sessions || []) {
+      if (session?.patientProfile) {
+        patients.push({
+          phoneNumber: phone,
+          name: session.patientProfile.name,
+          cancerType: session.cancerType
+        });
+      }
+    }
+    let text = `👥 *All Patients*\n\n`;
+    if (patients.length === 0) {
+      text += '_No patients registered._\n';
+    } else {
+      patients.forEach((p, i) => {
+        text += `${i + 1}. ${p.name} (${p.phoneNumber}) - ${p.cancerType || 'unknown'}\n`;
+      });
+      text += '\nEnter phone number to view profile.';
+    }
+    return {
+      nextState: FlowStates.ADMIN_MENU,
+      response: text + '\n\n' + InteractiveMenus.adminMenu
     };
   }
 
