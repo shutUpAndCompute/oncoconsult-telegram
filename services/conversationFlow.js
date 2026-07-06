@@ -865,12 +865,13 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
   isProfileComplete(session) {
     const p = session.patientProfile;
+    const c = p?.confirmedConsents || {};
     if (!p) return false;
     return !!(p.name && p.age && p.gender && p.aadhaarNumber && p.address && p.state &&
       p.cancerType && p.treatingHospital && p.treatmentStatus &&
       p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
       p.medicalReports && p.medicalReports.length > 0 &&
-      p.consentTeleconsultation && p.consentDataSharing && p.consentDPDP);
+      c.teleconsultation && c.dataSharing && c.dpdp);
   }
 
   getGreeting(phoneNumber) {
