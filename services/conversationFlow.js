@@ -50,6 +50,7 @@ const FlowStates = {
   ADMIN_REMOVE_DOCTOR_INPUT: 'admin_remove_doctor_input',
   ADMIN_REJECT_DOCTOR_INPUT: 'admin_reject_doctor_input',
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
+  ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
   ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
   DOCTOR_MENU: 'doctor_menu',
   PROFILE_VIEW: 'profile_view',
@@ -81,6 +82,7 @@ Reply with number`,
   adminRegisterDoctorInput: `📝 *Register Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: John Smith, Medical Oncology, 9876543210, lung,breast\n\n0. Back to Menu`,
   adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
+  adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
   caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
 
 Linked to: ${patientName}
@@ -224,6 +226,7 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_REJECT_DOCTOR_INPUT: return InteractiveMenus.adminRejectDoctorInput;
       case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT: return InteractiveMenus.adminVerifyDiscountInput;
       case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: return InteractiveMenus.adminVerifyPaymentInput;
+      case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: return InteractiveMenus.adminMessagePatientInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
       case FlowStates.PROFILE_AADHAAR: return '🆔 Please enter your Aadhaar number:';
       case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
@@ -324,6 +327,9 @@ case FlowStates.CONSULTATION:
 
       case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT:
         return this.handleAdminVerifyPaymentInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT:
+        return this.handleAdminMessagePatientInput(message, phoneNumber, session);
 
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT:
         return this.handleAdminMessageDoctorInput(message, phoneNumber, session);
@@ -1246,6 +1252,23 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     return {
       nextState: FlowStates.ADMIN_MENU,
       response: `💳 To verify payment, use: VERIFY_PAYMENT ${trimmed}\n\n0. Back to Menu`
+    };
+  }
+
+  handleAdminMessagePatientInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    if (trimmed === '0') {
+      return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
+    }
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) {
+      return { nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: `❌ Format: PHONE MESSAGE\n\n0. Back` };
+    }
+    const [patientPhone, ...msgParts] = parts;
+    const msgText = msgParts.join(' ');
+    return {
+      nextState: FlowStates.ADMIN_MENU,
+      response: `📩 To message patient ${patientPhone}, use: MSG_PATIENT ${patientPhone} ${msgText}\n\n0. Back to Menu`
     };
   }
 
