@@ -55,7 +55,8 @@ const FlowStates = {
   DOCTOR_MENU: 'doctor_menu',
   PROFILE_VIEW: 'profile_view',
   PROFILE_EDIT: 'profile_edit',
-  ROLE_APPLICATION: 'role_application'
+  ROLE_APPLICATION: 'role_application',
+  PROFILE_REMOVE_ROLE: 'profile_remove_role'
 };
 
 const InteractiveMenus = {
@@ -82,6 +83,8 @@ Reply with number`,
   adminRegisterDoctorInput: `📝 *Register Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: John Smith, Medical Oncology, 9876543210, lung,breast\n\n0. Back to Menu`,
   adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
+  adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
+  profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
   adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
   caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
 
@@ -230,6 +233,7 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: return InteractiveMenus.adminVerifyPaymentInput;
       case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: return InteractiveMenus.adminMessagePatientInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
+      case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
       case FlowStates.PROFILE_AADHAAR: return '🆔 Please enter your Aadhaar number:';
       case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
       case FlowStates.PROFILE_STATE: return '📍 Please enter your state:';
@@ -335,6 +339,9 @@ case FlowStates.CONSULTATION:
 
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT:
         return this.handleAdminMessageDoctorInput(message, phoneNumber, session);
+
+      case FlowStates.PROFILE_REMOVE_ROLE:
+        return this.handleRemoveRole(message, phoneNumber, session);
 
       case FlowStates.ADMIN_FALLBACK:
         return this.handleAdminFallback(phoneNumber, selection);
@@ -972,8 +979,8 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       '2': () => this.handleEditProfile(phoneNumber),
       '3': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: InteractiveMenus.roleApplication }),
       '4': () => this.handleMyRoles(phoneNumber),
-      '5': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: '📝 Enter role to remove: doctor/caregiver/support\n\n0. Back to Menu' }),
-      '6': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.personaSelect() }),
+      '5': () => ({ nextState: FlowStates.PROFILE_REMOVE_ROLE, response: InteractiveMenus.profileRemoveRole }),
+      '6': () => this.handleSwitchRole(phoneNumber, session),
       '7': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
@@ -982,6 +989,46 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       return handler();
     }
     return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+  }
+
+  handleRemoveRole(message, phoneNumber, session) {
+    const role = message.trim().toLowerCase();
+    if (role === '0' || role === 'cancel') {
+      return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+    }
+    if (!['doctor', 'caregiver', 'support'].includes(role)) {
+      return { nextState: FlowStates.PROFILE_REMOVE_ROLE, response: `❌ Invalid role. Use: doctor/caregiver/support\n\n0. Back to Menu` };
+    }
+    const user = this.userRegistry?.getUser(phoneNumber);
+    if (user && this.userRegistry?.revokeRole) {
+      this.userRegistry.revokeRole(phoneNumber, role);
+      return {
+        nextState: FlowStates.PROFILE_VIEW,
+        response: `✅ Role '${role}' removed.\n\n${InteractiveMenus.profileMenu}`
+      };
+    }
+    return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+  }
+
+  handleSwitchRole(phoneNumber, session) {
+    const user = this.userRegistry?.getUser(phoneNumber) || this.userRegistry?.getUserByPhone(phoneNumber);
+    const approvedRoles = user?.approvedRoles || [];
+    let roleText = '👤 *Switch Role*\n\nApproved roles:\n';
+    approvedRoles.forEach(r => {
+      roleText += `• ${r}\n`;
+    });
+    if (approvedRoles.length === 0) {
+      roleText += '• _No approved roles_\n';
+    }
+    roleText += '\nSelect role to switch to:\n';
+    approvedRoles.forEach((r, i) => {
+      roleText += `${i + 1}. ${r === 'doctor' ? 'Doctor Mode' : r === 'caregiver' ? 'Caregiver Mode' : 'Support Mode'}\n`;
+    });
+    roleText += '0. Back to Menu';
+    return {
+      nextState: FlowStates.PROFILE_VIEW,
+      response: roleText
+    };
   }
 
   handleViewProfile(phoneNumber, session) {
