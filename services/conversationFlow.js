@@ -394,6 +394,9 @@ case FlowStates.CONSULTATION:
       case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT:
         return this.handleAdminReassignDoctorInput(message, phoneNumber, session);
 
+      case FlowStates.PROFILE_CONSENTS:
+        return this.handleProfileConsentsSelection(selection, phoneNumber, session);
+
       case FlowStates.PROFILE_REMOVE_ROLE:
         return this.handleRemoveRole(message, phoneNumber, session);
 
@@ -808,8 +811,11 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
 
-    // Lock consultation flow if profile incomplete
-    if (!profileComplete && ['cancer_type', 'billing', 'report_upload', 'consultation'].includes(currentState)) {
+    // Lock consultation flow if profile incomplete or consents not confirmed
+    const consentsConfirmed = session?.patientProfile?.confirmedConsents?.teleconsultation &&
+      session?.patientProfile?.confirmedConsents?.dataSharing &&
+      session?.patientProfile?.confirmedConsents?.dpdp;
+    if ((!profileComplete || !consentsConfirmed) && ['cancer_type', 'billing', 'report_upload', 'consultation'].includes(currentState)) {
       return {
         nextState: FlowStates.WELCOME,
         response: `⚠️ *Profile Incomplete*\n\nPlease complete your profile first:\n• Name: ${session.patientProfile?.name ? '✅' : '❌'}\n• Age: ${session.patientProfile?.age ? '✅' : '❌'}\n• Gender: ${session.patientProfile?.gender ? '✅' : '❌'}\n• Location: ${session.patientProfile?.location ? '✅' : '❌'}\n\nUse option 7 (Profile & Roles) to update.`
@@ -1000,7 +1006,12 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         break;
       case 'emergency_contact_relation':
         profile.emergencyContactRelation = trimmed;
+        nextStep = 'consents';
+        nextPrompt = InteractiveMenus.consentsMenu;
+        break;
+      case 'consents':
         nextStep = 'completed';
+        nextPrompt = '';
         break;
       default:
         return { nextState: FlowStates.WELCOME, response: this.getGreeting(phoneNumber) };
@@ -1020,10 +1031,10 @@ async handlePaymentStatusCheck(phoneNumber, session) {
           data: {}
         };
       }
+      // Show mandatory consents menu
       return {
-        nextState: FlowStates.WELCOME,
-        response: `✅ Profile saved!\n\n${this.getGreeting(phoneNumber)}`,
-        data: {}
+        nextState: FlowStates.PROFILE_CONSENTS,
+        response: InteractiveMenus.consentsMenu
       };
     }
 
@@ -1824,6 +1835,58 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     return {
       nextState: FlowStates.PROFILE_VIEW,
       response: InteractiveMenus.profileMyDoctors(doctors)
+    };
+  }
+
+  handleProfileConsentsSelection(selection, phoneNumber, session) {
+    const profile = session?.patientProfile || {};
+    const consents = profile.confirmedConsents || {};
+    
+    // Map selections to consent types
+    const consentMap = {
+      '1': 'teleconsultation',
+      '2': 'dataSharing',
+      '3': 'dpdp',
+      'CANCEL': 'cancel'
+    };
+    
+    const consentType = consentMap[selection];
+    
+    if (consentType === 'cancel') {
+      this.consultationManager.resetSession(phoneNumber);
+      return {
+        nextState: FlowStates.WELCOME,
+        response: `❌ You must accept all consents to use this service.\n\nType /start to try again.`
+      };
+    }
+    
+    if (consentType) {
+      consents[consentType] = true;
+      profile.confirmedConsents = consents;
+      profile.consentTimestamp = new Date();
+      
+      // Check if all consents are confirmed
+      const allConfirmed = consents.teleconsultation && consents.dataSharing && consents.dpdp;
+      
+      this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+      
+      if (allConfirmed) {
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `✅ All consents confirmed.\n\n${this.getGreeting(phoneNumber)}`
+        };
+      }
+      
+      return {
+        nextState: FlowStates.PROFILE_CONSENTS,
+        response: InteractiveMenus.consentsMenu
+      };
+    }
+    
+    // Invalid selection - show menu again
+    return {
+      nextState: FlowStates.PROFILE_CONSENTS,
+      response: `❌ Invalid selection. Please confirm all consents:\n\n${InteractiveMenus.consentsMenu}`
     };
   }
 }

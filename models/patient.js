@@ -49,6 +49,7 @@ class PatientProfile {
     this.consentDPDP = data.consentDPDP || false;
     this.platformTermsAccepted = data.platformTermsAccepted || false;
     this.consentTimestamp = data.consentTimestamp || null;
+    this.confirmedConsents = data.confirmedConsents || {};
 
     this.registeredAt = data.registeredAt || new Date();
   }
