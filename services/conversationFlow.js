@@ -392,6 +392,9 @@ case FlowStates.CONSULTATION:
   }
 
   handleRoleSelection(selection, phoneNumber) {
+    if (selection === '0') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
     if (selection === '1') {
       return this.startPatientProfile(phoneNumber);
     } else if (selection === '2') {
@@ -404,6 +407,9 @@ case FlowStates.CONSULTATION:
   }
 
   handleCaregiverAuthSelection(selection, phoneNumber) {
+    if (selection === '0') {
+      return { nextState: FlowStates.ROLE_SELECT, response: InteractiveMenus.roleSelect };
+    }
     if (selection === '1') {
       this.consultationManager.updateSession(phoneNumber, {
         profileStep: 'caregiver_info',
