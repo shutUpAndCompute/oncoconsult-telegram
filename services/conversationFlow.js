@@ -378,19 +378,17 @@ case FlowStates.CONSULTATION:
     };
 
     const nextState = flowMap[selection];
-    if (!nextState) {
-      // Handle clear history option (6)
+    if (nextState) {
       if (selection === '6') {
-        return { nextState: FlowStates.WELCOME, response: "🗑️ Type /clear to delete all chat history and end consultations." };
+        return { nextState, response: "🗑️ Type /clear to delete all chat history and end consultations." };
       }
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { 
+        nextState, 
+        response: this.getMessageOptions(nextState, 'patient')
+};
     }
 
-    return { 
-      nextState, 
-      response: this.getMessageOptions(nextState, 'patient'),
-      data: selection === '2' ? { showPricing: true } : {}
-    };
+    return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
   }
 
   handleRoleSelection(selection, phoneNumber) {
