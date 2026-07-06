@@ -157,6 +157,56 @@ flowchart TD
 ```
 
 ---
+---
+
+## 8. Healthcare Compliance (DPDP & Medical Standards)
+
+### DPDP Compliance
+| Requirement | Status | Implementation |
+|-------------|--------|--------------|
+| Opt-in consent | ✅ | Platform terms require explicit agreement |
+| Notice of data use | ✅ | Clear consent for medical/socio-economic data |
+| Purpose limitation | ✅ | Data used only for consultation/discounts |
+| Right to deletion | ✅ | `/delete` command implemented |
+| Data retention policy | ⚠️ | Not automated (manual via delete) |
+| Access accountability | ⚠️ | No audit logs |
+
+### Medical Safety
+| Requirement | Status | Implementation |
+|-------------|--------|--------------|
+| Emergency disclaimer | ✅ | "Call 108 for emergencies" on consultation start |
+| Doctor qualifications | ✅ | Displayed in consultation assignment |
+| Profile mandatory | ✅ | Required before consultation access |
+| Consent enforcement | ✅ | All 3 consents required (teleconsultation, data sharing, DPDP) |
+
+### Data Categories
+- **Personal Data**: Name, phone, age, gender
+- **Medical Data**: Cancer type, reports, consultation notes
+- **Socio-economic**: Discount documents (OPT-IN only)
+- **Location**: Address, pincode, state
+
+### Deletion Flow
+```
+User: /delete
+System: Clears profile, revokes all roles
+Result: User can re-register with /start
+```
+
+---
+
+## 9. Recent Changes Log
+
+### 2026-07-07
+- Added PLATFORM_TERMS state with data processing agreement
+- Added mandatory PROFILE_CONSENTS step in profile flow
+- Added /delete command for DPDP data deletion
+- Added medical disclaimer to consultation start (108 emergency)
+- Added doctor qualifications to consultation assignment
+- Implemented PROFILE_PINCODE, PROFILE_DIAGNOSIS_DATE, PROFILE_ONCOLOGIST_NAME
+- Added DOCTOR_SELECT and COMPLETED flow states
+- Added admin/doctor patient viewing capabilities
+- Added doctor reassignment capability
+
 
 ## 7. Test Verification Points
 

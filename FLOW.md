@@ -351,3 +351,29 @@ Reply with number
 **Option 1 - Connect:** Verifies payment and connects to available doctor if payment is complete
 
 **Option 2 - Check Payment Status:** Shows current payment status and sets paymentVerified flag if payment confirmed
+
+## Healthcare Compliance Updates (2026-07-07)
+
+### Platform Terms & Consent Flow
+- Patients must accept platform terms before profile completion
+- Three mandatory consents required: Teleconsultation, Data Sharing, DPDP Act
+- Consents stored in `confirmedConsents` object in patient profile
+
+### Emergency Safety
+- Medical disclaimer displayed when consultation starts
+- Emergency instruction: "Call 108 for medical emergencies"
+- Doctor qualifications shown during consultation assignment
+
+### Data Deletion
+- `/delete` command enables DPDP-compliant data removal
+- Preserves consultation records but clears personal profile
+- User can re-register with `/start`
+
+### Profile Mandatory Fields (Updated)
+1. Name, Age, Gender
+2. PIN Code, Diagnosis Date, Oncologist Name (NEW)
+3. Treating Hospital, Treatment Status
+4. Cancer Type Selection
+5. Emergency Contact
+6. Platform Terms Acceptance
+7. Three Consents: Teleconsultation, Data Sharing, DPDP

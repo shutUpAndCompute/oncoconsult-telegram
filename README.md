@@ -120,6 +120,7 @@ Patients must provide:
 
 ### Patient Commands
 - `/start` - Begin registration
+- `/delete` - Request data deletion (DPDP compliance)
 - `/profile` - View profile
 - `/clear` - Clear chat history (preserves profile/data)
 - `/resume` - Resume session
@@ -136,6 +137,14 @@ Patients must provide:
 
 ### Universal
 - `/menu` - Show current menu
+- `/delete` - Request data deletion per DPDP Act
+
+### Healthcare Compliance
+- Medical disclaimer on consultation start (Emergency: Call 108)
+- Doctor qualifications displayed during assignment
+- Opt-in consent for socio-economic discount data sharing
+- Profile completion mandatory before consultation access
+- Three mandatory consents: Teleconsultation, Data Sharing, DPDP
 - `/apply ROLE` - Apply for role (doctor, caregiver, support)
 - `/roles` - View applied roles
 
