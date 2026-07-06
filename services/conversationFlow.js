@@ -399,7 +399,7 @@ case FlowStates.CONSULTATION:
   handleCaregiverAuthSelection(selection, phoneNumber) {
     if (selection === '1') {
       this.consultationManager.updateSession(phoneNumber, {
-        profileStep: 'caregiver_name',
+        profileStep: 'caregiver_info',
         isCaregiver: true,
         caregiverConsentGiven: false
       });
