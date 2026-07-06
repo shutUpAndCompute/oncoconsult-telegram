@@ -47,6 +47,7 @@ class PatientProfile {
     this.consentTeleconsultation = data.consentTeleconsultation || false;
     this.consentDataSharing = data.consentDataSharing || false;
     this.consentDPDP = data.consentDPDP || false;
+    this.platformTermsAccepted = data.platformTermsAccepted || false;
     this.consentTimestamp = data.consentTimestamp || null;
 
     this.registeredAt = data.registeredAt || new Date();

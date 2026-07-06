@@ -5,6 +5,7 @@ const { DISCOUNT_CATEGORIES, TREATMENT_STATUSES } = require('../models/patient')
 const masterData = new MasterDataManager();
 
 const FlowStates = {
+  PLATFORM_TERMS: 'platform_terms',
   WELCOME: 'welcome',
   ROLE_SELECT: 'role_select',
   CAREGIVER_AUTH: 'caregiver_auth',
@@ -102,6 +103,8 @@ Reply with number`,
     return text;
   },
   consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. Start New Consultation\n2. View Profile\n3. Main Menu`,
+  platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is not a substitute for in-person care\n2. Medical data will be shared with assigned doctors\n3. Socio-economic documents are for discount eligibility only\n4. Admin determines discounts at their discretion\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' anytime to exit.`,
+
   profileLinkedPatients: (patients) => {
     let text = `👥 *Linked Patients*\n\n`;
     if (!patients || patients.length === 0) {
@@ -214,7 +217,7 @@ Reply with number`,
 
   billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
-  consent: `📋 *Data Sharing & Discount Consent*\n\nTo qualify for any discounts, you MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, you will be considered for full-fee consultation.\n\nOur administrators will review your eligibility and determine applicable discounts at their discretion.\n\n1. ✅ I consent to share medical data and eligibility information for discount consideration\n2. ❌ No consent (proceed without discount eligibility)`,
+  consent: `📋 *Data Sharing & Discount Consent*\n\nTo qualify for any discounts, you MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, you will be considered for full-fee consultation.\n\nOur administrators will review your eligibility and determine applicable discounts at their discretion.\n\n1. ✅ I consent to share medical data and eligibility information for discount consideration\n2. ❌ No consent (proceed without discount eligibility - full fee)\n\nType CANCEL to exit.`,
 
   caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nTo qualify for any discounts, the patient MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, full-fee consultation applies.\n\nOur administrators will review eligibility and determine discounts at their discretion.\n\n1. ✅ I acknowledge and provide consent for discount eligibility\n2. ❌ No consent (proceed without discount eligibility)`,
 
@@ -232,7 +235,7 @@ Reply with number`,
 
   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
 
-  consentsMenu: `📋 *Mandatory Consents*\n\nPlease confirm all consents to proceed:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n0. Back to Menu\n\nReply with number to confirm each`,
+  consentsMenu: `📋 *Mandatory Consents*\n\nThese consents are REQUIRED for consultation:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n\nType 1, 2, 3 to confirm each\nType 'CANCEL' to exit without consenting`,
 };
 
 class ConversationFlow {
@@ -328,6 +331,9 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.CANCER_TYPE:
         return this.handleCancerTypeSelection(selection);
         
+      case FlowStates.PLATFORM_TERMS:
+        return this.handlePlatformTermsInput(selection, phoneNumber, session);
+
       case FlowStates.DATA_SHARING_CONSENT:
         return this.handleDataSharingConsentInput(phoneNumber, message, session);
         
@@ -672,6 +678,26 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     };
   }
 
+  handlePlatformTermsInput(selection, phoneNumber, session) {
+    if (selection === '1') {
+      const profile = session?.patientProfile || {};
+      profile.platformTermsAccepted = true;
+      this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+      return {
+        nextState: FlowStates.ROLE_SELECT,
+        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect(session?.selectedPersona)}`
+      };
+    }
+    if (selection === '2' || selection.toLowerCase() === 'cancel') {
+      this.consultationManager.resetSession(phoneNumber);
+      return {
+        nextState: FlowStates.WELCOME,
+        response: `❌ You must agree to platform terms to use this service.\n\nType /start to try again.`
+      };
+    }
+    return { nextState: FlowStates.PLATFORM_TERMS, response: InteractiveMenus.platformTerms };
+  }
+
   handleDataSharingConsentInput(phoneNumber, message, session) {
       const selection = message.trim();
       const profile = session.patientProfile || {};
@@ -766,6 +792,14 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const session = this.consultationManager.getSession(phoneNumber);
     const profileComplete = this.isProfileComplete(session);
     const currentState = session.flowState || FlowStates.WELCOME;
+
+    const platformTermsAccepted = session?.patientProfile?.platformTermsAccepted || false;
+    if (!platformTermsAccepted && currentState === FlowStates.WELCOME) {
+      return {
+        nextState: FlowStates.PLATFORM_TERMS,
+        response: InteractiveMenus.platformTerms
+      };
+    }
 
     if (!profileComplete && currentState === FlowStates.WELCOME) {
       return {
