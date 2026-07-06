@@ -16,6 +16,8 @@ const FlowStates = {
   PROFILE_ADDRESS: 'profile_address',
   PROFILE_PINCODE: 'profile_pincode',
   PROFILE_STATE: 'profile_state',
+  PROFILE_DIAGNOSIS_DATE: 'profile_diagnosis_date',
+  PROFILE_ONCOLOGIST_NAME: 'profile_oncologist_name',
   PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
   PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
   PROFILE_CANCER_TYPE: 'profile_cancer_type',
@@ -85,6 +87,43 @@ Reply with number`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
   adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
   profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
+  doctorSelect: (doctors) => {
+    let text = `👨‍⚕️ *Select Doctor*\n\n`;
+    if (!doctors || doctors.length === 0) {
+      text += '_No doctors available for your cancer type._\n\n';
+    } else {
+      doctors.forEach((d, i) => {
+        text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
+      });
+    }
+    text += '\n0. Back to Menu';
+    return text;
+  },
+  consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. Start New Consultation\n2. View Profile\n3. Main Menu`,
+  profileLinkedPatients: (patients) => {
+    let text = `👥 *Linked Patients*\n\n`;
+    if (!patients || patients.length === 0) {
+      text += '_No linked patients found._\n';
+    } else {
+      patients.forEach((p, i) => {
+        text += `${i + 1}. ${p.name} (${p.phoneNumber})\n`;
+      });
+    }
+    text += '\nSelect patient to view profile or 0 to go back.';
+    return text;
+  },
+  profileMyDoctors: (doctors) => {
+    let text = `👨‍⚕️ *My Doctors*\n\n`;
+    if (!doctors || doctors.length === 0) {
+      text += '_No doctors assigned yet._\n';
+    } else {
+      doctors.forEach((d, i) => {
+        text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
+      });
+    }
+    text += '\nSelect to message or 0 to go back.';
+    return text;
+  },
   caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
 
 Linked to: ${patientName}
@@ -236,6 +275,11 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: return InteractiveMenus.adminMessagePatientInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
       case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
+      case FlowStates.PROFILE_PINCODE: return '📮 Please enter your 6-digit pin code:';
+      case FlowStates.PROFILE_DIAGNOSIS_DATE: return '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Back to Menu';
+      case FlowStates.PROFILE_ONCOLOGIST_NAME: return '👨‍⚕️ Enter your primary oncologist name:\n\n0. Back to Menu';
+      case FlowStates.DOCTOR_SELECT: return InteractiveMenus.doctorSelect([]);
+      case FlowStates.COMPLETED: return InteractiveMenus.consultationCompleted;
       case FlowStates.PROFILE_AADHAAR: return '🆔 Please enter your Aadhaar number:';
       case FlowStates.PROFILE_ADDRESS: return '🏠 Please enter your full address (with pin code):';
       case FlowStates.PROFILE_STATE: return '📍 Please enter your state:';
@@ -344,6 +388,21 @@ case FlowStates.CONSULTATION:
 
       case FlowStates.PROFILE_REMOVE_ROLE:
         return this.handleRemoveRole(message, phoneNumber, session);
+
+      case FlowStates.PROFILE_PINCODE:
+        return this.handleProfilePincodeInput(message, phoneNumber, session);
+
+      case FlowStates.PROFILE_DIAGNOSIS_DATE:
+        return this.handleProfileDiagnosisDateInput(message, phoneNumber, session);
+
+      case FlowStates.PROFILE_ONCOLOGIST_NAME:
+        return this.handleProfileOncologistNameInput(message, phoneNumber, session);
+
+      case FlowStates.DOCTOR_SELECT:
+        return this.handleDoctorSelection(selection, phoneNumber, session);
+
+      case FlowStates.COMPLETED:
+        return this.handleConsultationCompleted(selection, phoneNumber);
 
       case FlowStates.ADMIN_FALLBACK:
         return this.handleAdminFallback(phoneNumber, selection);
@@ -845,13 +904,21 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         break;
       case 'address':
         profile.address = trimmed;
+        nextStep = 'pincode';
+        nextPrompt = '📮 Please enter your 6-digit pin code (mandatory):';
+        break;
+      case 'pincode':
+        if (!trimmed.match(/^\d{6}$/)) {
+          return { nextState: FlowStates.PROFILE, response: '❌ Invalid pincode. Enter 6-digit pincode:', data: {} };
+        }
+        profile.pinCode = trimmed;
         nextStep = 'state';
         nextPrompt = '📍 Please enter your state (mandatory):';
         break;
       case 'state':
         profile.state = trimmed;
-        nextStep = 'cancer_type';
-        nextPrompt = InteractiveMenus.cancerTypes;
+        nextStep = 'diagnosis_date';
+        nextPrompt = '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip';
         break;
       case 'cancer_type':
         const cancerMap = { '1': 'lung', '2': 'breast', '3': 'prostate', '4': 'liver', '5': 'pancreatic', '6': 'ovarian', '7': 'blood', '8': 'general' };
@@ -859,6 +926,11 @@ async handlePaymentStatusCheck(phoneNumber, session) {
           return { nextState: FlowStates.PROFILE, response: InteractiveMenus.cancerTypes, data: {} };
         }
         profile.cancerType = cancerMap[trimmed];
+        nextStep = 'diagnosis_date';
+        nextPrompt = '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip';
+        break;
+      case 'oncologist_name':
+        profile.oncologistName = trimmed === '0' ? null : trimmed;
         nextStep = 'treating_hospital';
         nextPrompt = '🏥 Please enter the treating hospital name (mandatory):';
         break;
@@ -1558,6 +1630,136 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
       });
     }
     return success;
+  }
+
+  handleProfilePincodeInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    const profile = session?.patientProfile || {};
+
+    if (trimmed === '0') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
+
+    if (!trimmed || !trimmed.match(/^\d{6}$/)) {
+      return { nextState: FlowStates.PROFILE_PINCODE, response: '❌ Invalid pincode. Enter 6-digit pincode:\n\n0. Back to Menu' };
+    }
+
+    profile.pinCode = trimmed;
+    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+
+    return {
+      nextState: FlowStates.PROFILE_STATE,
+      response: InteractiveMenus.profileStateMenu || '📍 Please enter your state:'
+    };
+  }
+
+  handleProfileDiagnosisDateInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    const profile = session?.patientProfile || {};
+
+    if (trimmed === '0') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
+
+    if (!trimmed || !trimmed.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
+      return { nextState: FlowStates.PROFILE_DIAGNOSIS_DATE, response: '❌ Invalid date format. Enter diagnosis date (DD/MM/YYYY):\n\n0. Back to Menu' };
+    }
+
+    profile.diagnosisDate = trimmed;
+    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+
+    return {
+      nextState: FlowStates.PROFILE_ONCOLOGIST_NAME,
+      response: InteractiveMenus.profileOncologistNameMenu || '👨‍⚕️ Enter your primary oncologist name:'
+    };
+  }
+
+  handleProfileOncologistNameInput(message, phoneNumber, session) {
+    const trimmed = message.trim();
+    const profile = session?.patientProfile || {};
+
+    if (trimmed === '0') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
+
+    profile.oncologistName = trimmed;
+    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+
+    return {
+      nextState: FlowStates.PROFILE_TREATING_HOSPITAL,
+      response: '🏥 Please enter the treating hospital name:'
+    };
+  }
+
+  handleDoctorSelection(selection, phoneNumber, session) {
+    if (selection === '0') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
+
+    const doctors = this.doctorRouter?.getAvailableDoctors?.(session?.cancerType) || [];
+    const doctorIndex = parseInt(selection) - 1;
+
+    if (doctorIndex < 0 || doctorIndex >= doctors.length) {
+      return {
+        nextState: FlowStates.DOCTOR_SELECT,
+        response: `❌ Invalid selection. Please choose a valid doctor:\n\n${InteractiveMenus.doctorSelect(doctors)}`
+      };
+    }
+
+    const selectedDoctor = doctors[doctorIndex];
+    const consultation = this.consultationManager.createConsultation(phoneNumber, selectedDoctor.id, session);
+
+    return {
+      nextState: FlowStates.CONSULTATION,
+      response: `✅ Connected to Dr. ${selectedDoctor.name} (${selectedDoctor.specialty}).\nConsultation fee: ₹${selectedDoctor.fee || 1500}\n\nReply to start consultation.`,
+      data: { consultationCreated: true, doctorId: selectedDoctor.id }
+    };
+  }
+
+  handleConsultationCompleted(selection, phoneNumber) {
+    const flowMap = {
+      '1': () => ({ nextState: FlowStates.ROLE_SELECT, response: InteractiveMenus.roleSelect }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+    };
+
+    const handler = flowMap[selection];
+    if (handler) {
+      return handler();
+    }
+
+    return {
+      nextState: FlowStates.COMPLETED,
+      response: InteractiveMenus.consultationCompleted
+    };
+  }
+
+  handleViewLinkedPatients(phoneNumber, session) {
+    const doctorId = session?.doctorId;
+    const consultations = Array.from(this.consultationManager.consultations?.values() || [])
+      .filter(c => c.doctorId === doctorId && c.status === 'active');
+
+    const patients = consultations.map(c => {
+      const patientSession = this.consultationManager.getSession(c.patientPhone);
+      return {
+        phoneNumber: c.patientPhone,
+        name: patientSession?.patientProfile?.name || 'Unknown',
+        cancerType: patientSession?.cancerType || 'unknown'
+      };
+    });
+
+    return {
+      nextState: FlowStates.DOCTOR_MENU,
+      response: InteractiveMenus.profileLinkedPatients(patients)
+    };
+  }
+
+  handleViewMyDoctors(phoneNumber, session) {
+    const doctors = this.doctorRouter?.getDoctorsByPatient ? this.doctorRouter.getDoctorsByPatient(phoneNumber) : [];
+    return {
+      nextState: FlowStates.PROFILE_VIEW,
+      response: InteractiveMenus.profileMyDoctors(doctors)
+    };
   }
 }
 
