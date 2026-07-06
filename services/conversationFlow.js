@@ -85,7 +85,6 @@ Reply with number`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
   adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
   profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
-  adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
   caregiverMenu: (patientName = 'patient') => `👤 *Caregiver Menu*
 
 Linked to: ${patientName}
@@ -102,10 +101,6 @@ Linked to: ${patientName}
 
 Reply with number`,
   adminInviteDoctorInput: `📧 *Invite Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: Jane Doe, Surgical Oncology, 9876543210, lung\n\n0. Back to Menu`,
-
-  roleSelect: `👤 *Role Selection*\n\n1️⃣ I am the patient\n2️⃣ I am helping someone else (caregiver)\n\nReply with number`,
-
-  caregiverAuth: `⚠️ *Caregiver Authorization*\n\nCaregivers can act on behalf of patients with additional acknowledgment.\n\n1️⃣ I am authorized to act on patient's behalf\n2️⃣ I am the patient myself\n\nReply with number`,
 
   mobileCollection: `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`,
 
@@ -167,7 +162,14 @@ Roles require admin approval. Select a role to apply for.`,
 
   doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Profile\n\nOr reply to patient messages in consultation.`,
 
-  roleSelect: `👤 *Role Selection*\n\n1️⃣ I am the patient\n2️⃣ I am helping someone else (caregiver)\n\nReply with number`,
+  roleSelect: `👤 *Role Selection*
+
+1️⃣ I am the patient
+2️⃣ I am helping someone else (caregiver)
+
+0️⃣ Cancel
+
+Reply with number`,
 
   caregiverAuth: `⚠️ *Caregiver Authorization*\n\nCaregivers can act on behalf of patients with additional acknowledgment.\n\n1️⃣ I am authorized to act on patient's behalf\n2️⃣ I am the patient myself\n\nReply with number`,
 
@@ -193,7 +195,7 @@ Roles require admin approval. Select a role to apply for.`,
 
   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
 
-  consentsMenu: `📋 *Mandatory Consents*\n\nPlease confirm all consents to proceed:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n4. Back to Menu\n\nReply with number to confirm each`,
+  consentsMenu: `📋 *Mandatory Consents*\n\nPlease confirm all consents to proceed:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n0. Back to Menu\n\nReply with number to confirm each`,
 };
 
 class ConversationFlow {
