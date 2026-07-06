@@ -55,7 +55,9 @@ class DoctorRouter {
       name: doctor.name,
       specialization: doctor.specialty,
       fee: doctor.consultationFee,
-      city: doctor.city
+      city: doctor.city,
+      qualifications: doctor.qualifications,
+      hospital: doctor.hospital
     };
   }
 

@@ -103,7 +103,7 @@ Reply with number`,
     return text;
   },
   consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. Start New Consultation\n2. View Profile\n3. Main Menu`,
-  platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is not a substitute for in-person care\n2. Medical data will be shared with assigned doctors\n3. Socio-economic documents are for discount eligibility only\n4. Admin determines discounts at their discretion\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' anytime to exit.`,
+  platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is NOT emergency care. Call 108 or go to ER for emergencies\n2. Medical data shared ONLY with assigned doctors\n3. Socio-economic documents for discount eligibility (OPT-IN)\n4. Admin reviews discounts at their discretion\n5. Data kept only for consultation period\n\n*For discount eligibility:*\n- You may OPT-IN to share eligibility documents (ration card, Ayushman, etc.)\n- Non-consent = full fee but same medical consultation quality\n- You can request data deletion anytime via /delete\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' to exit.`,
 
   profileLinkedPatients: (patients) => {
     let text = `👥 *Linked Patients*\n\n`;
