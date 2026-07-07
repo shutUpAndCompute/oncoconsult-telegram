@@ -41,15 +41,15 @@ main_menu
 ├── 3 → report_upload
 ├── 4 → consultation
 ├── 5 → admin_fallback
-├── 6 → clear_history (shows message, stays in welcome)
+├── 6 → clear_history
 ├── 7 → profile_view → profile_menu
-│   ├── 1 → view_profile (back to profile_view)
-│   ├── 2 → profile_edit
-│   │   └── "menu" or "5" → main_menu
-│   └── 0 → main_menu
+    ├── 1 → view_profile
+    ├── 2 → profile_edit → main_menu
+    ├── 3 → role_application
+    ├── 4 → my_roles
+    ├── 5 → remove_role
+    └── 0 → main_menu
 ```
-
-**Issue**: Role options 4-8 removed from profile_menu - users can't access My Roles, Remove Role, etc.
 
 ---
 
