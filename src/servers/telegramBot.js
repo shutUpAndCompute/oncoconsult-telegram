@@ -455,7 +455,6 @@ Continue profile setup...` + InteractiveMenus.cancerTypes,
         return;
       }
 
-      const session = consultationManager.getSession(String(chatId));
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'image', fileId, reportType, receivedAt: new Date() };
       

@@ -754,7 +754,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       }
       return {
         nextState: FlowStates.ROLE_SELECT,
-        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect(session?.selectedPersona)}`
+        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect}`
       };
     }
     if (selection === '2' || selection.toLowerCase() === 'cancel') {
@@ -873,7 +873,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     if (!profileComplete && currentState === FlowStates.WELCOME) {
       return {
         nextState: FlowStates.ROLE_SELECT,
-        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect(session?.selectedPersona)}`
+        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect}`
       };
     }
 
