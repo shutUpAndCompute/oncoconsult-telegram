@@ -428,6 +428,7 @@ this.bot.on('message', async (msg) => {
 this.bot.on('photo', async (msg) => {
        try {
          const chatId = msg.chat.id;
+        const session = consultationManager.getSession(String(chatId));
          const photo = msg.photo[msg.photo.length - 1];
          const fileId = photo.file_id;
       
