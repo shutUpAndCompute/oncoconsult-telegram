@@ -74,7 +74,7 @@ Reply with number`,
 
 Reply with number`,
 
-  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ My Profile\n6️⃣ View Patient Profiles\n0️⃣ Switch Role\n\nReply with number`,
+  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ 👤 Profile\n\n0️⃣ Switch Role`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n5️⃣ Register Doctor\n6️⃣ Invite Doctor\n7️⃣ Back to Menu\n\nReply with number`,
   adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Reassign Doctor\n5️⃣ Remove Doctor\n6️⃣ Reject Doctor\n7️⃣ Message Doctor\n8️⃣ View Patient Profiles\n0️⃣ Back to Menu\n\nReply with number`,
   adminAssignDoctorInput: `🔗 *Assign Doctor*\n\nEnter consultation ID and doctor ID:\n\nFormat: CONSULTATION_ID DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
