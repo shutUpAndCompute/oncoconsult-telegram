@@ -200,7 +200,7 @@ Roles require admin approval. Select a role to apply for.`,
     return text;
   },
 
-  doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Profile\n3️⃣ My Patients\n\nOr reply to patient messages in consultation.`,
+  doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Patients\n3️⃣ 👤 Profile\n\nOr reply to patient messages in consultation.\n\n0️⃣ Switch Role`,
 
   roleSelect: `👤 *Select Your Role*
 
@@ -1863,6 +1863,38 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     return {
       nextState: FlowStates.DOCTOR_MENU,
       response: InteractiveMenus.profileLinkedPatients(patients)
+    };
+  }
+
+
+  handleDoctorMenuSelection(selection, phoneNumber, session) {
+    const flowMap = {
+      '1': () => this.handleDoctorStatus(phoneNumber, session),
+      '2': () => this.handleViewLinkedPatients(phoneNumber, session),
+      '3': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+    };
+
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu };
+  }
+
+  handleDoctorStatus(phoneNumber, session) {
+    const doctor = this.doctorRouter?.persistence?.getDoctorByPhone?.(phoneNumber) || 
+                   this.doctorRouter?.persistence?.getDoctors?.().find(d => d.telegramId === phoneNumber);
+    if (!doctor) return { nextState: FlowStates.DOCTOR_MENU, response: '❌ Doctor profile not found' };
+    
+    return {
+      nextState: FlowStates.DOCTOR_MENU,
+      response: `👨‍⚕️ *Doctor Status*
+
+Name: ${doctor.name}
+Specialty: ${doctor.specialty}
+Cancer Types: ${doctor.cancerTypes?.join(', ') || 'Any'}
+Fee: ₹${doctor.consultationFee || 1500}
+
+0. Back`
     };
   }
 
