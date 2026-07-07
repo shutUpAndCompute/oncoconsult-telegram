@@ -148,7 +148,7 @@ Reply with number`,
 
   mobileCollection: `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`,
 
-  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Remove Role\n6️⃣ My Doctors\n7️⃣ Switch Role\n8️⃣ Back to Menu\n\nReply with number`,
+  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n\n0️⃣ Back to Menu\n\nReply with number`,
 
   profileView: (profile, isCaregiver) => {
     let text = `📋 *Your Profile*\n\n`;
@@ -1172,12 +1172,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const flowMap = {
       '1': () => this.handleViewProfile(phoneNumber, session),
       '2': () => this.handleEditProfile(phoneNumber),
-      '3': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: InteractiveMenus.roleApplication }),
-      '4': () => this.handleMyRoles(phoneNumber),
-      '5': () => ({ nextState: FlowStates.PROFILE_REMOVE_ROLE, response: InteractiveMenus.profileRemoveRole }),
-      '6': () => this.handleViewMyDoctors(phoneNumber, session),
-      '7': () => this.handleSwitchRole(phoneNumber, session),
-      '8': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
 
     const handler = flowMap[selection];
