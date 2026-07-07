@@ -33,12 +33,12 @@ oncoconsult-telegram/
 ## Data Flow Summary
 
 ### Patient Journey
-```
-/start → WELCOME → (profile incomplete?) → ROLE_SELECT → PROFILE → 
-CAREGIVER_AUTH (if caregiver) → CAREGIVER_CONSENT_ACK → 
-MAIN MENU → CANCER_TYPE → PENDING_CONSULTATION → BILLING → PAYMENT_PENDING → 
-DATA_SHARING_CONSENT → CONSULTATION → (after payment) → CONNECT TO DOCTOR
-```
+ ```
+ /start → WELCOME → (profile incomplete?) → ROLE_SELECT → PROFILE → 
+ CAREGIVER_AUTH (if caregiver) → CAREGIVER_CONSENT_ACK → 
+ MAIN MENU (1. My Consultations, 2. Profile & Roles)
+   └── My Consultations (streamlined): cancer_type if missing → report_upload if missing → billing
+ ```
 
 ### Doctor Journey  
 ```

@@ -11,6 +11,10 @@ class DoctorRouter {
     return this.persistence.getDoctors();
   }
 
+  getAvailableDoctors(cancerType) {
+    return this.findAvailableDoctor(cancerType);
+  }
+
   getSpecialization(cancerType) {
     return CancerSpecializations[cancerType?.toUpperCase()] || CancerSpecializations.GENERAL;
   }

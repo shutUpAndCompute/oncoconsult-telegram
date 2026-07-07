@@ -12,15 +12,15 @@
 
 ### Findings
 | Feature | Status | Notes |
-|---------|--------|-------|
-| Patient menu options | ✓ Pass | All 6 options functional |
-| Report upload types | ✓ Pass | 8 types: Pathology, Radiology, Lab Results, Prescription, Discharge Summary, Biopsy, Surgical, Other |
-| Admin commands | ✓ Pass | ADD_ADMIN, REMOVE_ADMIN, LIST_ADMINS, PAY, REGISTER, REMOVE_DOCTOR, APPROVE_DOCTOR, LIST_PENDING_DOCTORS, MSG_DOCTOR |
-| Doctor registration | ✓ Pass | /register menu flow with admin approval workflow |
-| Admin-Doctor messaging | ✓ Pass | MSG_DOCTOR and MSG_ADMIN commands for paired communication |
-| Role switching | ✓ Pass | Option 6 leads to persona selection with all 4 roles |
-| Caregiver flow | ✓ Pass | Registration and consent flow present |
-| Pending consultations | ✓ Pass | Reports and cancer type stored before payment |
+ |---------|--------|-------|
+ | Patient menu options | ✓ Pass | Consolidated 2 options (My Consultations, Profile & Roles) |
+ | Report upload types | ✓ Pass | 8 types: Pathology, Radiology, Lab Results, Prescription, Discharge Summary, Biopsy, Surgical, Other |
+ | Admin commands | ✓ Pass | ADD_ADMIN, REMOVE_ADMIN, LIST_ADMINS, PAY, REGISTER, REMOVE_DOCTOR, APPROVE_DOCTOR, LIST_PENDING_DOCTORS, MSG_DOCTOR |
+ | Doctor registration | ✓ Pass | /register menu flow with admin approval workflow |
+ | Admin-Doctor messaging | ✓ Pass | MSG_DOCTOR and MSG_ADMIN commands for paired communication |
+ | Role switching | ✓ Pass | Option 0 from profile menu leads to persona selection |
+ | Caregiver flow | ✓ Pass | Registration and consent flow present |
+ | Pending consultations | ✓ Pass | Reports and cancer type stored before payment |
 
 ---
 
@@ -56,7 +56,7 @@
 - ✓ All interactive menus use consistent numbering format (1️⃣, 2️⃣, etc.)
 - ✓ Consistent emoji usage for visual categorization
 - ✓ Uniform Markdown formatting across responses
-- ✓ All 12 menus now include "0️⃣ Back to Menu" option
+- ✓ All menus include "0️⃣ Back to Menu" option
 
 ---
 
@@ -66,7 +66,7 @@
 |--------|-------|--------|
 | Maximum menu depth | 3 levels | ✓ Acceptable |
 | Back navigation | Working | ✓ "0" returns to parent menu from all states |
-| All menus have back | 12/12 | ✓ Fixed |
+| All menus have back | ✓ | ✅ Consistent
 | Status command (9) | All roles | ✓ Implemented |
 
 ---

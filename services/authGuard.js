@@ -9,7 +9,7 @@ const AUTH_MESSAGES = {
   ADMIN_WELCOME: getAdminWelcome(PersonaTypes.SUPER_ADMIN),
   PATIENT_WELCOME: `Patient Mode\n\nCommands:\n• Type menu for options\n• Ask questions any time\n• Upload reports and connect`,
     
-  CAREGIVER_WELCOME: `Caregiver Mode\n\n• Ask questions on behalf of your patient\n• Contact admin with: Talk to Admin`
+  CAREGIVER_WELCOME: `Caregiver Mode\n\n• Ask questions on behalf of your patient\n• Use My Consultations menu for all actions`
 };
 
 function createAuthGuard(bot) {

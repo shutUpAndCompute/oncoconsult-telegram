@@ -93,15 +93,13 @@ flowchart LR
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -116,16 +114,10 @@ flowchart LR
 ```
 
 **Main Menu:**
-```
-1️⃣ Select Cancer Type
-2️⃣ View Pricing
-3️⃣ Upload Reports
-4️⃣ My Consultations
-5️⃣ Admin Help
-6️⃣ Profile & Roles
-7️⃣ Clear History
-0️⃣ Back (N/A)
-```
+ ```
+ 1️⃣ My Consultations
+ 2️⃣ Profile & Roles
+ ```
 
 **Cancer Type Selection:**
 - 8 cancer types available (Breast, Lung, Prostate, etc.)
@@ -156,15 +148,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -204,15 +194,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -245,15 +233,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -312,15 +298,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -336,15 +320,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -409,15 +391,13 @@ classDiagram
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -441,15 +421,13 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 
@@ -478,15 +456,13 @@ sequenceDiagram
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 7. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
-| **Caregiver** | Caregiver Menu → 7. 👤 Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
-| **Doctor** | Doctor Menu → 2. My Profile | Limited - view status/patients only | No edit profile menu yet |
-| **Admin** | Admin Menu → 5. My Profile | View-only | No edit profile menu yet |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
+| **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
+| **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
 
 ### Known Issues
 - Doctor/Admin menus lack edit profile option
-- Profile menu missing "0. Back to Menu" (goes to profile_view instead)
-- Caregiver back option sends to personaSelect instead of main menu
 
 ---
 

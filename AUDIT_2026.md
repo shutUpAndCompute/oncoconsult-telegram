@@ -7,25 +7,21 @@
 ## 1. Role Lifecycles
 
 ### Patient Lifecycle (Onboarding → Exit)
-```
-/start → Profile (optional) → Main Menu → 
-  └── 1.Cancer Type → Billing → Payment → Consultation
-  └── 2.Pricing → Billing (view only)
-  └── 3.Upload Reports (anytime)
-  └── 4.My Consultations → Connect/Check Status/Withdraw (0=Back)
-  └── 5.Admin Help → Fallback state
-  └── 6.Clear History → /clear
-  └── 7.Profile & Roles → View/Edit/Apply
-Exit: /clear (0) or inactivity (30min)
-```
+ ```
+ /start → Profile (optional) → Main Menu → 
+   └── 1.My Consultations (streamlined: cancer type → reports → pricing → payment → consultation)
+   └── 2.Profile & Roles → View/Edit/Apply/Remove
+ Exit: /clear (0) or inactivity (30min)
+ ```
 
 ### Caregiver Lifecycle
-```
-/start → Role Selection (2) → Caregiver Auth (1) → 
-  Caregiver Profile Name → Patient Phone Link → Main Menu (caregiver context)
-  └── Same menu options as patient, acts on behalf of linked patient
-Exit: /clear (0) or inactivity (30min)
-```
+ ```
+ /start → Role Selection (2) → Caregiver Auth (1) → 
+   Caregiver Profile Name → Patient Phone Link → Main Menu (caregiver context)
+   └── 1.My Consultations (same consolidated flow)
+   └── 2.Profile & Roles (same as patient)
+ Exit: /clear (0) or inactivity (30min)
+ ```
 
 ### Doctor Lifecycle
 ```
@@ -138,22 +134,23 @@ flowchart TD
     C1 --> D[WELCOME Menu]
     C2 --> D
     
-    D --> E[CANCER_TYPE]
-    D --> F[BILLING]
-    D --> G[REPORT_UPLOAD]
-    D --> H[CONSULTATION]
-    D --> I[PROFILE_VIEW]
+    D --> E[CONSULTATION Flow (streamlined)]
+    E --> E1{Need cancer type?}
+    E1 -->|Yes| F[CANCER_TYPE]
+    E1 -->|No| G{Need reports?}
+    G -->|Yes| H[REPORT_UPLOAD]
+    G -->|No| I[BILLING → Payment]
+    F --> G
+    H --> I
     
-    H --> H1[Connect via payment]
-    H --> H2[Withdraw]
+    D --> J[PROFILE_VIEW]
     
-    I --> I1[View Profile]
-    I --> I2[Edit Profile]
-    I --> I3[Apply for Role]
-    I --> I4[My Roles]
-    I --> I5[Remove Role]
-    I --> I6[Switch Role]
-    I --> I7[Back to Menu]
+    J --> J1[View Profile]
+    J --> J2[Edit Profile]
+    J --> J3[Apply for Role]
+    J --> J4[My Roles]
+    J --> J5[Remove Role]
+    J --> J6[Back to Menu]
 ```
 
 ---

@@ -31,17 +31,12 @@ The bot automatically detects your role:
 
 ### Initial Setup
 1. Send any message - Auto-welcomed with main menu
-2. Select cancer type (option 1) or ask questions
-3. Upload medical reports (photos/documents)
-4. Request payment via the menu (option 3)
+2. Select "My Consultations" (option 1) and follow the streamlined flow
+3. Upload medical reports (photos/documents) when prompted
 
 ### Patient Menu
-- `1` - Select Cancer Type
-- `2` - View Pricing
-- `3` - Upload Reports
-- `4` - My Consultations
-- `5` - Talk to Admin
-- `6` - Switch Role
+- `1` - My Consultations (start new or manage existing)
+- `2` - Profile & Roles
 
 ### Upload Reports with Tagging
 After selecting option `3`, choose the document type:

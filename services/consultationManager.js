@@ -73,7 +73,7 @@ class ConsultationManager {
         query: null,
         doctorId: null,
         consultationId: null,
-        flowState: 'welcome',
+        flowState: FlowStates.WELCOME,
         media: [],
         invalidSelections: 0,
         patientProfile: null,
@@ -166,7 +166,6 @@ class ConsultationManager {
       caregiverRelationship: session.caregiverRelationship,
       caregiverReason: session.caregiverReason
     };
-    const preservedConsents = session.consentsGiven || false;
     
     this.releaseDoctorIfAssigned(phoneNumber);
     
@@ -180,13 +179,12 @@ class ConsultationManager {
       query: null,
       doctorId: null,
       consultationId: null,
-      flowState: 'welcome',
+      flowState: FlowStates.WELCOME,
       media: preservedMedia,
       invalidSelections: 0,
       patientProfile: preservedProfile,
       profileStep: null,
       ...preservedCaregiverData,
-      ...preservedConsents,
       selectedPersona: preservedPersona || 'patient'
     });
     this.persistence.saveSessions();
@@ -301,7 +299,8 @@ class ConsultationManager {
       caregiverName: session?.caregiverName || null,
       patientName: session?.patientName || null,
       caregiverRelationship: session?.caregiverRelationship || null,
-      caregiverReason: session?.caregiverReason || null
+      caregiverReason: session?.caregiverReason || null,
+      paymentTransaction: session?.paymentTransaction || null
     };
     this.consultations.set(consultationId, consultation);
     this.persistence.saveConsultations();

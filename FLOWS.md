@@ -36,13 +36,8 @@ welcome → main_menu
 ### Menu Navigation (After Profile Complete)
 ```
 main_menu
-├── 1 → cancer_type
-├── 2 → billing
-├── 3 → report_upload
-├── 4 → consultation
-├── 5 → admin_fallback
-├── 6 → clear_history
-├── 7 → profile_view → profile_menu
+├── 1 → consultation → (cancer_type if needed) → (report_upload if needed) → billing
+├── 2 → profile_view → profile_menu
     ├── 1 → view_profile
     ├── 2 → profile_edit → main_menu
     ├── 3 → role_application
@@ -95,14 +90,9 @@ welcome → caregiver_menu
 ### Caregiver Menu Navigation
 ```
 caregiver_menu
-├── 1 → cancer_type
-├── 2 → billing
-├── 3 → report_upload
-├── 4 → consultation
-├── 5 → admin_fallback
-├── 6 → clear_history
-├── 7 → profile_view → profile_menu (same as patient)
-└── 0 → welcome (should go to main_menu) ← ISSUE: goes to personaSelect
+├── 1 → consultation (same consolidated flow)
+├── 2 → profile_view (same as patient)
+└── 0 → welcome (back to main menu)
 ```
 
 **Issue**: Back navigation goes to personaSelect instead of main_menu
@@ -165,9 +155,9 @@ admin_menu
 2. **Back Navigation** → Multiple paths lead back to `welcome` or `main_menu`
 
 ### Missing Convergences
-1. **Profile → Main Menu** after completion (missing `main_menu` after consents)
-2. **Caregiver → Main Menu** on back (goes to wrong place)
-3. **Doctor Profile Integration** (not connected to session.profileStep)
+ 1. **Profile → Main Menu** after completion (missing `main_menu` after consents) - **Fixed**
+ 2. **Caregiver → Main Menu** on back (goes to wrong place) - **Fixed**
+ 3. **Doctor Profile Integration** (not connected to session.profileStep) - **Fixed**
 
 ---
 
@@ -223,7 +213,11 @@ flowchart TD
     CONSENTS -->|All confirmed| WELCOME[WELCOME]
     
     WELCOME --> MAIN[Main Menu]
-    MAIN -->|7| PROFILE_VIEW[PROFILE_VIEW]
+    MAIN -->|1| CONSULTATION_FLOW[Consultation Flow]
+    CONSULTATION_FLOW -->|Need cancer type| CANCER_TYPE[Cancer Type]
+    CONSULTATION_FLOW -->|Need reports| REPORT_UPLOAD_FLOW[Report Upload]
+    CONSULTATION_FLOW -->|Ready| CONSULTATION_MENU[My Consultations]
+    MAIN -->|2| PROFILE_VIEW[PROFILE_VIEW]
     PROFILE_VIEW --> PROFILE_MENU[PROFILE_MENU]
     
     style PLAT fill:#ffd

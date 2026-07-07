@@ -51,30 +51,17 @@ flowchart TD
     G --> H[Ask: City]
     H --> D
     
-    D --> I["1. Cancer Type\n2. Pricing\n3. Upload Reports\n4. My Consultations\n5. Admin Help"]
+    D --> I["1. My Consultations\n2. Profile & Roles"]
     
-    I -->|1| J[Cancer Types Menu]
-    I -->|2| K[Pricing Menu]
-    I -->|3| L[Wait for Photo/Document]
-    I -->|4| M[My Consultations Menu]
-    I -->|5| N[Admin Fallback]
+    I -->|1| M[My Consultations Menu - Consolidated Flow]
+    I -->|2| N[Profile Menu]
     
-    J --> O[Store cancer type in session]
-    K --> P{Request payment?}
-    P -->|Yes| Q[Notify admin\nSet PAYMENT_PENDING]
-    P -->|No| D
-    L --> R[Store fileId in session]
-    
-    M --> S["1. Connect (after payment)\n2. Check Payment Status\n3. Back to Menu"]
-    S -->|1| T{Payment verified?}
-    S -->|2| U{Payment transaction exists?}
-    
-    T -->|No| V[Ask to complete payment]
-    T -->|Yes| W[Find available doctor]
-    W --> X[Create consultation\nNotify doctor]
-    
-    U -->|No| Y[Request payment first]
-    U -->|Yes/No| Z[Check payment status\nUpdate paymentVerified flag]
+    M --> O{Has cancer type?}
+    O -->|No| P[Cancer Type Selection]
+    O -->|Yes| Q{Has reports?}
+    Q -->|No| R[Upload Medical Reports]
+    Q -->|Yes| S[Pricing Menu → Request Payment]
+    P --> Q
 ```
 
 ## Payment & Data Sharing Flow
@@ -336,19 +323,22 @@ Reply: PAY <phone> <amount> <researchDiscount%> <commercialDiscount%> <note>
 
 ## My Consultations Menu Options
 
-When patient selects option 4 (My Consultations) from main menu:
+When patient selects option 1 (My Consultations) from main menu:
 
 ```
 📋 *My Consultations*
 
-1️⃣ Connect (after payment)
+Start a new consultation or manage existing ones.
+
+1️⃣ Start New Consultation
 2️⃣ Check Payment Status
-3️⃣ Back to Menu
+3️⃣ Withdraw Consultation
+4️⃣ Back to Menu
 
 Reply with number
 ```
 
-**Option 1 - Connect:** Verifies payment and connects to available doctor if payment is complete
+**Option 1 - Start New Consultation:** Streamlined flow - cancer type → reports → pricing (consolidated)
 
 **Option 2 - Check Payment Status:** Shows current payment status and sets paymentVerified flag if payment confirmed
 

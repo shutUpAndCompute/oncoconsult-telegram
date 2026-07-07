@@ -22,10 +22,8 @@ const FlowStates = {
   PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
   PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
   PROFILE_CANCER_TYPE: 'profile_cancer_type',
-  PROFILE_DIAGNOSIS_DATE: 'profile_diagnosis_date',
   PROFILE_TREATING_HOSPITAL: 'profile_treating_hospital',
   PROFILE_TREATMENT_STATUS: 'profile_treatment_status',
-  PROFILE_ONCOLOGIST_NAME: 'profile_oncologist_name',
   PROFILE_MEDICAL_REPORTS: 'profile_medical_reports',
   PROFILE_EMERGENCY_CONTACT_NAME: 'profile_emergency_contact_name',
   PROFILE_EMERGENCY_CONTACT_NUMBER: 'profile_emergency_contact_number',
@@ -60,21 +58,16 @@ const FlowStates = {
   PROFILE_VIEW: 'profile_view',
   PROFILE_EDIT: 'profile_edit',
   ROLE_APPLICATION: 'role_application',
-  PROFILE_REMOVE_ROLE: 'profile_remove_role'
+  PROFILE_REMOVE_ROLE: 'profile_remove_role',
+  MOBILE_COLLECTION: 'mobile_collection',
+  PERSONA_SELECT: 'persona_select'
 };
 
 const InteractiveMenus = {
-  main: (persona = 'patient') => `🩺 *Oncology Consultation*\n\n1️⃣ Select Cancer Type\n2️⃣ View Pricing\n3️⃣ Upload Reports\n4️⃣ My Consultations\n5️⃣ Talk to Admin
-6️⃣ Clear History
-7️⃣ 👤 Profile & Roles
+  main: (persona = 'patient') => `🩺 *Oncology Consultation*\n\n1️⃣ My Consultations\n2️⃣ 👤 Profile & Roles\n\nReply with number`,
+  personaSelect: (currentPersona) => `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n1️⃣ Patient Mode\n2️⃣ Caregiver Mode\n0️⃣ Main Menu\n\nReply with number`,
 
-Reply with number`,
-
-  personaSelect: (currentPersona) => `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n1️⃣ Patient Mode\n2️⃣ Caregiver Mode\n0️⃣ Main Menu
-
-Reply with number`,
-
-  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ 👤 Profile\n\n0️⃣ Switch Role`,
+  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ 👤 Profile\n6️⃣ View Patient Profiles\n\n0️⃣ Switch Role`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n5️⃣ Register Doctor\n6️⃣ Invite Doctor\n7️⃣ Back to Menu\n\nReply with number`,
   adminDoctorManagement: `👨‍⚕️ *Doctor Management*\n\n1️⃣ List Doctors\n2️⃣ List Pending Doctors\n3️⃣ Assign Doctor\n4️⃣ Reassign Doctor\n5️⃣ Remove Doctor\n6️⃣ Reject Doctor\n7️⃣ Message Doctor\n8️⃣ View Patient Profiles\n0️⃣ Back to Menu\n\nReply with number`,
   adminAssignDoctorInput: `🔗 *Assign Doctor*\n\nEnter consultation ID and doctor ID:\n\nFormat: CONSULTATION_ID DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
@@ -88,7 +81,7 @@ Reply with number`,
   adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
   adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
   adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
-  adminReassignDoctorInput: `🔁 *Reassign Doctor*\n\nEnter: CONSULTATION_ID NEW_DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
+adminReassignDoctorInput: `🔁 *Reassign Doctor*\n\nEnter: CONSULTATION_ID NEW_DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
   profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
   doctorSelect: (doctors) => {
     let text = `👨‍⚕️ *Select Doctor*\n\n`;
@@ -102,7 +95,9 @@ Reply with number`,
     text += '\n0. Back to Menu';
     return text;
   },
-  consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. Start New Consultation\n2. View Profile\n3. Main Menu`,
+  caregiverPatientLink: `📲 *Link to Patient*\n\nEnter the patient's phone number (10 digits):\n\nExample: 9876543210\n\n0. Back to Menu`,
+  profileStateMenu: `📍 *Select Your State*\n\nEnter your state:`,
+  consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. My Consultations\n2. View Profile\n3. Main Menu`,
   platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is NOT emergency care. Call 108 or go to ER for emergencies\n2. Medical data shared ONLY with assigned doctors\n3. Socio-economic documents for discount eligibility (OPT-IN)\n4. Admin reviews discounts at their discretion\n5. Data kept only for consultation period\n\n*For discount eligibility:*\n- You may OPT-IN to share eligibility documents (ration card, Ayushman, etc.)\n- Non-consent = full fee but same medical consultation quality\n- You can request data deletion anytime via /delete\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' to exit.`,
 
   profileLinkedPatients: (patients) => {
@@ -133,13 +128,9 @@ Reply with number`,
 
 Linked to: ${patientName}
 
-1️⃣ Select Cancer Type
-2️⃣ View Pricing
-3️⃣ Upload Reports
-4️⃣ My Consultations
-5️⃣ Talk to Admin
-6️⃣ Clear History
-7️⃣ 👤 Profile & Roles
+1️⃣ My Consultations
+
+2️⃣ 👤 Profile & Roles
 
 0️⃣ Switch Role
 
@@ -179,7 +170,7 @@ Reply with number`,
     return text;
   },
 
-  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nAADHAAR:<number>\nADDRESS:<full address>\nCITY:<location>\n\nOr reply FIELD:VALUE on separate lines.`,
+  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nAADHAAR:<number>\nADDRESS:<full address>\nLOCATION:<city>\n\nOr reply FIELD:VALUE on separate lines.`,
 
   roleApplication: `📝 *Apply for Role*\n\n1️⃣ Doctor\n2️⃣ Caregiver\n3️⃣ Support\n4️⃣ Cancel
 
@@ -200,7 +191,7 @@ Roles require admin approval. Select a role to apply for.`,
     return text;
   },
 
-  doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Patients\n3️⃣ 👤 Profile\n\nOr reply to patient messages in consultation.\n\n0️⃣ Switch Role`,
+  doctorMenu: (doctorName, hasActive) => `👨‍⚕️ *Doctor Menu*\n\nHi ${doctorName}\n1️⃣ Status\n2️⃣ My Patients\n3️⃣ 👤 Profile\n\n${hasActive ? '_Has active consultation_' : ''}\n\nOr reply to patient messages in consultation.\n\n0️⃣ Switch Role`,
 
   roleSelect: `👤 *Select Your Role*
 
@@ -227,7 +218,7 @@ Complete profile after selection.`,
 
   confirmPayment: `✅ *Payment Status*\n\n1️⃣ Payment Completed\n2️⃣ Payment Pending\n3️⃣ Back to Menu\n\nReply "1" after making payment`,
 
-  consultation: `📋 *My Consultations*\n\n1️⃣ Connect (after payment)\n2️⃣ Check Payment Status\n3️⃣ Withdraw Consultation\n4️⃣ Back to Menu\n\nReply with number`,
+  consultation: `📋 *My Consultations*\n\nStart a new consultation or manage existing ones.\n\n1️⃣ Start New Consultation\n2️⃣ Check Payment Status\n3️⃣ Withdraw Consultation\n4️⃣ Back to Menu\n\nReply with number`,
 
   withdrawalConfirm: `⚠️ *Withdraw Consultation*\n\nThis will cancel your pending consultation. Your data will be saved but you'll need to re-request a consultation.\n\n1️⃣ Yes, withdraw\n2️⃣ No, keep consultation\n\nReply with number`,
 
@@ -289,7 +280,6 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.PROFILE_STATE: return '📍 Please enter your state:';
       case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
       case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: return '📎 Please upload eligibility documents for your selected discount category (ration card, Ayushman card, etc.):';
-      case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
       case FlowStates.PROFILE_CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.PROFILE_TREATING_HOSPITAL: return '🏥 Please enter the treating hospital name:';
       case FlowStates.PROFILE_TREATMENT_STATUS: return `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;
@@ -298,6 +288,8 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.PROFILE_EMERGENCY_CONTACT_RELATION: return '👨‍👩‍👧‍👦 Please enter your relationship to the patient:';
       case FlowStates.PROFILE_MEDICAL_REPORTS: return '📎 Please upload at least one medical report (biopsy, imaging, discharge summary):';
       case FlowStates.PROFILE_CONSENTS: return InteractiveMenus.consentsMenu;
+      case FlowStates.MOBILE_COLLECTION: return `📱 *Phone Verification*\n\nPlease share your mobile number using:\n/sharecontact or type /skip to continue`;
+      case FlowStates.PERSONA_SELECT: return InteractiveMenus.personaSelect(session?.selectedPersona);
       default: return InteractiveMenus.main(persona);
     }
   }
@@ -341,8 +333,11 @@ case FlowStates.CAREGIVER_AUTH:
         
       case FlowStates.BILLING:
         return this.handleBillingSelection(selection, phoneNumber);
-        
-case FlowStates.CONSULTATION:
+
+      case FlowStates.PERSONA_SELECT:
+        return this.handlePersonaSelection(selection, phoneNumber, session);
+
+      case FlowStates.CONSULTATION:
         return this.handleConsultationMenuSelection(selection, phoneNumber, session);
 
       case FlowStates.CONSULTATION_WITHDRAW:
@@ -440,24 +435,16 @@ case FlowStates.CONSULTATION:
     }
 
     const flowMap = {
-      '1': FlowStates.CANCER_TYPE,
-      '2': FlowStates.BILLING,
-      '3': FlowStates.REPORT_UPLOAD,
-      '4': FlowStates.CONSULTATION,
-      '5': FlowStates.ADMIN_FALLBACK,
-      '6': FlowStates.WELCOME,
-      '7': FlowStates.PROFILE_VIEW
+      '1': FlowStates.CONSULTATION,
+      '2': FlowStates.PROFILE_VIEW
     };
 
     const nextState = flowMap[selection];
     if (nextState) {
-      if (selection === '6') {
-        return { nextState, response: "🗑️ Type /clear to delete all chat history and end consultations." };
-      }
       return { 
         nextState, 
         response: this.getMessageOptions(nextState, 'patient')
-};
+      };
     }
 
     return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
@@ -577,15 +564,9 @@ Please enter your full name:`
   }
 
   handleCaregiverMenuSelection(selection, phoneNumber, session) {
-    const mainMenu = InteractiveMenus.main('caregiver');
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.CANCER_TYPE, response: InteractiveMenus.cancerTypes }),
-      '2': () => ({ nextState: FlowStates.BILLING, response: InteractiveMenus.billing }),
-      '3': () => ({ nextState: FlowStates.REPORT_UPLOAD, response: '📎 Send your diagnostic report (image/PDF)' }),
-      '4': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
-      '5': () => ({ nextState: FlowStates.ADMIN_FALLBACK, response: this.handleAdminFallback(phoneNumber, '') }),
-      '6': () => ({ nextState: FlowStates.WELCOME, response: '🗑️ Type /clear to delete all chat history and end consultations.' }),
-      '7': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
       '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
     
@@ -637,13 +618,37 @@ Please enter your full name:`
 
   async handleConsultationMenuSelection(selection, phoneNumber, session) {
     if (selection === '1') {
-      return this.handleConsultationRequest(phoneNumber, session);
+      return this.handleStartConsultation(phoneNumber, session);
     } else if (selection === '2') {
       return this.handlePaymentStatusCheck(phoneNumber, session);
     } else if (selection === '3') {
       return this.handleWithdrawalRequest(phoneNumber, session);
     }
     return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+  }
+
+  async handleStartConsultation(phoneNumber, session) {
+    const hasCancerType = session?.patientProfile?.cancerType || session?.cancerType;
+    const hasReports = session?.media?.length > 0 || session?.patientProfile?.medicalReports?.length > 0;
+    
+    if (!hasCancerType) {
+      return {
+        nextState: FlowStates.CANCER_TYPE,
+        response: InteractiveMenus.cancerTypes
+      };
+    }
+    
+    if (!hasReports) {
+      return {
+        nextState: FlowStates.REPORT_UPLOAD,
+        response: '📎 Please upload at least one medical report (biopsy, imaging, discharge summary):'
+      };
+    }
+    
+    return {
+      nextState: FlowStates.BILLING,
+      response: InteractiveMenus.billing
+    };
   }
 
   handleWithdrawalRequest(phoneNumber, session) {
@@ -884,7 +889,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     if ((!profileComplete || !consentsConfirmed) && ['cancer_type', 'billing', 'report_upload', 'consultation'].includes(currentState)) {
       return {
         nextState: FlowStates.WELCOME,
-        response: `⚠️ *Profile Incomplete*\n\nPlease complete your profile first:\n• Name: ${session.patientProfile?.name ? '✅' : '❌'}\n• Age: ${session.patientProfile?.age ? '✅' : '❌'}\n• Gender: ${session.patientProfile?.gender ? '✅' : '❌'}\n• Location: ${session.patientProfile?.location ? '✅' : '❌'}\n\nUse option 7 (Profile & Roles) to update.`
+        response: `⚠️ *Profile Incomplete*\n\nPlease complete your profile first:\n• Name: ${session.patientProfile?.name ? '✅' : '❌'}\n• Age: ${session.patientProfile?.age ? '✅' : '❌'}\n• Gender: ${session.patientProfile?.gender ? '✅' : '❌'}\n• Cancer Type: ${session.patientProfile?.cancerType ? '✅' : '❌'}\n• Medical Reports: ${session.patientProfile?.medicalReports?.length > 0 ? '✅' : '❌'}\n\nUse option 2 (Profile & Roles) to update.`
       };
     }
 
@@ -1233,6 +1238,29 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       nextState: FlowStates.PROFILE_VIEW,
       response: roleText
     };
+  }
+
+  handlePersonaSelection(selection, phoneNumber, session) {
+    const user = this.userRegistry?.getUser(phoneNumber) || this.userRegistry?.getUserByPhone(phoneNumber);
+    const approvedRoles = user?.approvedRoles || [];
+    
+    const roleMap = {
+      '1': 'patient',
+      '2': 'caregiver',
+      '0': null
+    };
+    
+    const newPersona = roleMap[selection];
+    if (newPersona === null) {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
+    
+    if (!approvedRoles.includes(newPersona) && newPersona !== 'patient') {
+      return { nextState: FlowStates.PERSONA_SELECT, response: '❌ You do not have this role approved.\n\n' + InteractiveMenus.personaSelect(session?.selectedPersona) };
+    }
+    
+    this.consultationManager.updateSession(phoneNumber, { selectedPersona: newPersona });
+    return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main(newPersona) };
   }
 
   handleViewProfile(phoneNumber, session) {
@@ -1762,7 +1790,7 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     const profile = session?.patientProfile || {};
 
     if (trimmed === '0') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.PROFILE, response: '🏠 Enter your full address:' };
     }
 
     if (!trimmed || !trimmed.match(/^\d{6}$/)) {
@@ -1783,7 +1811,7 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     const profile = session?.patientProfile || {};
 
     if (trimmed === '0') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.PROFILE, response: '📮 Enter your 6-digit pin code:' };
     }
 
     if (!trimmed || !trimmed.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
@@ -1795,7 +1823,7 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
 
     return {
       nextState: FlowStates.PROFILE_ONCOLOGIST_NAME,
-      response: InteractiveMenus.profileOncologistNameMenu || '👨‍⚕️ Enter your primary oncologist name:'
+      response: '👨‍⚕️ Enter your primary oncologist name:\n\n0. Skip'
     };
   }
 
@@ -1804,7 +1832,7 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     const profile = session?.patientProfile || {};
 
     if (trimmed === '0') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.PROFILE, response: '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip' };
     }
 
     profile.oncologistName = trimmed;
@@ -1843,7 +1871,7 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
 
   handleConsultationCompleted(selection, phoneNumber) {
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.ROLE_SELECT, response: InteractiveMenus.roleSelect }),
+      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
       '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };

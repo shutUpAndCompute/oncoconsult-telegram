@@ -115,10 +115,15 @@ class TelegramAdapter {
         // All other users (patients or unverified) - use last selected persona if profile exists
         if (session?.patientProfile) {
           const lastPersona = session.selectedPersona || persona.type;
-          const mediaCount = session?.media?.length || 0;
-          const consultation = consultationManager.getConsultationByPatient(String(chatId));
-          const consultationStatus = consultation ? ` | Consultation: ${consultation.status}` : '';
-          await this.bot.sendMessage(chatId, `Welcome back! Using last role: ${lastPersona}\nDocs: ${mediaCount}${consultationStatus}\n\n${InteractiveMenus.main(lastPersona)}`, { parse_mode: 'Markdown' });
+          const profile = session.patientProfile;
+          const profileCompleteness = [
+            profile.name ? '✅' : '❌',
+            profile.age ? '✅' : '❌',
+            profile.gender ? '✅' : '❌',
+            profile.cancerType ? '✅' : '❌',
+            profile.medicalReports?.length > 0 ? '✅' : '❌'
+          ].join(' ');
+          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${InteractiveMenus.main(lastPersona)}`, { parse_mode: 'Markdown' });
         } else {
           await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.roleSelect}`, { parse_mode: 'Markdown' });
         }
@@ -566,10 +571,10 @@ await this.bot.sendMessage(
       return;
     }
 
-    // Find consultation by doctor telegramId (stored in consultation.doctorId)
-    const doctorTelegramId = String(chatId);
+    // Find consultation by doctor telegramId (stored in consultation.doctorId as doctor ID)
+    const doctorId = doctor?.id;
     const consultation = Array.from(consultationManager.consultations.values())
-      .find(c => c.doctorId === doctorTelegramId && c.status === 'active');
+      .find(c => c.doctorId === doctorId && c.status === 'active');
 
     // Handle doctor closing consultation (either their own or by providing ID)
     const closeMatch = message.match(/^CLOSE\s+(\S+)$/i);
@@ -577,7 +582,7 @@ await this.bot.sendMessage(
       const consultationId = closeMatch[1];
       const targetConsultation = consultationManager.getConsultationById(consultationId);
       
-      if (targetConsultation && (targetConsultation.doctorId === doctorTelegramId || persona.isAdmin())) {
+      if (targetConsultation && (targetConsultation.doctorId === doctorId || persona.isAdmin())) {
         const success = consultationManager.closeConsultation(consultationId, 'doctor');
         if (success) {
           await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
