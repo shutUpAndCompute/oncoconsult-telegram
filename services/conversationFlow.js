@@ -586,7 +586,7 @@ Please enter your full name:`
       '5': () => ({ nextState: FlowStates.ADMIN_FALLBACK, response: this.handleAdminFallback(phoneNumber, '') }),
       '6': () => ({ nextState: FlowStates.WELCOME, response: '🗑️ Type /clear to delete all chat history and end consultations.' }),
       '7': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.personaSelect('caregiver') })
+      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
     };
     
     const handler = flowMap[selection];
