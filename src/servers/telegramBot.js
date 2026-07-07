@@ -120,7 +120,7 @@ class TelegramAdapter {
           const consultationStatus = consultation ? ` | Consultation: ${consultation.status}` : '';
           await this.bot.sendMessage(chatId, `Welcome back! Using last role: ${lastPersona}\nDocs: ${mediaCount}${consultationStatus}\n\n${InteractiveMenus.main(lastPersona)}`, { parse_mode: 'Markdown' });
         } else {
-          await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.personaSelect(persona.type)}`, { parse_mode: 'Markdown' });
+          await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.roleSelect}`, { parse_mode: 'Markdown' });
         }
       }
     });

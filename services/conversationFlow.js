@@ -739,11 +739,14 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       profile.platformTermsAccepted = true;
       this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
       
-      // Check if already has completed profile
+      // Check if already has completed profile OR existing patient data
       const profileComplete = session?.profileStep === 'completed';
-      const hasProfile = session?.patientProfile && session?.patientProfile?.name;
-      if (profileComplete || hasProfile) {
-        const selectedPersona = session?.selectedPersona || 'patient';
+      const hasExistingProfile = session?.patientProfile && 
+        (session.patientProfile.name || session.patientProfile.selectedPersona);
+      
+      // If user already has profile data, skip role selection and go to main menu
+      if (profileComplete || hasExistingProfile) {
+        const savedPersona = session?.selectedPersona || 'patient';
         return {
           nextState: FlowStates.WELCOME,
           response: `✅ Platform terms accepted.\n\n${this.getGreeting(phoneNumber)}`
