@@ -738,6 +738,17 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       const profile = session?.patientProfile || {};
       profile.platformTermsAccepted = true;
       this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
+      
+      // Check if already has completed profile
+      const profileComplete = session?.profileStep === 'completed';
+      const hasProfile = session?.patientProfile && session?.patientProfile?.name;
+      if (profileComplete || hasProfile) {
+        const selectedPersona = session?.selectedPersona || 'patient';
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `✅ Platform terms accepted.\n\n${this.getGreeting(phoneNumber)}`
+        };
+      }
       return {
         nextState: FlowStates.ROLE_SELECT,
         response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect(session?.selectedPersona)}`
