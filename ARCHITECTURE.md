@@ -98,7 +98,7 @@ flowchart LR
 ### Commands & Menus
 
 ```
-/start → Role Selection → Profile Flow
+/start → Platform Terms → Role Selection → Profile Flow → Consents → Main Menu
 ```
 
 **Main Menu:**
