@@ -173,16 +173,38 @@ admin_menu
 
 ## ISSUES TO FIX
 
-### Critical
-- [ ] Caregiver menu option 0 → goes to personaSelect instead of main_menu
-- [ ] Admin/My Profile → no profile data exists in session
-- [ ] Doctor profile steps don't integrate with existing profile flow
+## LOOP ANALYSIS
 
-### Minor
-- [ ] Profile menu only has View/Edit/Back (removed other features)
-- [ ] Existing patient with profile sees role_select after platform terms
+### Potential Loops
+1. **medical_reports step** - Accepts any input, no validation loop
+2. **consents step** - Must confirm all 3 consents, returns to menu until done
+3. **treatment_status step** - Invalid selection returns same prompt (loop until valid)
+4. **cancer_type step** - Invalid selection returns menu (loop until valid)
 
----
+### Blocking Steps (No Escape Without Completing)
+1. **PROFILE state** - No cancel option, must complete all steps
+2. **PROFILE_CONSENTS state** - Must accept all 3 consents to advance
+3. **PAYMENT_PENDING** - User waits, no escape (0.Back exists)
+
+### Back Navigation Coverage
+| State | Back Nav? | Escape Hatch |
+|-------|-----------|--------------|
+| PLATFORM_TERMS | Yes (2 or cancel) | Exit to welcome |
+| PROFILE | No | Must complete all steps |
+| PROFILE_CONSENTS | Yes (CANCEL) | Reset session |
+| CONSULTATION | Yes (4.Back) | Withdraw flow |
+| ADMIN_ALL | Yes (0.Back) | Return to admin menu |
+| DOCTOR_ALL | No | Must complete message |
+
+### Issues Fixed
+- ✅ Profile flow now has cancel at any step (CANCEL or 0)
+- ✅ Caregiver back navigation fixed to main_menu
+- ✅ All personas have consistent profile menu
+- ✅ Doctor menu has profile access (3.Profile)
+
+### Remaining Issues
+- Admin profile_view shows empty profile (no userRegistry integration)
+- Doctor profile uses separate flow from patient profile
 
 ## STATE FLOW DIAGRAM
 

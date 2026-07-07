@@ -962,6 +962,16 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const step = session.profileStep;
     const trimmed = message.trim();
 
+    // Allow cancel at any profile step
+    if (trimmed.toLowerCase() === 'cancel' || trimmed === '0') {
+      const result = this.consultationManager.resetSession(phoneNumber);
+      const doctorNote = result.doctorId ? `\nDoctor ${result.doctorId} has been released.` : '';
+      return {
+        nextState: FlowStates.WELCOME,
+        response: `❌ Profile cancelled.\n${doctorNote}\n\n${InteractiveMenus.roleSelect}`
+      };
+    }
+
     if (!trimmed) {
       return { nextState: FlowStates.PROFILE, response: 'Please provide a valid input.', data: {} };
     }
