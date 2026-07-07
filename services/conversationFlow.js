@@ -202,14 +202,16 @@ Roles require admin approval. Select a role to apply for.`,
 
   doctorMenu: `👨‍⚕️ *Doctor Menu*\n\n1️⃣ Status\n2️⃣ My Profile\n3️⃣ My Patients\n\nOr reply to patient messages in consultation.`,
 
-  roleSelect: `👤 *Role Selection*
+  roleSelect: `👤 *Select Your Role*
 
-1️⃣ I am the patient
-2️⃣ I am helping someone else (caregiver)
+1️⃣ Patient (need consultation)
+2️⃣ Caregiver (helping someone)
+3️⃣ Doctor (oncologist)
+4️⃣ Admin (clinic staff)
 
 0️⃣ Cancel
 
-Reply with number`,
+Complete profile after selection.`,
 
   caregiverAuth: `⚠️ *Caregiver Authorization*\n\nCaregivers can act on behalf of patients with additional acknowledgment.\n\n1️⃣ I am authorized to act on patient's behalf\n2️⃣ I am the patient myself\n\n0️⃣ Cancel\n\nReply with number`,
 
@@ -462,18 +464,68 @@ case FlowStates.CONSULTATION:
   }
 
   handleRoleSelection(selection, phoneNumber) {
-    if (selection === '0') {
+    if (selection === '0' || selection.toLowerCase() === 'cancel') {
       return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
     }
     if (selection === '1') {
       return this.startPatientProfile(phoneNumber);
     } else if (selection === '2') {
-      return {
-        nextState: FlowStates.CAREGIVER_AUTH,
-        response: InteractiveMenus.caregiverAuth
-      };
+      return this.startCaregiverProfile(phoneNumber);
+    } else if (selection === '3') {
+      return this.startDoctorProfile(phoneNumber);
+    } else if (selection === '4') {
+      return this.startAdminProfile(phoneNumber);
     }
     return { nextState: FlowStates.ROLE_SELECT, response: InteractiveMenus.roleSelect };
+  }
+
+  startCaregiverProfile(phoneNumber) {
+    this.consultationManager.updateSession(phoneNumber, {
+      flowState: FlowStates.PROFILE,
+      profileStep: 'caregiver_name',
+      selectedPersona: 'caregiver',
+      isCaregiver: false
+    });
+    return {
+      nextState: FlowStates.PROFILE,
+      response: `👤 *Caregiver Profile*
+
+1. Your full name (caregiver)
+2. Patient's phone number
+3. Your relationship to patient
+
+Please enter your full name:`
+    };
+  }
+
+  startDoctorProfile(phoneNumber) {
+    this.consultationManager.updateSession(phoneNumber, {
+      flowState: FlowStates.PROFILE,
+      profileStep: 'doctor_name',
+      selectedPersona: 'doctor',
+      isCaregiver: false
+    });
+    return {
+      nextState: FlowStates.PROFILE,
+      response: `👨‍⚕️ *Doctor Profile - Step 1/3*
+
+Please enter your full name:`
+    };
+  }
+
+  startAdminProfile(phoneNumber) {
+    this.consultationManager.updateSession(phoneNumber, {
+      flowState: FlowStates.PROFILE,
+      profileStep: 'admin_name',
+      selectedPersona: 'admin',
+      isCaregiver: false
+    });
+    return {
+      nextState: FlowStates.PROFILE,
+      response: `🛠️ *Admin Profile - Step 1/3*
+
+Please enter your full name:`
+    };
   }
 
   handleCaregiverAuthSelection(selection, phoneNumber) {

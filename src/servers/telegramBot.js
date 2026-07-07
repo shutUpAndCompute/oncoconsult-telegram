@@ -125,11 +125,6 @@ class TelegramAdapter {
       }
     });
 
-    this.bot.onText(/\/register/, async (msg) => {
-      const chatId = msg.chat.id;
-      await this.bot.sendMessage(chatId, InteractiveMenus.doctorRegister);
-    });
-
     this.bot.onText(/\/accept/, async (msg) => {
       const chatId = msg.chat.id;
       const doctors = doctorPersistence.getPendingDoctors();
