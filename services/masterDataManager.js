@@ -2,12 +2,18 @@ const fs = require('fs');
 const path = require('path');
 const { DoctorSpecialties, CancerSpecializations } = require('../models/doctor');
 
+let singletonInstance = null;
+
 class MasterDataManager {
   constructor(dataDir = process.env.DATA_DIR || './data') {
+    if (singletonInstance) {
+      return singletonInstance;
+    }
     this.dataDir = dataDir;
     this.masterFile = path.join(dataDir, 'masterdata.json');
     this.ensureDataDir();
     this.ensureMasterData();
+    singletonInstance = this;
   }
 
   ensureDataDir() {
@@ -21,6 +27,7 @@ class MasterDataManager {
       const data = fs.readFileSync(this.masterFile, 'utf8');
       this.data = JSON.parse(data);
     } catch (e) {
+      console.error('Failed to parse masterdata.json, using defaults:', e.message);
       this.data = this.getDefaultMasterData();
       this.save();
     }
@@ -44,7 +51,13 @@ class MasterDataManager {
   }
 
   save() {
-    fs.writeFileSync(this.masterFile, JSON.stringify(this.data, null, 2));
+    try {
+      const tempFile = this.masterFile + '.tmp';
+      fs.writeFileSync(tempFile, JSON.stringify(this.data, null, 2));
+      fs.renameSync(tempFile, this.masterFile);
+    } catch (e) {
+      console.error('MasterDataManager save error:', e);
+    }
   }
 
   getSpecialties() {

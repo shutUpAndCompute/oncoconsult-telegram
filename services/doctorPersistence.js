@@ -2,14 +2,20 @@ const fs = require('fs');
 const path = require('path');
 const { DoctorProfile, DoctorSpecialties, CancerSpecializations } = require('../models/doctor');
 
+let singletonInstance = null;
+
 class DoctorPersistence {
   constructor(dataDir = process.env.DATA_DIR || './data') {
+    if (singletonInstance) {
+      return singletonInstance;
+    }
     this.dataDir = dataDir;
     this.doctorsFile = path.join(dataDir, 'doctors.json');
     this.pendingDoctorsFile = path.join(dataDir, 'pending_doctors.json');
     this.ensureDataDir();
     this.doctors = this.loadDoctors();
     this.pendingDoctors = this.loadPendingDoctors();
+    singletonInstance = this;
   }
 
   ensureDataDir() {
@@ -23,6 +29,7 @@ class DoctorPersistence {
       const data = fs.readFileSync(this.doctorsFile, 'utf8');
       return JSON.parse(data);
     } catch (e) {
+      console.error('Failed to parse doctors.json, starting empty:', e.message);
       return [];
     }
   }
@@ -33,16 +40,29 @@ class DoctorPersistence {
       const parsed = JSON.parse(data);
       return parsed.map(d => ({ ...d, createdAt: d.createdAt ? new Date(d.createdAt) : new Date() }));
     } catch (e) {
+      console.error('Failed to parse pending_doctors.json, starting empty:', e.message);
       return [];
     }
   }
 
   saveDoctors() {
-    fs.writeFileSync(this.doctorsFile, JSON.stringify(this.doctors, null, 2));
+    try {
+      const tempFile = this.doctorsFile + '.tmp';
+      fs.writeFileSync(tempFile, JSON.stringify(this.doctors, null, 2));
+      fs.renameSync(tempFile, this.doctorsFile);
+    } catch (e) {
+      console.error('DoctorPersistence save error:', e);
+    }
   }
 
   savePendingDoctors() {
-    fs.writeFileSync(this.pendingDoctorsFile, JSON.stringify(this.pendingDoctors, null, 2));
+    try {
+      const tempFile = this.pendingDoctorsFile + '.tmp';
+      fs.writeFileSync(tempFile, JSON.stringify(this.pendingDoctors, null, 2));
+      fs.renameSync(tempFile, this.pendingDoctorsFile);
+    } catch (e) {
+      console.error('DoctorPersistence save error:', e);
+    }
   }
 
   getDoctors() {

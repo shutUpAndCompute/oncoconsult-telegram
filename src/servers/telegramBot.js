@@ -8,6 +8,7 @@ const MasterDataManager = require('../../services/masterDataManager');
 const DoctorPersistence = require('../../services/doctorPersistence');
 const { getAdminWelcome } = require('../../services/authGuard');
 const UserRegistry = require('../../services/userRegistry');
+const adminRegistry = require('../../services/adminRegistry');
 
 const doctorRouter = new DoctorRouter();
 const consultationManager = new ConsultationManager(doctorRouter);
@@ -15,7 +16,7 @@ const paymentService = new PaymentService();
 const masterData = new MasterDataManager();
 const doctorPersistence = new DoctorPersistence();
 const userRegistry = new UserRegistry();
-const conversationFlow = new ConversationFlow(consultationManager, doctorRouter, paymentService, userRegistry);
+const conversationFlow = new ConversationFlow(consultationManager, doctorRouter, paymentService, userRegistry, adminRegistry);
 
 const REPORT_TYPE_LABELS = {
   pathology: "Pathology",
@@ -38,9 +39,24 @@ class TelegramAdapter {
       [PersonaTypes.ADMIN]: 'Admin',
       [PersonaTypes.DOCTOR]: 'Doctor',
       [PersonaTypes.CAREGIVER]: 'Caregiver',
+      [PersonaTypes.SUPPORT]: 'Support',
       [PersonaTypes.PATIENT]: 'Patient'
     };
     return labels[type] || 'Unknown';
+  }
+
+  // A user's live-detected role (persona.type) is the precedence winner among
+  // everything they qualify for. If they've explicitly switched to a
+  // different role they're also authorized for (session.selectedPersona,
+  // validated against persona.availableRoles so this can never grant
+  // anything identifyPersona() wouldn't), honor that choice instead so
+  // Switch Role actually sticks across messages and /start calls.
+  getEffectiveRole(persona, session) {
+    const selected = session?.selectedPersona;
+    if (selected && persona.availableRoles?.includes(selected)) {
+      return selected;
+    }
+    return persona.type;
   }
 
   async initialize(token) {
@@ -72,19 +88,22 @@ class TelegramAdapter {
     this.bot.onText(/\/start/, async (msg) => {
       const chatId = msg.chat.id;
       const persona = new UserPersona(String(chatId));
-      const roleLabel = this.getRoleLabel(persona.type);
-      
       const session = consultationManager.getSession(String(chatId));
-      
-      // Check if mobile number is needed for new users
+      const effectiveRole = this.getEffectiveRole(persona, session);
+      const roleLabel = this.getRoleLabel(effectiveRole);
+
+      // Check if mobile number is needed for new users (based on true admin
+      // status, not the currently-selected role, so switching away from
+      // Admin Mode never re-triggers onboarding for an existing admin)
       if (!session.phoneNumber && !session.mobileSkipped && !persona.isAdmin()) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.MOBILE_COLLECTION });
         await this.bot.sendMessage(chatId, InteractiveMenus.mobileCollection, { parse_mode: 'Markdown' });
         return;
       }
-      
-      // Detected admin/support/doctor/caregiver - go directly to their role
-      if (persona.isAdmin() || persona.isSupport()) {
+
+      // Route by the effective role (selectedPersona if validly authorized,
+      // otherwise the live precedence winner) so Switch Role actually sticks.
+      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
         const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
         if (!inAdminFlow) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
@@ -93,7 +112,10 @@ class TelegramAdapter {
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
         await this.bot.sendMessage(chatId, `${InteractiveMenus.adminMenu}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-      } else if (persona.isCaregiver()) {
+      } else if (effectiveRole === PersonaTypes.SUPPORT) {
+        consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
+        await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
+      } else if (effectiveRole === PersonaTypes.CAREGIVER) {
         // Check if caregiver has linked patient
         const linkedPatientPhone = session?.linkedPatientPhone;
         if (!linkedPatientPhone) {
@@ -106,15 +128,19 @@ class TelegramAdapter {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.CAREGIVER_MENU });
           await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(linkedSession?.patientProfile?.name), { parse_mode: 'Markdown' });
         }
-      } else if (persona.isDoctor()) {
+      } else if (effectiveRole === PersonaTypes.DOCTOR) {
+        const doctors = doctorPersistence.getDoctors();
+        const doctor = doctors.find(d => d.telegramId === String(chatId) ||
+          String(d.phoneNumber).replace('+', '') === String(chatId));
         const activeConsultation = Array.from(consultationManager.consultations.values())
-          .find(c => c.doctorId === persona.type && c.status === 'active');
+          .find(c => c.doctorId === doctor?.id && c.status === 'active');
         const consultationInfo = activeConsultation ? `\nActive: ${activeConsultation.id}` : '';
+        consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
         await this.bot.sendMessage(chatId, `*${roleLabel} Mode*${consultationInfo}\n\nSend /menu for options or wait for consultation.\nUse MSG_ADMIN <message> to contact your admin.\n\n9. Status\n0. Switch Role`, { parse_mode: 'Markdown' });
       } else {
-        // All other users (patients or unverified) - use last selected persona if profile exists
+        // Patient (either genuinely a patient, or another role that switched
+        // to Patient Mode) - show the main menu if they have a profile
         if (session?.patientProfile) {
-          const lastPersona = session.selectedPersona || persona.type;
           const profile = session.patientProfile;
           const profileCompleteness = [
             profile.name ? '✅' : '❌',
@@ -123,7 +149,8 @@ class TelegramAdapter {
             profile.cancerType ? '✅' : '❌',
             profile.medicalReports?.length > 0 ? '✅' : '❌'
           ].join(' ');
-          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${InteractiveMenus.main(lastPersona)}`, { parse_mode: 'Markdown' });
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.WELCOME });
+          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${InteractiveMenus.main(effectiveRole)}`, { parse_mode: 'Markdown' });
         } else {
           await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.roleSelect}`, { parse_mode: 'Markdown' });
         }
@@ -295,7 +322,7 @@ class TelegramAdapter {
         await this.bot.sendMessage(userRegistry.getUserByPhone(phoneNumber)?.chatId || phoneNumber, 
           `💰 *Fee Determined*\n\nYour consultation fee: ₹${amount}\n${adminNote ? `_${adminNote}_` : ''}\n\nAdmin will send payment link shortly.`,
           { parse_mode: 'Markdown' }
-        ).catch(() => {});
+        ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         
         await this.bot.sendMessage(chatId, 
           `✅ Fee set: ₹${amount} for ${phoneNumber}${adminNote ? `\nNote: ${adminNote}` : ''}`,
@@ -340,44 +367,66 @@ this.bot.on('message', async (msg) => {
          if (text.startsWith('/')) return;
 
          const persona = new UserPersona(String(chatId));
+         const session = consultationManager.getSession(String(chatId));
+         const effectiveRole = this.getEffectiveRole(persona, session);
+         const inPersonaSelect = session?.flowState === FlowStates.PERSONA_SELECT;
 
-         if (persona.isDoctor()) {
+         // Doctors get intercepted here for MSG_ADMIN/CLOSE/reply-to-patient -
+         // except while they're actually sitting in their own menu (right
+         // after /start or /menu) or picking a new role, where plain text is
+         // a menu selection instead, not a message to forward.
+         const inDoctorMenu = session?.flowState === FlowStates.DOCTOR_MENU;
+         if (effectiveRole === PersonaTypes.DOCTOR && !inPersonaSelect && !inDoctorMenu) {
            await this.handleDoctor(chatId, text);
            return;
          }
+         if (effectiveRole === PersonaTypes.DOCTOR && inDoctorMenu) {
+           const flowResult = conversationFlow.handleDoctorMenuSelection(text, String(chatId), session);
+           if (flowResult.nextState) {
+             consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+           }
+           await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+           return;
+         }
 
-         const session = consultationManager.getSession(String(chatId));
-         const inPersonaSelect = session?.flowState === FlowStates.PERSONA_SELECT;
-         
-         if (persona.isAdmin() || persona.isSupport()) {
-           const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
-           
-           if (inAdminFlow) {
-             const flowResult = conversationFlow.handleAdminMenuSelection(text, String(chatId));
-             if (flowResult.nextState) {
-               consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
-             }
-             await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
-             return;
-        }
-        
-        if (inPersonaSelect || session?.flowState === FlowStates.WELCOME) {
-          const flowResult = conversationFlow.createFlowHandler(String(chatId), text);
-          if (flowResult.nextState && flowResult.response) {
-            consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
-            await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+         if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN)) {
+            const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
+
+            if (inAdminFlow) {
+              const flowResult = conversationFlow.handleAdminMenuSelection(text, String(chatId));
+              if (flowResult.nextState) {
+                consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+              }
+              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+              return;
+            }
           }
-          return;
-        }
-        
-        await this.handleAdmin(chatId, text, persona);
-        return;
-      }
+
+          if (!inPersonaSelect && effectiveRole === PersonaTypes.SUPPORT) {
+            const inSupportFlow = session?.flowState === FlowStates.SUPPORT_MENU;
+
+            if (inSupportFlow) {
+              const flowResult = conversationFlow.handleSupportMenuSelection(text, String(chatId));
+              if (flowResult.nextState) {
+                consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+              }
+              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+              return;
+            }
+          }
+
+          if (inPersonaSelect || session?.flowState === FlowStates.WELCOME) {
+            const flowResult = conversationFlow.createFlowHandler(String(chatId), text);
+            if (flowResult.nextState && flowResult.response) {
+              consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+            }
+            return;
+          }
 
       if (/^(status|9)$/i.test(text.trim())) {
-        const roleLabel = this.getRoleLabel(persona.type);
-        const selectedPersona = session?.selectedPersona || persona.type;
-        await this.bot.sendMessage(chatId, `Your current role: *${roleLabel}*\n\n${InteractiveMenus.personaSelect(selectedPersona)}`, { parse_mode: 'Markdown' });
+        const roleLabel = this.getRoleLabel(effectiveRole);
+        await this.bot.sendMessage(chatId, `Your current role: *${roleLabel}*\n\n${InteractiveMenus.personaSelect(effectiveRole, persona.availableRoles)}`, { parse_mode: 'Markdown' });
         return;
       }
       
@@ -471,10 +520,11 @@ Continue profile setup...` + InteractiveMenus.cancerTypes,
       if (consultation?.doctorId) {
         const doctor = doctorPersistence.getDoctorById(consultation.doctorId);
         if (doctor?.telegramId) {
+           console.error(`[NOTIFY] Doctor assign notify attempt: chatId=${doctor.telegramId}, consultationId=${consultationId}`);
           await this.bot.sendPhoto(doctor.telegramId, fileId, {
             caption: `📎 *${REPORT_TYPE_LABELS[reportType] || reportType} report from patient*\nPatient Chat ID: ${chatId}`,
             parse_mode: 'Markdown'
-          }).catch(() => {});
+          }).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         }
       }
 
@@ -511,10 +561,11 @@ this.bot.on('document', async (msg) => {
       if (consultation?.doctorId) {
         const doctor = doctorPersistence.getDoctorById(consultation.doctorId);
         if (doctor?.telegramId) {
+           console.error(`[NOTIFY] Doctor assign notify attempt: chatId=${doctor.telegramId}, consultationId=${consultationId}`);
           await this.bot.sendDocument(doctor.telegramId, fileId, {
             caption: `📎 *${REPORT_TYPE_LABELS[reportType] || reportType} document from patient*\nPatient Chat ID: ${chatId}`,
             parse_mode: 'Markdown'
-          }).catch(() => {});
+          }).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         }
       }
 
@@ -586,10 +637,11 @@ await this.bot.sendMessage(
         const success = consultationManager.closeConsultation(consultationId, 'doctor');
         if (success) {
           await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
+         console.error(`[NOTIFY] Close consultation notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
           await this.bot.sendMessage(targetConsultation.patientPhone, 
             `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 
             { parse_mode: 'Markdown' }
-          ).catch(() => {});
+          ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         } else {
           await this.bot.sendMessage(chatId, '❌ Cannot close this consultation.');
         }
@@ -663,7 +715,7 @@ await this.bot.sendMessage(
       if (user && userRegistry.approveRole(user.chatId, role, String(chatId))) {
         await this.bot.sendMessage(chatId, `✅ Role ${role} approved for ${phoneOrChatId}`);
         // Notify the user
-        await this.bot.sendMessage(user.chatId, `🎉 Your role application for ${role} has been approved!`).catch(() => {});
+        await this.bot.sendMessage(user.chatId, `🎉 Your role application for ${role} has been approved!`).catch(e => console.error(`[NOTIFY-FAIL]`, e));
       } else {
         await this.bot.sendMessage(chatId, `❌ User not found or role invalid.`);
       }
@@ -776,7 +828,7 @@ await this.bot.sendMessage(
       if (invitation.telegramId) {
         await this.bot.sendMessage(invitation.telegramId, 
           `📩 You've been invited to join as an oncology doctor at our clinic.\n\nName: ${name}\nSpecialty: ${specialty}\n\nSend /accept to activate your account.`
-        ).catch(() => {});
+        ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
       }
       return;
     }
@@ -848,17 +900,19 @@ await this.bot.sendMessage(
         // Notify the doctor
         const doctor = doctorPersistence.getDoctorById(doctorId);
         if (doctor?.telegramId) {
+           console.error(`[NOTIFY] Doctor assign notify attempt: chatId=${doctor.telegramId}, consultationId=${consultationId}`);
           await this.bot.sendMessage(doctor.telegramId, 
-            `📩 *New Consultation Assigned*
-
-Consultation: ${consultationId}
-Patient: ${consultation.patientPhone}
-Documents: ${consultation.media?.length || 0}
-
-Reply to start consultation.`,
+            `📩 *New Consultation Assigned*\n\nConsultation: ${consultationId}\nPatient: ${consultation.patientPhone}\nDocuments: ${consultation.media?.length || 0}\n\nReply to start consultation.`,
             { parse_mode: 'Markdown' }
-          ).catch(() => {});
+          ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         }
+         if (consultation?.patientPhone) {
+           console.error(`[NOTIFY] Patient assign notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
+           this.bot.sendMessage(consultation.patientPhone, 
+             `👨‍⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name} has been assigned to your consultation (ID: ${consultationId}).\n\nThey will review your case shortly.`,
+             { parse_mode: 'Markdown' }
+           ).catch(e => console.error(`[NOTIFY-FAIL] Patient assign notify failed for ${consultationId}:`, e));
+         }
       } else {
         await this.bot.sendMessage(chatId, '❌ Failed to assign doctor.');
       }
@@ -942,10 +996,11 @@ Reply to start consultation.`,
       const success = consultationManager.closeConsultation(consultationId, 'admin');
       if (success) {
         await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
+         console.error(`[NOTIFY] Close consultation notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
         await this.bot.sendMessage(consultation.patientPhone, 
           `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 
           { parse_mode: 'Markdown' }
-        ).catch(() => {});
+        ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
       } else {
         await this.bot.sendMessage(chatId, '❌ Failed to close consultation.');
       }
@@ -966,7 +1021,7 @@ Reply to start consultation.`,
             ? `✅ Your discount eligibility has been approved. Admin will apply the discount to your consultation.`
             : `❌ Discount verification failed: ${reason || 'Please check your documents and try again.'}`,
           { parse_mode: 'Markdown' }
-        ).catch(() => {});
+        ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
       } else {
         await this.bot.sendMessage(chatId, `❌ Patient ${patientPhone} not found.`);
       }
@@ -1044,7 +1099,7 @@ Reply to start consultation.`,
       const doctorTelegramId = doctor.telegramId || String(doctor.phoneNumber).replace('+', '');
       await this.bot.sendMessage(doctorTelegramId, 
         `📩 New Consultation\nPatient Chat ID: ${chatId}\nDocs: ${connectedMedia.length}`
-      ).catch(() => {});
+      ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
     }
     
     return { message: `Connected to Dr. ${doctor.name}.\nConsultation fee: ₹${doctor.fee}` };
@@ -1058,7 +1113,7 @@ Reply to start consultation.`,
     const isCaregiverNote = session.isCaregiver ? `\n\nNote: Caregiver session. Patient: ${session.patientName}` : '';
     return this.bot.sendMessage(doctorTelegramId, 
       `📩 New Consultation\nPatient Chat ID: ${patientChatId}\nDocs: ${connectedMedia.length}${isCaregiverNote}`
-    ).catch(() => {});
+    ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
   }
 
   classifyIntent(message) {

@@ -1,12 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 
+let singletonInstance = null;
+
 class UserRegistry {
   constructor(dataDir = process.env.DATA_DIR || './data') {
+    if (singletonInstance) {
+      return singletonInstance;
+    }
     this.dataDir = dataDir;
     this.usersFile = path.join(dataDir, 'users.json');
     this.ensureDataDir();
     this.users = this.loadUsers();
+    singletonInstance = this;
   }
 
   ensureDataDir() {
@@ -21,13 +27,16 @@ class UserRegistry {
       const parsed = JSON.parse(data);
       return parsed;
     } catch (e) {
+      console.error('Failed to parse users.json, starting empty:', e.message);
       return {};
     }
   }
 
   saveUsers() {
     try {
-      fs.writeFileSync(this.usersFile, JSON.stringify(this.users, null, 2));
+      const tempFile = this.usersFile + '.tmp';
+      fs.writeFileSync(tempFile, JSON.stringify(this.users, null, 2));
+      fs.renameSync(tempFile, this.usersFile);
     } catch (e) {
       console.error('UserRegistry save error:', e);
     }

@@ -6,6 +6,7 @@ const PersonaTypes = {
   ADMIN: 'admin',
   SUPPORT: 'support',
   SUPER_ADMIN: 'super_admin',
+  CAREGIVER: 'caregiver',
   UNKNOWN: 'unknown'
 };
 
@@ -52,11 +53,62 @@ function getDoctorPersistence() {
   return doctorPersistenceCache;
 }
 
+// Every role this identity currently qualifies for, most-privileged first.
+// Unlike identifyPersona() (which returns a single winner via early-return
+// precedence), this collects every match so a user who e.g. holds both
+// 'doctor' and 'admin' approvals can be offered both via Switch Role instead
+// of the second one being permanently unreachable.
+function getAvailableRoles(phoneNumber) {
+  const normalized = normalizePhone(phoneNumber);
+  const roles = new Set([PersonaTypes.PATIENT]);
+
+  if (SUPER_ADMIN_CHAT_IDS.includes(phoneNumber) || SUPER_ADMIN_CHAT_IDS.includes(normalized) ||
+      SUPER_ADMIN_PHONES.includes(phoneNumber) || SUPER_ADMIN_PHONES.includes(normalized)) {
+    roles.add(PersonaTypes.SUPER_ADMIN);
+  }
+
+  if (SUPPORT_PHONES.includes(phoneNumber) || SUPPORT_PHONES.includes(normalized)) {
+    roles.add(PersonaTypes.SUPPORT);
+  }
+
+  const userRegistry = getUserRegistry();
+  const user = userRegistry.getUser(phoneNumber) || userRegistry.getUserByPhone(phoneNumber);
+  if (user) {
+    (user.approvedRoles || []).forEach(r => roles.add(r));
+  }
+
+  const adminRegistry = getAdminRegistry();
+  const registryAdmin = adminRegistry.getAdmins().find(
+    a => normalizePhone(a.phoneNumber) === normalized ||
+         normalizePhone(a.telegramId) === normalized ||
+         a.phoneNumber === phoneNumber ||
+         a.telegramId === phoneNumber
+  );
+  if (registryAdmin) {
+    roles.add(registryAdmin.role === 'super_admin' ? PersonaTypes.SUPER_ADMIN : PersonaTypes.ADMIN);
+  }
+
+  const doctorPersistence = getDoctorPersistence();
+  const doctor = doctorPersistence.getDoctors().find(
+    d => normalizePhone(d.phoneNumber) === normalized ||
+         d.telegramId === phoneNumber ||
+         d.telegramId === normalized
+  );
+  if (doctor) roles.add(PersonaTypes.DOCTOR);
+
+  const displayOrder = [
+    PersonaTypes.SUPER_ADMIN, PersonaTypes.ADMIN, PersonaTypes.DOCTOR,
+    PersonaTypes.SUPPORT, PersonaTypes.CAREGIVER, PersonaTypes.PATIENT
+  ];
+  return displayOrder.filter(r => roles.has(r));
+}
+
 class UserPersona {
   constructor(phoneNumber) {
     this.phoneNumber = phoneNumber;
     this.type = this.identifyPersona(phoneNumber);
     this.permissions = this.getPermissions(this.type);
+    this.availableRoles = getAvailableRoles(phoneNumber);
   }
 
   identifyPersona(phoneNumber) {
@@ -157,11 +209,20 @@ class QueryRouter {
   }
 }
 
-module.exports = { 
-  UserPersona, 
-  PersonaTypes, 
+
+function clearCache() {
+  userRegistryCache = null;
+  adminRegistryCache = null;
+  doctorPersistenceCache = null;
+}
+
+module.exports = {
+  UserPersona,
+  PersonaTypes,
   SUPER_ADMIN_CHAT_IDS,
   SUPER_ADMIN_PHONES,
   SUPPORT_PHONES,
-  QueryRouter 
+  QueryRouter,
+  clearCache,
+  getAvailableRoles
 };

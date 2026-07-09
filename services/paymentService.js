@@ -47,19 +47,22 @@ class PaymentService {
         return value;
       }));
     } catch (e) {
+      console.error('Failed to parse payments.json, starting empty:', e.message);
       return new Map();
     }
   }
 
   savePayments() {
     try {
+      const tempFile = this.paymentsFile + '.tmp';
       const serialized = JSON.stringify(Array.from(this.payments.entries()), (key, value) => {
         if (value instanceof Date) {
           return { __date: value.toISOString() };
         }
         return value;
       });
-      fs.writeFileSync(this.paymentsFile, serialized);
+      fs.writeFileSync(tempFile, serialized);
+      fs.renameSync(tempFile, this.paymentsFile);
     } catch (e) {
       console.error('Payment save error:', e);
     }

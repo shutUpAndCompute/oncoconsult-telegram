@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+let singletonInstance = null;
+
 class PersistenceManager {
   constructor(dataDir = process.env.DATA_DIR || './data') {
     this.dataDir = dataDir;
@@ -30,6 +32,7 @@ class PersistenceManager {
         return value;
       }));
     } catch (e) {
+      console.error(`Failed to parse ${type}, starting empty:`, e.message);
       return new Map();
     }
   }
@@ -37,13 +40,15 @@ class PersistenceManager {
   save(type, data) {
     try {
       const file = type === 'sessions' ? this.sessionsFile : this.consultationsFile;
+      const tempFile = file + '.tmp';
       const serialized = JSON.stringify(Array.from(data.entries()), (key, value) => {
         if (value instanceof Date) {
           return { __date: value.toISOString() };
         }
         return value;
       });
-      fs.writeFileSync(file, serialized);
+      fs.writeFileSync(tempFile, serialized);
+      fs.renameSync(tempFile, file);
     } catch (e) {
       console.error('Persistence save error:', e);
     }
@@ -55,10 +60,14 @@ class PersistenceManager {
 
 class ConsultationManager {
   constructor(doctorRouter = null) {
+    if (singletonInstance) {
+      return singletonInstance;
+    }
     this.persistence = new PersistenceManager();
     this.sessions = this.persistence.sessions;
     this.consultations = this.persistence.consultations;
     this.doctorRouter = doctorRouter;
+    singletonInstance = this;
   }
 
   getSession(phoneNumber) {
@@ -73,7 +82,7 @@ class ConsultationManager {
         query: null,
         doctorId: null,
         consultationId: null,
-        flowState: FlowStates.WELCOME,
+        flowState: 'welcome',
         media: [],
         invalidSelections: 0,
         patientProfile: null,
@@ -179,7 +188,7 @@ class ConsultationManager {
       query: null,
       doctorId: null,
       consultationId: null,
-      flowState: FlowStates.WELCOME,
+      flowState: 'welcome',
       media: preservedMedia,
       invalidSelections: 0,
       patientProfile: preservedProfile,
@@ -258,6 +267,21 @@ class ConsultationManager {
       consultation.adminAssigned = adminPhone;
       consultation.assignedAt = new Date();
       this.persistence.saveConsultations();
+    }
+  }
+
+  reassignDoctor(consultationId, newDoctorId) {
+    const consultation = this.consultations.get(consultationId);
+    if (consultation && consultation.status === 'active') {
+      consultation.doctorId = newDoctorId;
+      consultation.reassignedAt = new Date();
+      this.persistence.saveConsultations();
+      
+      const session = this.sessions.get(consultation.patientPhone);
+      if (session) {
+        session.doctorId = newDoctorId;
+        this.persistence.saveSessions();
+      }
     }
   }
 

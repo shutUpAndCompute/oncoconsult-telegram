@@ -16,13 +16,16 @@ function loadAdmins() {
     const data = fs.readFileSync(adminsFile, 'utf8');
     return JSON.parse(data);
   } catch (e) {
+    console.error('Failed to parse admins.json, starting empty:', e.message);
     return [];
   }
 }
 
 function saveAdmins(admins) {
   try {
-    fs.writeFileSync(adminsFile, JSON.stringify(admins, null, 2));
+    const tempFile = adminsFile + '.tmp';
+    fs.writeFileSync(tempFile, JSON.stringify(admins, null, 2));
+    fs.renameSync(tempFile, adminsFile);
   } catch (e) {
     console.error('Failed to save admins:', e);
   }
@@ -91,10 +94,23 @@ function promoteToSuper(phoneNumber) {
   return null;
 }
 
+
+function isAdmin(phoneNumber) {
+  const admin = getAdmin(phoneNumber);
+  return admin && admin.active;
+}
+
+function isSuperAdmin(phoneNumber) {
+  const admin = getAdmin(phoneNumber);
+  return admin && admin.active && admin.role === 'super_admin';
+}
+
 module.exports = {
   getAdmin,
   getAdmins,
   addAdmin,
   removeAdmin,
-  promoteToSuper
+  promoteToSuper,
+  isAdmin,
+  isSuperAdmin
 };

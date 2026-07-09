@@ -93,7 +93,7 @@ flowchart LR
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -148,7 +148,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -194,7 +194,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -233,7 +233,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -298,7 +298,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -320,7 +320,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -391,7 +391,7 @@ classDiagram
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -421,7 +421,7 @@ flowchart TD
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
@@ -456,7 +456,7 @@ sequenceDiagram
 
 | Persona | Menu Location | Options | Notes |
 |---------|--------------|---------|-------|
-| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/My Doctors/Switch Role/Back | Full profile management |
+| **Patient** | Main Menu → 2. Profile & Roles | View/Edit/Apply Roles/Remove Role/Back | Full profile management |
 | **Caregiver** | Caregiver Menu → 2. Profile & Roles | Same as patient + caregiver fields | Acts on behalf of linked patient |
 | **Doctor** | Doctor Menu → 3. Profile | Limited - view status/patients only | No edit profile menu yet |
 | **Admin** | Admin Menu → 5. Profile | View-only | No edit profile menu yet |
