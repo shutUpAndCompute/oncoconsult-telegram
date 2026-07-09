@@ -120,18 +120,6 @@ class DoctorPersistence {
     return acceptedDoctor;
   }
 
-  registerDoctorRequest(doctorData) {
-    const request = {
-      id: `pend_doc_${Date.now()}`,
-      ...doctorData,
-      createdAt: new Date(),
-      status: 'pending'
-    };
-    this.pendingDoctors.push(request);
-    this.savePendingDoctors();
-    return request;
-  }
-
   approveDoctor(doctorId, approvedBy) {
     const pending = this.pendingDoctors.find(d => d.id === doctorId);
     if (!pending) return null;

@@ -13,9 +13,8 @@ const FlowStates = {
   CAREGIVER_PATIENT_LINK: 'caregiver_patient_link',
   CAREGIVER_MENU: 'caregiver_menu',
 PROFILE: 'profile',
-   PROFILE_PINCODE: 'profile_pincode',
-   PROFILE_DIAGNOSIS_DATE: 'profile_diagnosis_date',
-   PROFILE_ONCOLOGIST_NAME: 'profile_oncologist_name',
+   PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
+   PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
    PROFILE_CONSENTS: 'profile_consents',
    DATA_SHARING_CONSENT: 'data_sharing_consent',
    CANCER_TYPE: 'cancer_type',
@@ -43,6 +42,8 @@ PROFILE: 'profile',
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
   ADMIN_REASSIGN_DOCTOR_INPUT: 'admin_reassign_doctor_input',
   ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
+  ADMIN_VERIFY_PAYMENT_INPUT: 'admin_verify_payment_input',
+  ADMIN_VERIFY_DISCOUNT_INPUT: 'admin_verify_discount_input',
   ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
   DOCTOR_MENU: 'doctor_menu',
   PROFILE_VIEW: 'profile_view',
@@ -65,7 +66,7 @@ const InteractiveMenus = {
     return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
   },
 
-  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ 👤 Profile\n6️⃣ View Patient Profiles\n\n0️⃣ Switch Role`,
+  adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ 👤 Profile\n6️⃣ View Patient Profiles\n7️⃣ Verify Payment\n8️⃣ Verify Discount\n\n0️⃣ Switch Role`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n5️⃣ Register Doctor\n6️⃣ Invite Doctor\n7️⃣ Back to Menu\n\nReply with number`,
   adminDoctorManagement: `👨‍⚕️ *Doctor Management*
 
@@ -226,7 +227,7 @@ Complete profile after selection.`,
 
   cancerTypes: `🔍 *Select Cancer Type*\n\n1️⃣ Lung Cancer\n2️⃣ Breast Cancer\n3️⃣ Prostate Cancer\n4️⃣ Liver Cancer\n5️⃣ Pancreatic\n6️⃣ Ovarian\n7️⃣ Blood Cancer\n8️⃣ Other/General\n\n0️⃣ Cancel\n\nReply with number`,
 
-  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
+  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n3️⃣ Apply for Fee Discount\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
   consent: `📋 *Data Sharing & Discount Consent*\n\nTo qualify for any discounts, you MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, you will be considered for full-fee consultation.\n\nOur administrators will review your eligibility and determine applicable discounts at their discretion.\n\n1. ✅ I consent to share medical data and eligibility information for discount consideration\n2. ❌ No consent (proceed without discount eligibility - full fee)\n\nType CANCEL to exit.`,
 
@@ -290,9 +291,8 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
       case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT: return InteractiveMenus.adminReassignDoctorInput;
       case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
-      case FlowStates.PROFILE_PINCODE: return '📮 Please enter your 6-digit pin code:';
-      case FlowStates.PROFILE_DIAGNOSIS_DATE: return '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Back to Menu';
-      case FlowStates.PROFILE_ONCOLOGIST_NAME: return '👨‍⚕️ Enter your primary oncologist name:\n\n0. Back to Menu';
+      case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
+      case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: return '📎 Please upload eligibility documents for your selected discount category (ration card, Ayushman card, etc.):\n\n0. Skip';
       case FlowStates.DOCTOR_SELECT: return InteractiveMenus.doctorSelect([]);
       case FlowStates.SUPPORT_MENU: return InteractiveMenus.supportMenu;
       case FlowStates.PROFILE_CONSENTS: return InteractiveMenus.consentsMenu;
@@ -411,14 +411,11 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.PROFILE_REMOVE_ROLE:
         return this.handleRemoveRole(message, phoneNumber, session);
 
-      case FlowStates.PROFILE_PINCODE:
-        return this.handleProfilePincodeInput(message, phoneNumber, session);
+      case FlowStates.PROFILE_DISCOUNT_CATEGORY:
+        return this.handleDiscountCategorySelection(selection, phoneNumber, session);
 
-      case FlowStates.PROFILE_DIAGNOSIS_DATE:
-        return this.handleProfileDiagnosisDateInput(message, phoneNumber, session);
-
-      case FlowStates.PROFILE_ONCOLOGIST_NAME:
-        return this.handleProfileOncologistNameInput(message, phoneNumber, session);
+      case FlowStates.PROFILE_DISCOUNT_DOCUMENTS:
+        return this.handleDiscountDocumentsInput(message, phoneNumber, session);
 
 case FlowStates.DOCTOR_SELECT:
         return this.handleDoctorSelection(selection, phoneNumber, session);
@@ -516,21 +513,6 @@ Please enter your full name:`
     };
   }
 
-  startAdminProfile(phoneNumber) {
-    this.consultationManager.updateSession(phoneNumber, {
-      flowState: FlowStates.PROFILE,
-      profileStep: 'admin_name',
-      selectedPersona: 'admin',
-      isCaregiver: false
-    });
-    return {
-      nextState: FlowStates.PROFILE,
-      response: `🛠️ *Admin Profile - Step 1/3*
-
-Please enter your full name:`
-    };
-  }
-  
   handleAdminBootstrapSecret(message, phoneNumber) {
     const trimmed = message.trim();
     const bootstrapSecret = process.env.BOOTSTRAP_SECRET;
@@ -945,6 +927,9 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         data: { paymentRequested: true, summary: this.getPaymentRequestSummary(phoneNumber) }
       };
     }
+    if (selection === '3') {
+      return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
+    }
     return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
   }
 
@@ -1132,11 +1117,6 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
 Use option 1 to view your assigned patients.`
         };
-      case 'admin_name':
-        return {
-          nextState: FlowStates.WELCOME,
-          response: `❌ Invalid bootstrap secret. Admin access denied.\n\n${InteractiveMenus.roleSelect}`
-        };
       case 'caregiver_info':
         profile.caregiverName = trimmed;
         nextStep = 'patient_info';
@@ -1244,10 +1224,11 @@ Use option 1 to view your assigned patients.`
         break;
       case 'emergency_contact_relation':
         profile.emergencyContactRelation = trimmed;
-        nextStep = 'consents';
-        nextPrompt = InteractiveMenus.consentsMenu;
-        break;
-      case 'consents':
+        // Go straight to 'completed', which routes to the real consents
+        // screen (FlowStates.PROFILE_CONSENTS / handleProfileConsentsSelection).
+        // A prior version stopped at an intermediate 'consents' step that
+        // showed the same consent menu but discarded whatever the user
+        // replied with, wasting a turn before the real prompt.
         nextStep = 'completed';
         nextPrompt = '';
         break;
@@ -1565,6 +1546,8 @@ Use option 1 to view your assigned patients.`
       '4': () => ({ nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement }),
       '5': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
       '6': () => this.handleViewAllPatients(phoneNumber),
+      '7': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
+      '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('admin', getAvailableRoles(phoneNumber)) };
@@ -1833,9 +1816,16 @@ Use option 1 to view your assigned patients.`
     if (trimmed === '0') {
       return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
     }
+    // Synchronous manual verification (not the async gateway-status check) -
+    // parseMenuSelection/createFlowHandler are called synchronously by
+    // telegramBot.js, so an async handler here would return an
+    // unresolved Promise instead of {nextState, response}.
+    const verified = this.paymentService?.verifyPaymentManual(trimmed);
     return {
       nextState: FlowStates.ADMIN_MENU,
-      response: `💳 To verify payment, use: VERIFY_PAYMENT ${trimmed}\n\n0. Back to Menu`
+      response: verified
+        ? `✅ Payment verified: ${trimmed}\n\n${InteractiveMenus.adminMenu}`
+        : `❌ Payment not found or invalid: ${trimmed}\n\n${InteractiveMenus.adminMenu}`
     };
   }
 
@@ -2152,62 +2142,51 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     return success;
   }
 
-  handleProfilePincodeInput(message, phoneNumber, session) {
-    const trimmed = message.trim();
-    const profile = session?.patientProfile || {};
-
+  // Opt-in fee-discount eligibility flow, reached from the Billing menu.
+  // Separate from the mandatory profile walkthrough since eligibility
+  // sharing is opt-in per the platform terms (non-consent = full fee).
+  handleDiscountCategorySelection(selection, phoneNumber, session) {
+    const trimmed = String(selection).trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.PROFILE, response: '🏠 Enter your full address:' };
+      return { nextState: FlowStates.BILLING, response: InteractiveMenus.billing };
+    }
+    const categoryMap = {
+      '1': 'bpl_ews', '2': 'ayushman_bharat', '3': 'eshram', '4': 'farmer',
+      '5': 'defence', '6': 'paramilitary', '7': 'police', '8': 'government_employee',
+      '9': 'freedom_fighter_dependent', '10': 'senior_citizen', '11': 'widow_single_woman',
+      '12': 'pwd_udid', '13': 'sc_st', '14': 'minority_community', '15': 'rural_tribal',
+      '16': 'healthcare_worker', '17': 'teacher_anganwadi', '18': 'journalist', '19': 'none'
+    };
+    const category = categoryMap[trimmed];
+    if (!category) {
+      return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: `❌ Invalid selection.\n\n${InteractiveMenus.discountCategories}` };
     }
 
-    if (!trimmed || !trimmed.match(/^\d{6}$/)) {
-      return { nextState: FlowStates.PROFILE_PINCODE, response: '❌ Invalid pincode. Enter 6-digit pincode:\n\n0. Back to Menu' };
+    const profile = session?.patientProfile || {};
+    profile.discountCategory = category;
+
+    if (category === 'none') {
+      profile.discountVerificationStatus = 'not_applied';
+      this.consultationManager.updateSession(phoneNumber, { patientProfile: profile, flowState: FlowStates.BILLING });
+      return { nextState: FlowStates.BILLING, response: `✅ Proceeding at full fee.\n\n${InteractiveMenus.billing}` };
     }
 
-    profile.pinCode = trimmed;
-    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-
+    profile.discountVerificationStatus = 'pending';
+    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile, flowState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS });
     return {
-      nextState: FlowStates.PROFILE_STATE,
-      response: InteractiveMenus.profileStateMenu || '📍 Please enter your state:'
+      nextState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS,
+      response: `📎 Please upload eligibility documents for *${category.replace(/_/g, ' ')}* (ration card, Ayushman card, etc.) as a photo or file. Admin will review and apply the discount at their discretion.\n\n0. Skip`
     };
   }
 
-  handleProfileDiagnosisDateInput(message, phoneNumber, session) {
+  handleDiscountDocumentsInput(message, phoneNumber, session) {
     const trimmed = message.trim();
-    const profile = session?.patientProfile || {};
-
-    if (trimmed === '0') {
-      return { nextState: FlowStates.PROFILE, response: '📮 Enter your 6-digit pin code:' };
+    if (trimmed === '0' || trimmed.toLowerCase() === 'skip') {
+      return { nextState: FlowStates.BILLING, response: `ℹ️ You can upload eligibility documents anytime before payment from the Billing menu.\n\n${InteractiveMenus.billing}` };
     }
-
-    if (!trimmed || !trimmed.match(/^\d{2}\/\d{2}\/\d{4}$/)) {
-      return { nextState: FlowStates.PROFILE_DIAGNOSIS_DATE, response: '❌ Invalid date format. Enter diagnosis date (DD/MM/YYYY):\n\n0. Back to Menu' };
-    }
-
-    profile.diagnosisDate = trimmed;
-    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-
     return {
-      nextState: FlowStates.PROFILE_ONCOLOGIST_NAME,
-      response: '👨‍⚕️ Enter your primary oncologist name:\n\n0. Skip'
-    };
-  }
-
-  handleProfileOncologistNameInput(message, phoneNumber, session) {
-    const trimmed = message.trim();
-    const profile = session?.patientProfile || {};
-
-    if (trimmed === '0') {
-      return { nextState: FlowStates.PROFILE, response: '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip' };
-    }
-
-    profile.oncologistName = trimmed;
-    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-
-    return {
-      nextState: FlowStates.PROFILE_TREATING_HOSPITAL,
-      response: '🏥 Please enter the treating hospital name:'
+      nextState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS,
+      response: `📎 Please send your eligibility document as a photo or file, or type 0 to skip.`
     };
   }
 

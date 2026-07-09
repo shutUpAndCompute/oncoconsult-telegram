@@ -1,6 +1,13 @@
 const fs = require('fs');
 const path = require('path');
 
+// Matches FlowStates.WELCOME in conversationFlow.js. Kept as a local
+// constant instead of requiring conversationFlow.js here to avoid coupling
+// the persistence layer to the flow layer (and the circular-require risk
+// that would come with it, since conversationFlow.js is constructed with
+// a ConsultationManager instance).
+const WELCOME_STATE = 'welcome';
+
 let singletonInstance = null;
 
 class PersistenceManager {
@@ -82,7 +89,7 @@ class ConsultationManager {
         query: null,
         doctorId: null,
         consultationId: null,
-        flowState: 'welcome',
+        flowState: WELCOME_STATE,
         media: [],
         invalidSelections: 0,
         patientProfile: null,
@@ -188,7 +195,7 @@ class ConsultationManager {
       query: null,
       doctorId: null,
       consultationId: null,
-      flowState: 'welcome',
+      flowState: WELCOME_STATE,
       media: preservedMedia,
       invalidSelections: 0,
       patientProfile: preservedProfile,

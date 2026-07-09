@@ -59,6 +59,54 @@ class TelegramAdapter {
     return persona.type;
   }
 
+  // Shared by the photo/document handlers. Files were previously accepted
+  // from any sender and unconditionally filed as a patient's own medical
+  // report, regardless of who actually sent them. Returns true if this
+  // upload was fully handled here (caller should return without falling
+  // through to the default patient-report-upload path).
+  async handleIncomingMedia(chatId, session, effectiveRole, { kind, fileId, send }) {
+    if (effectiveRole === PersonaTypes.DOCTOR) {
+      const doctors = doctorPersistence.getDoctors();
+      const doctor = doctors.find(d => d.telegramId === String(chatId) ||
+        String(d.phoneNumber).replace('+', '') === String(chatId));
+      const consultation = doctor && Array.from(consultationManager.consultations.values())
+        .find(c => c.doctorId === doctor.id && c.status === 'active');
+      if (consultation) {
+        await send(consultation.patientPhone, {
+          caption: `📎 ${kind === 'photo' ? 'Photo' : 'Document'} from Dr. ${doctor.name}`,
+          parse_mode: 'Markdown'
+        }).catch(() => {});
+        consultationManager.addMessage(consultation.id, 'doctor', `[${kind}]`);
+        await this.bot.sendMessage(chatId, '✅ Sent to patient.');
+      } else {
+        await this.bot.sendMessage(chatId, 'No active consultation to send this to.');
+      }
+      return true;
+    }
+
+    if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN || effectiveRole === PersonaTypes.SUPPORT) {
+      await this.bot.sendMessage(chatId, `Files aren't used here. Use MSG_PATIENT <phone> <message> or MSG_DOCTOR <id> <message> to relay information instead.`);
+      return true;
+    }
+
+    // Discount-eligibility document upload (opt-in flow reached from Billing)
+    if (session?.flowState === FlowStates.PROFILE_DISCOUNT_DOCUMENTS) {
+      const profile = session.patientProfile || {};
+      profile.discountDocuments = profile.discountDocuments || [];
+      profile.discountDocuments.push({ id: `doc_${Date.now()}`, type: kind, fileId, uploadedAt: new Date() });
+      consultationManager.updateSession(String(chatId), { patientProfile: profile, flowState: FlowStates.BILLING });
+      const categoryLabel = profile.discountCategory?.replace(/_/g, ' ') || 'selected';
+      await this.bot.sendMessage(chatId,
+        `✅ Discount document received for *${categoryLabel}*. Admin will review it.\n\n${InteractiveMenus.billing}`,
+        { parse_mode: 'Markdown' }
+      );
+      await this.notifyAdminsDiscountDocument(String(chatId), categoryLabel, fileId);
+      return true;
+    }
+
+    return false;
+  }
+
   async initialize(token) {
     this.bot = new TelegramBot(token, {
       polling: false,
@@ -460,11 +508,6 @@ this.bot.on('message', async (msg) => {
         consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
         await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
 
-        // Notify admins of new user registrations
-        if (flowResult.nextState === FlowStates.DOCTOR_REGISTER && text?.match(/REGISTER_DOCTOR/i)) {
-          await this.notifyAdminsDoctorRequest(String(chatId), text);
-        }
-        
         if (flowResult.nextState === FlowStates.CAREGIVER_AUTH) {
           await this.notifyAdminsCaregiverRequest(String(chatId));
         }
@@ -486,6 +529,39 @@ this.bot.on('message', async (msg) => {
           const doctor = doctorPersistence.getDoctorById(updatedSession.doctorId);
           if (doctor) await this.notifyDoctorOfNewConsultation(String(chatId), updatedSession, doctor);
         }
+
+        // Menu-driven doctor assign (handleAdminAssignDoctorInput) - the raw
+        // ASSIGN_DOCTOR command already notifies the patient itself; this
+        // covers the menu path, which previously left the patient unaware.
+        if (flowResult.data?.doctorId && flowResult.data?.patientPhone && !flowResult.data?.newDoctorId) {
+          const doctor = doctorPersistence.getDoctorById(flowResult.data.doctorId);
+          await this.bot.sendMessage(flowResult.data.patientPhone,
+            `👨‍⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name || 'a specialist'} has been assigned to your consultation (${flowResult.data.consultationId}).`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
+        }
+
+        // Menu-driven doctor reassign (handleAdminReassignDoctorInput)
+        if (flowResult.data?.newDoctorId && flowResult.data?.oldDoctorId && flowResult.data?.patientPhone) {
+          const newDoctor = doctorPersistence.getDoctorById(flowResult.data.newDoctorId);
+          const oldDoctor = doctorPersistence.getDoctorById(flowResult.data.oldDoctorId);
+          await this.bot.sendMessage(flowResult.data.patientPhone,
+            `👨‍⚕️ *Doctor Reassigned*\n\nYour consultation has been reassigned to Dr. ${newDoctor?.name || 'a new specialist'}.`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
+          if (oldDoctor?.telegramId) {
+            await this.bot.sendMessage(oldDoctor.telegramId,
+              `ℹ️ Consultation ${flowResult.data.consultationId} has been reassigned to another doctor.`,
+              { parse_mode: 'Markdown' }
+            ).catch(() => {});
+          }
+          if (newDoctor?.telegramId) {
+            await this.bot.sendMessage(newDoctor.telegramId,
+              `📩 *New Consultation Assigned*\n\nConsultation: ${flowResult.data.consultationId}\nPatient: ${flowResult.data.patientPhone}\n\nReply to start consultation.`,
+              { parse_mode: 'Markdown' }
+            ).catch(() => {});
+          }
+        }
 } else {
            const response = await this.routeQuery(chatId, text, session);
            await this.bot.sendMessage(chatId, response.message, { parse_mode: 'Markdown' });
@@ -497,39 +573,22 @@ this.bot.on('message', async (msg) => {
      });
 
 this.bot.on('photo', async (msg) => {
+       const chatId = msg.chat.id;
        try {
-         const chatId = msg.chat.id;
         const session = consultationManager.getSession(String(chatId));
+         const persona = new UserPersona(String(chatId));
+         const effectiveRole = this.getEffectiveRole(persona, session);
          const photo = msg.photo[msg.photo.length - 1];
          const fileId = photo.file_id;
-      
-// Handle discount document upload for profile completion
-      if (session?.profileStep === 'discount_documents') {
-        const profile = session.patientProfile || {};
-        profile.discountDocuments = profile.discountDocuments || [];
-        profile.discountDocuments.push({
-          id: `doc_${Date.now()}`,
-          type: 'image',
-          fileId: null, // Will be set after we get the actual file
-          uploadedAt: new Date()
-        });
-        consultationManager.updateSession(String(chatId), { patientProfile: profile, profileStep: 'cancer_type', flowState: FlowStates.PROFILE });
-        const categoryLabel = profile.discountCategory?.replace(/_/g, ' ') || 'selected';
-        await this.bot.sendMessage(chatId,
-          `✅ Discount document upload acknowledged for *${categoryLabel}*.` + `
 
-Continue profile setup...` + InteractiveMenus.cancerTypes,
-          { parse_mode: 'Markdown' }
-        );
-        
-        // Notify admin for verification
-        await this.notifyAdminsDiscountDocument(String(chatId), categoryLabel, fileId || 'uploaded');
-        return;
-      }
+         const handled = await this.handleIncomingMedia(chatId, session, effectiveRole, {
+           kind: 'photo', fileId, send: (targetId, opts) => this.bot.sendPhoto(targetId, fileId, opts)
+         });
+         if (handled) return;
 
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'image', fileId, reportType, receivedAt: new Date() };
-      
+
       consultationManager.addMediaToConsultation(String(chatId), mediaEntry);
 
       // Forward to assigned doctor if exists
@@ -537,11 +596,10 @@ Continue profile setup...` + InteractiveMenus.cancerTypes,
       if (consultation?.doctorId) {
         const doctor = doctorPersistence.getDoctorById(consultation.doctorId);
         if (doctor?.telegramId) {
-           console.error(`[NOTIFY] Doctor assign notify attempt: chatId=${doctor.telegramId}, consultationId=${consultationId}`);
           await this.bot.sendPhoto(doctor.telegramId, fileId, {
             caption: `📎 *${REPORT_TYPE_LABELS[reportType] || reportType} report from patient*\nPatient Chat ID: ${chatId}`,
             parse_mode: 'Markdown'
-          }).catch(e => console.error(`[NOTIFY-FAIL]`, e));
+          }).catch(() => {});
         }
       }
 
@@ -562,15 +620,23 @@ await this.bot.sendMessage(
      });
 
 this.bot.on('document', async (msg) => {
+       const chatId = msg.chat.id;
        try {
-         const chatId = msg.chat.id;
          const document = msg.document;
          const fileId = document.file_id;
-      
+
       const session = consultationManager.getSession(String(chatId));
+      const persona = new UserPersona(String(chatId));
+      const effectiveRole = this.getEffectiveRole(persona, session);
+
+      const handled = await this.handleIncomingMedia(chatId, session, effectiveRole, {
+        kind: 'document', fileId, send: (targetId, opts) => this.bot.sendDocument(targetId, fileId, opts)
+      });
+      if (handled) return;
+
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'document', fileId, reportType, receivedAt: new Date() };
-      
+
       consultationManager.addMediaToConsultation(String(chatId), mediaEntry);
 
       // Forward to assigned doctor if exists
@@ -578,11 +644,10 @@ this.bot.on('document', async (msg) => {
       if (consultation?.doctorId) {
         const doctor = doctorPersistence.getDoctorById(consultation.doctorId);
         if (doctor?.telegramId) {
-           console.error(`[NOTIFY] Doctor assign notify attempt: chatId=${doctor.telegramId}, consultationId=${consultationId}`);
           await this.bot.sendDocument(doctor.telegramId, fileId, {
             caption: `📎 *${REPORT_TYPE_LABELS[reportType] || reportType} document from patient*\nPatient Chat ID: ${chatId}`,
             parse_mode: 'Markdown'
-          }).catch(e => console.error(`[NOTIFY-FAIL]`, e));
+          }).catch(() => {});
         }
       }
 
@@ -1205,22 +1270,6 @@ await this.bot.sendMessage(
       try {
         await this.bot.sendMessage(admin, 
           `⚠️ *Patient Abandoned*\n\nPatient: ${patientPhone}\nStage: ${stage}\nReason: ${reasonLabel}\nCancer: ${cancerType}\nDocs uploaded: ${docsCount}${caregiverNote}`,
-          { parse_mode: 'Markdown' }
-        );
-      } catch (error) {
-        console.error(`Failed to notify admin ${admin}:`, error);
-      }
-    }
-  }
-
-  async notifyAdminsDoctorRequest(chatId, message) {
-    const admins = process.env.ADMIN_PHONES ? process.env.ADMIN_PHONES.split(',') : [];
-    const match = message.match(/REGISTER_DOCTOR\s+"?([^"]+)"?\s+"?([^"]*)"?\s+(.*)$/i);
-    
-    for (const admin of admins) {
-      try {
-        await this.bot.sendMessage(admin,
-          `👨‍⚕️ *New Doctor Registration Request*\n\nChat ID: ${chatId}\n${match ? `Name: ${match[1]}\nSpecialty: ${match[2]}\nCancer Types: ${match[3]}` : 'Details pending submission'}\n\nAwaiting admin approval.`,
           { parse_mode: 'Markdown' }
         );
       } catch (error) {
