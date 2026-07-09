@@ -501,15 +501,20 @@ this.bot.on('message', async (msg) => {
          const inPersonaSelect = session?.flowState === FlowStates.PERSONA_SELECT;
 
          // Doctors get intercepted here for MSG_ADMIN/CLOSE/reply-to-patient -
-         // except while they're actually sitting in their own menu (right
-         // after /start or /menu) or picking a new role, where plain text is
-         // a menu selection instead, not a message to forward.
-         const inDoctorMenu = session?.flowState === FlowStates.DOCTOR_MENU;
-         if (effectiveRole === PersonaTypes.DOCTOR && !inPersonaSelect && !inDoctorMenu) {
+         // except while they're actually sitting in their own menu domain
+         // (DOCTOR_MENU, or the shared Profile/Role-application screens
+         // reachable from it via option 3) or picking a new role, where
+         // plain text is a menu selection instead, not a message to
+         // forward. Previously this only excluded DOCTOR_MENU itself, so a
+         // doctor who navigated to Profile (option 3) had their next reply
+         // swallowed by the MSG_ADMIN/CLOSE/forwarding logic instead of
+         // being processed as a profile menu selection.
+         const inDoctorDomain = session?.flowState === FlowStates.DOCTOR_MENU || SHARED_DOMAIN_STATES.has(session?.flowState);
+         if (effectiveRole === PersonaTypes.DOCTOR && !inPersonaSelect && !inDoctorDomain) {
            await this.handleDoctor(chatId, text);
            return;
          }
-         if (effectiveRole === PersonaTypes.DOCTOR && inDoctorMenu) {
+         if (effectiveRole === PersonaTypes.DOCTOR && session?.flowState === FlowStates.DOCTOR_MENU) {
            const flowResult = conversationFlow.handleDoctorMenuSelection(text, String(chatId), session);
            if (flowResult.nextState) {
              consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
@@ -517,6 +522,9 @@ this.bot.on('message', async (msg) => {
            await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
            return;
          }
+         // Other doctor-domain shared states (PROFILE_VIEW, PROFILE_EDIT,
+         // etc.) fall through to createFlowHandler below, whose
+         // state-driven dispatch routes them correctly.
 
          if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN)) {
             const currentFlowState = session?.flowState;

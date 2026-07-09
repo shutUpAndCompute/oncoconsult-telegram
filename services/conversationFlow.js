@@ -1377,7 +1377,7 @@ Use option 1 to view your assigned patients.`
       '3': () => ({ nextState: FlowStates.ROLE_APPLICATION, response: InteractiveMenus.roleApplication }),
       '4': () => this.handleMyRoles(phoneNumber),
       '5': () => ({ nextState: FlowStates.PROFILE_REMOVE_ROLE, response: InteractiveMenus.profileRemoveRole }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+      '0': () => this.routeToRoleHome(phoneNumber, this.getCurrentEffectiveRole(phoneNumber, session), session)
     };
 
     const handler = flowMap[selection];
@@ -1427,12 +1427,63 @@ Use option 1 to view your assigned patients.`
     };
   }
 
+  // Shared by handlePersonaSelection and any other "back to my menu" exit
+  // point reachable from more than one role (e.g. Profile & Roles), so
+  // cancelling out never dumps a non-patient role onto the generic patient
+  // WELCOME screen instead of their own home menu.
+  routeToRoleHome(phoneNumber, role, session) {
+    switch (role) {
+      case 'caregiver': {
+        const sess = session || this.consultationManager.getSession(phoneNumber);
+        return sess?.linkedPatientPhone
+          ? { nextState: FlowStates.CAREGIVER_MENU, response: InteractiveMenus.caregiverMenu(sess.patientName) }
+          : { nextState: FlowStates.CAREGIVER_PATIENT_LINK, response: InteractiveMenus.caregiverPatientLink };
+      }
+      case 'doctor': {
+        const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
+        const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
+        const hasActive = !!doctor && Array.from(this.consultationManager.consultations.values())
+          .some(c => c.doctorId === doctor.id && c.status === 'active');
+        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive) };
+      }
+      case 'admin':
+      case 'super_admin':
+        return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
+      case 'support':
+        return { nextState: FlowStates.SUPPORT_MENU, response: InteractiveMenus.supportMenu };
+      default:
+        return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main(role) };
+    }
+  }
+
+  // Same effective-role precedence telegramBot.js's getEffectiveRole uses:
+  // an explicit, still-authorized selectedPersona wins, else the identity's
+  // natural precedence winner.
+  getCurrentEffectiveRole(phoneNumber, session) {
+    const { UserPersona, getAvailableRoles } = require('../models/persona');
+    const persona = new UserPersona(phoneNumber);
+    const selected = session?.selectedPersona;
+    const availableRoles = getAvailableRoles(phoneNumber);
+    if (selected && availableRoles.includes(selected)) {
+      return selected;
+    }
+    // Self-declared caregivers (CAREGIVER_AUTH, not yet admin-approved) are
+    // tracked purely via session.isCaregiver, not userRegistry.approvedRoles
+    // - identifyPersona() would never resolve these as 'caregiver' on its
+    // own, so check the session flag before falling back to persona.type.
+    if (session?.isCaregiver) {
+      return 'caregiver';
+    }
+    return persona.type;
+  }
+
   handlePersonaSelection(selection, phoneNumber, session) {
     const { getAvailableRoles } = require('../models/persona');
     const availableRoles = getAvailableRoles(phoneNumber);
 
     if (selection === '0' || selection.toLowerCase() === 'cancel') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      const currentRole = this.getCurrentEffectiveRole(phoneNumber, session);
+      return this.routeToRoleHome(phoneNumber, currentRole, session);
     }
 
     const roleMap = {
@@ -1456,28 +1507,7 @@ Use option 1 to view your assigned patients.`
 
     // Route straight into the chosen role's actual menu, not just the
     // (role-agnostic) patient main menu InteractiveMenus.main() renders.
-    switch (newPersona) {
-      case 'caregiver': {
-        const sess = this.consultationManager.getSession(phoneNumber);
-        return sess?.linkedPatientPhone
-          ? { nextState: FlowStates.CAREGIVER_MENU, response: InteractiveMenus.caregiverMenu(sess.patientName) }
-          : { nextState: FlowStates.CAREGIVER_PATIENT_LINK, response: InteractiveMenus.caregiverPatientLink };
-      }
-      case 'doctor': {
-        const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
-        const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
-        const hasActive = !!doctor && Array.from(this.consultationManager.consultations.values())
-          .some(c => c.doctorId === doctor.id && c.status === 'active');
-        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive) };
-      }
-      case 'admin':
-      case 'super_admin':
-        return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
-      case 'support':
-        return { nextState: FlowStates.SUPPORT_MENU, response: InteractiveMenus.supportMenu };
-      default:
-        return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main(newPersona) };
-    }
+    return this.routeToRoleHome(phoneNumber, newPersona, this.consultationManager.getSession(phoneNumber));
   }
 
   handleViewProfile(phoneNumber, session) {
