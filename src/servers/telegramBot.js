@@ -53,6 +53,15 @@ class TelegramAdapter {
   // Switch Role actually sticks across messages and /start calls.
   getEffectiveRole(persona, session) {
     const selected = session?.selectedPersona;
+    // A privileged admin/super_admin must never be silently downgraded to
+    // 'patient' by a stale selectedPersona. That trapped users out of the
+    // admin panel with no way back (the Switch Role menu doesn't list Admin
+    // Mode for env-seeded admins, since their approvedRoles is empty), so
+    // always surface the admin identity unless they've explicitly chosen a
+    // different *authorized* non-patient view.
+    if (persona.isAdmin() && (selected === 'patient' || !selected)) {
+      return persona.type;
+    }
     if (selected && persona.availableRoles?.includes(selected)) {
       return selected;
     }
