@@ -1943,7 +1943,7 @@ Use option 1 to view your assigned patients.`
       text += '_No pending role applications_\n';
     } else {
       requests.forEach(r => {
-        text += `• ${r.phoneNumber}: ${r.appliedRoles?.join(', ') || 'unknown'}\n`;
+        text += `• ${r.chatId}: ${r.appliedRoles?.join(', ') || 'unknown'}\n`;
       });
     }
     return {
@@ -1966,7 +1966,7 @@ Use option 1 to view your assigned patients.`
     if (trimmed === '0') {
       return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
     }
-    const user = this.userRegistry.getUserByPhone(trimmed);
+    const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
       return { nextState: FlowStates.ADMIN_APPROVE_DOCTOR_INPUT, response: `❌ No user found for ${trimmed}\n\n0. Back` };
     }
@@ -2002,7 +2002,7 @@ Use option 1 to view your assigned patients.`
     if (trimmed === '0') {
       return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
     }
-    const user = this.userRegistry.getUserByPhone(trimmed);
+    const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
       return { nextState: FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT, response: `❌ No user found for ${trimmed}\n\n0. Back` };
     }
@@ -2029,7 +2029,7 @@ Use option 1 to view your assigned patients.`
     if (trimmed === '0') {
       return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
     }
-    const user = this.userRegistry.getUserByPhone(trimmed);
+    const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
       return { nextState: FlowStates.ADMIN_APPROVE_SUPPORT_INPUT, response: `❌ No user found for ${trimmed}\n\n0. Back` };
     }
