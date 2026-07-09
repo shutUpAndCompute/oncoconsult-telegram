@@ -567,7 +567,10 @@ Please enter your full name:`
         response: `📝 Please provide your (caregiver) full name:`
       };
     }
-    return this.startPatientProfile(phoneNumber);
+    if (selection === '2') {
+      return this.startPatientProfile(phoneNumber);
+    }
+    return { nextState: FlowStates.CAREGIVER_AUTH, response: `❌ Invalid selection.\n\n${InteractiveMenus.caregiverAuth}` };
   }
 
   handleCaregiverPatientLink(phoneNumber, message, session) {
@@ -670,8 +673,10 @@ Please enter your full name:`
       return this.handlePaymentStatusCheck(phoneNumber, session);
     } else if (selection === '3') {
       return this.handleWithdrawalRequest(phoneNumber, session);
+    } else if (selection === '4') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
     }
-    return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation}` };
   }
 
   async handleStartConsultation(phoneNumber, session) {
@@ -927,10 +932,13 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         data: { paymentRequested: true, summary: this.getPaymentRequestSummary(phoneNumber) }
       };
     }
+    if (selection === '2') {
+      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    }
     if (selection === '3') {
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
     }
-    return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    return { nextState: FlowStates.BILLING, response: `❌ Invalid selection.\n\n${InteractiveMenus.billing}` };
   }
 
   async createFlowHandler(phoneNumber, message) {
@@ -946,11 +954,21 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
 
+    // Profile-incomplete guard: only intercept when the user's input is NOT a
+    // valid main-menu option. Valid options ('1'/'2'/'0'/cancel) fall through
+    // to handleWelcomeSelection so its own validation governs; garbage stays
+    // at WELCOME (re-showing the main menu) instead of being silently
+    // advanced to Role Select. The consultation lock further down still blocks
+    // '1' (My Consultations) until the profile is complete.
     if (!profileComplete && currentState === FlowStates.WELCOME) {
-      return {
-        nextState: FlowStates.ROLE_SELECT,
-        response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.roleSelect}`
-      };
+      const trimmed = message.trim();
+      const validWelcome = ['1', '2', '0'].includes(trimmed) || trimmed.toLowerCase() === 'cancel';
+      if (!validWelcome) {
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.main()}`
+        };
+      }
     }
 
     // Lock consultation flow if profile incomplete or consents not confirmed
@@ -1796,8 +1814,12 @@ Use option 1 to view your assigned patients.`
     if (parts.length < 2) {
       return { nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: `❌ Format: PHONE approved/rejected [reason]\n\n0. Back` };
     }
-    const [patientPhone, status, ...reasonParts] = parts;
+    const [patientPhone, rawStatus, ...reasonParts] = parts;
+    const status = rawStatus.toLowerCase();
     const reason = reasonParts.join(' ') || '';
+    if (!['approved', 'rejected'].includes(status)) {
+      return { nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: `❌ Status must be 'approved' or 'rejected'.\n\nFormat: PHONE approved/rejected [reason]\n\n0. Back` };
+    }
     const patientSession = this.consultationManager.getSession(patientPhone);
     if (!patientSession?.patientProfile) {
       return { nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: `❌ Patient ${patientPhone} not found\n\n0. Back` };
