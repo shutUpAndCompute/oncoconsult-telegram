@@ -965,7 +965,16 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
   async createFlowHandler(phoneNumber, message) {
     const session = this.consultationManager.getSession(phoneNumber);
-    const profileComplete = this.isProfileComplete(session);
+    // A caregiver acting on behalf of a linked patient never fills out their
+    // own patientProfile (the patient already has one) - checking session
+    // directly would permanently lock them out of Consultation/Billing
+    // regardless of how complete the LINKED PATIENT's profile is. Mirror the
+    // same effective-session merge used by handleStartConsultation/
+    // getPaymentRequestSummary/etc. for this completeness/consent check.
+    const completenessCheckSession = (session?.isCaregiver && session?.linkedPatientPhone)
+      ? { ...session, ...this.consultationManager.getSession(session.linkedPatientPhone) }
+      : session;
+    const profileComplete = this.isProfileComplete(completenessCheckSession);
     const currentState = session.flowState || FlowStates.WELCOME;
 
     const platformTermsAccepted = session?.patientProfile?.platformTermsAccepted || false;
@@ -994,13 +1003,13 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     }
 
     // Lock consultation flow if profile incomplete or consents not confirmed
-    const consentsConfirmed = session?.patientProfile?.confirmedConsents?.teleconsultation &&
-      session?.patientProfile?.confirmedConsents?.dataSharing &&
-      session?.patientProfile?.confirmedConsents?.dpdp;
+    const consentsConfirmed = completenessCheckSession?.patientProfile?.confirmedConsents?.teleconsultation &&
+      completenessCheckSession?.patientProfile?.confirmedConsents?.dataSharing &&
+      completenessCheckSession?.patientProfile?.confirmedConsents?.dpdp;
     if ((!profileComplete || !consentsConfirmed) && ['cancer_type', 'billing', 'report_upload', 'consultation'].includes(currentState)) {
       return {
         nextState: FlowStates.WELCOME,
-        response: `⚠️ *Profile Incomplete*\n\nPlease complete your profile first:\n• Name: ${session.patientProfile?.name ? '✅' : '❌'}\n• Age: ${session.patientProfile?.age ? '✅' : '❌'}\n• Gender: ${session.patientProfile?.gender ? '✅' : '❌'}\n• Cancer Type: ${session.patientProfile?.cancerType ? '✅' : '❌'}\n• Medical Reports: ${session.patientProfile?.medicalReports?.length > 0 ? '✅' : '❌'}\n\nUse option 2 (Profile & Roles) to update.`
+        response: `⚠️ *Profile Incomplete*\n\nPlease complete your profile first:\n• Name: ${completenessCheckSession.patientProfile?.name ? '✅' : '❌'}\n• Age: ${completenessCheckSession.patientProfile?.age ? '✅' : '❌'}\n• Gender: ${completenessCheckSession.patientProfile?.gender ? '✅' : '❌'}\n• Cancer Type: ${completenessCheckSession.patientProfile?.cancerType ? '✅' : '❌'}\n• Medical Reports: ${completenessCheckSession.patientProfile?.medicalReports?.length > 0 ? '✅' : '❌'}\n\nUse option 2 (Profile & Roles) to update.`
       };
     }
 
@@ -1432,9 +1441,26 @@ Use option 1 to view your assigned patients.`
   // cancelling out never dumps a non-patient role onto the generic patient
   // WELCOME screen instead of their own home menu.
   routeToRoleHome(phoneNumber, role, session) {
+    const sess = session || this.consultationManager.getSession(phoneNumber);
+    // isCaregiver must track the CURRENT operating mode, not a permanent
+    // identity - every caregiver/patient-data merge downstream
+    // (handleStartConsultation, getPaymentRequestSummary,
+    // handleConsultationRequest, handleDoctorSelection) gates on
+    // isCaregiver && linkedPatientPhone together. Entering Caregiver Mode
+    // via Switch Role (as opposed to the original CAREGIVER_AUTH onboarding
+    // flow) never set isCaregiver, which would silently use this user's own
+    // (irrelevant) session data instead of the linked patient's. Just as
+    // importantly, switching AWAY from Caregiver Mode must clear it again,
+    // or a stale isCaregiver: true would bleed a leftover linkedPatientPhone
+    // into e.g. Patient Mode for someone who holds both roles.
+    if (role === 'caregiver' && !sess?.isCaregiver) {
+      this.consultationManager.updateSession(phoneNumber, { isCaregiver: true });
+    } else if (role !== 'caregiver' && sess?.isCaregiver) {
+      this.consultationManager.updateSession(phoneNumber, { isCaregiver: false });
+    }
+
     switch (role) {
       case 'caregiver': {
-        const sess = session || this.consultationManager.getSession(phoneNumber);
         return sess?.linkedPatientPhone
           ? { nextState: FlowStates.CAREGIVER_MENU, response: InteractiveMenus.caregiverMenu(sess.patientName) }
           : { nextState: FlowStates.CAREGIVER_PATIENT_LINK, response: InteractiveMenus.caregiverPatientLink };
