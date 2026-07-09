@@ -138,18 +138,24 @@ class TelegramAdapter {
       return true;
     }
 
-    // Discount-eligibility document upload (opt-in flow reached from Billing)
+    // Discount-eligibility document upload (opt-in flow reached from Billing).
+    // Eligibility describes the PATIENT being treated, not whoever uploads
+    // it - a caregiver acting for a linked patient must attach this to the
+    // patient's own profile, or admin verification would be checking (and
+    // the discount would apply to) the wrong person entirely.
     if (session?.flowState === FlowStates.PROFILE_DISCOUNT_DOCUMENTS) {
-      const profile = session.patientProfile || {};
+      const targetPhone = (session?.isCaregiver && session?.linkedPatientPhone) ? session.linkedPatientPhone : String(chatId);
+      const profile = consultationManager.getSession(targetPhone)?.patientProfile || {};
       profile.discountDocuments = profile.discountDocuments || [];
       profile.discountDocuments.push({ id: `doc_${Date.now()}`, type: kind, fileId, uploadedAt: new Date() });
-      consultationManager.updateSession(String(chatId), { patientProfile: profile, flowState: FlowStates.BILLING });
+      consultationManager.updateSession(targetPhone, { patientProfile: profile });
+      consultationManager.updateSession(String(chatId), { flowState: FlowStates.BILLING });
       const categoryLabel = profile.discountCategory?.replace(/_/g, ' ') || 'selected';
       await this.bot.sendMessage(chatId,
         `✅ Discount document received for *${categoryLabel}*. Admin will review it.\n\n${InteractiveMenus.billing}`,
         { parse_mode: 'Markdown' }
       );
-      await this.notifyAdminsDiscountDocument(String(chatId), categoryLabel, fileId);
+      await this.notifyAdminsDiscountDocument(targetPhone, categoryLabel, fileId);
       return true;
     }
 
@@ -357,7 +363,7 @@ class TelegramAdapter {
       const profile = session?.patientProfile || {};
       const isCaregiver = session?.isCaregiver || false;
       
-      const profileText = `📋 *Your Profile*\n\n*Name:* ${profile.name || 'Not set'}\n*Age:* ${profile.age || 'Not set'}\n*Gender:* ${profile.gender || 'Not set'}\n*Aadhaar:* ${profile.aadhaarNumber ? 'Provided' : 'Not set'}\n*Address:* ${profile.address || 'Not set'}\n*State:* ${profile.state || 'Not set'}\n*Cancer Type:* ${profile.cancerType || 'Not set'}\n*Treating Hospital:* ${profile.treatingHospital || 'Not set'}\n*Treatment Status:* ${profile.treatmentStatus || 'Not set'}\n*Medical Reports:* ${profile.medicalReports?.length || 0} uploaded\n*Emergency Contact:* ${profile.emergencyContactName || 'Not set'} (${profile.emergencyContactRelation || 'Not set'})\n*Discount Category:* ${profile.discountCategory || 'none'}\n*Discount Status:* ${profile.discountVerificationStatus || 'not_applied'}\n${isCaregiver && profile.caregiverName ? `\n*Caregiver Name:* ${profile.caregiverName}` : ''}\n${isCaregiver && profile.patientName ? `*Patient Name:* ${profile.patientName}` : ''}\n${isCaregiver && profile.caregiverRelationship ? `*Relationship:* ${profile.caregiverRelationship}` : ''}`;
+      const profileText = `📋 *Your Profile*\n\n*Name:* ${profile.name || 'Not set'}\n*Age:* ${profile.age || 'Not set'}\n*Gender:* ${profile.gender || 'Not set'}\n*Address:* ${profile.address || 'Not set'}\n*State:* ${profile.state || 'Not set'}\n*Cancer Type:* ${profile.cancerType || 'Not set'}\n*Treating Hospital:* ${profile.treatingHospital || 'Not set'}\n*Treatment Status:* ${profile.treatmentStatus || 'Not set'}\n*Medical Reports:* ${profile.medicalReports?.length || 0} uploaded\n*Emergency Contact:* ${profile.emergencyContactName || 'Not set'} (${profile.emergencyContactRelation || 'Not set'})\n*Discount Category:* ${profile.discountCategory || 'none'}\n*Discount Status:* ${profile.discountVerificationStatus || 'not_applied'}\n${isCaregiver && profile.caregiverName ? `\n*Caregiver Name:* ${profile.caregiverName}` : ''}\n${isCaregiver && profile.patientName ? `*Patient Name:* ${profile.patientName}` : ''}\n${isCaregiver && profile.caregiverRelationship ? `*Relationship:* ${profile.caregiverRelationship}` : ''}`;
       
       await this.bot.sendMessage(chatId, profileText, { parse_mode: 'Markdown' });
     });

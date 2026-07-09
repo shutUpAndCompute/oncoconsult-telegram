@@ -134,7 +134,7 @@ const patientRegistry = {
     const p = this.get(phoneNumber);
     const c = p?.confirmedConsents || {};
     if (!p) return false;
-    return !!(p.name && p.age && p.gender && p.aadhaarNumber && p.address && p.state &&
+    return !!(p.name && p.age && p.gender && p.address && p.state &&
       p.cancerType && p.treatingHospital && p.treatmentStatus &&
       p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
       p.medicalReports.length > 0 &&

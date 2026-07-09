@@ -169,7 +169,6 @@ Reply with number`,
     text += `*Name:* ${profile.name || 'Not set'}\n`;
     text += `*Age:* ${profile.age || 'Not set'}\n`;
     text += `*Gender:* ${profile.gender || 'Not set'}\n`;
-    text += `*Aadhaar:* ${profile.aadhaarNumber ? 'Provided' : 'Not set'}\n`;
     text += `*Address:* ${profile.address || 'Not set'}\n`;
     text += `*Pin Code:* ${profile.pinCode || 'Not set'}\n`;
     text += `*State:* ${profile.state || 'Not set'}\n`;
@@ -207,7 +206,7 @@ Reply with number`,
     return text;
   },
 
-  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nAADHAAR:<number>\nADDRESS:<full address>\nLOCATION:<city>\n\nOr reply FIELD:VALUE on separate lines.`,
+  profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nADDRESS:<full address>\nLOCATION:<city>\n\nOr reply FIELD:VALUE on separate lines.`,
 
   roleApplication: `📝 *Apply for Role*\n\n1️⃣ Doctor\n2️⃣ Caregiver\n3️⃣ Support\n4️⃣ Cancel
 
@@ -1080,7 +1079,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const p = session.patientProfile;
     const c = p?.confirmedConsents || {};
     if (!p) return false;
-    return !!(p.name && p.age && p.gender && p.aadhaarNumber && p.address && p.state &&
+    return !!(p.name && p.age && p.gender && p.address && p.state &&
       p.cancerType && p.treatingHospital && p.treatmentStatus &&
       p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
       p.medicalReports && p.medicalReports.length > 0 &&
@@ -1235,11 +1234,6 @@ Use option 1 to view your assigned patients.`
         break;
       case 'gender':
         profile.gender = trimmed;
-        nextStep = 'aadhaar';
-        nextPrompt = '🆔 Please enter your Aadhaar number (mandatory):';
-        break;
-      case 'aadhaar':
-        profile.aadhaarNumber = trimmed;
         nextStep = 'address';
         nextPrompt = '🏠 Please enter your full address (mandatory):';
         break;
@@ -2344,17 +2338,24 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: `❌ Invalid selection.\n\n${InteractiveMenus.discountCategories}` };
     }
 
-    const profile = session?.patientProfile || {};
-    profile.discountCategory = category;
+    // Eligibility describes the PATIENT being treated and billed, not
+    // whoever is submitting it - a caregiver applying on the patient's
+    // behalf must write this to the linked patient's own profile, or the
+    // discount would never actually apply to the patient's real bill.
+    const targetPhone = (session?.isCaregiver && session?.linkedPatientPhone) ? session.linkedPatientPhone : phoneNumber;
+    const targetProfile = this.consultationManager.getSession(targetPhone)?.patientProfile || {};
+    targetProfile.discountCategory = category;
 
     if (category === 'none') {
-      profile.discountVerificationStatus = 'not_applied';
-      this.consultationManager.updateSession(phoneNumber, { patientProfile: profile, flowState: FlowStates.BILLING });
+      targetProfile.discountVerificationStatus = 'not_applied';
+      this.consultationManager.updateSession(targetPhone, { patientProfile: targetProfile });
+      this.consultationManager.updateSession(phoneNumber, { flowState: FlowStates.BILLING });
       return { nextState: FlowStates.BILLING, response: `✅ Proceeding at full fee.\n\n${InteractiveMenus.billing}` };
     }
 
-    profile.discountVerificationStatus = 'pending';
-    this.consultationManager.updateSession(phoneNumber, { patientProfile: profile, flowState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS });
+    targetProfile.discountVerificationStatus = 'pending';
+    this.consultationManager.updateSession(targetPhone, { patientProfile: targetProfile });
+    this.consultationManager.updateSession(phoneNumber, { flowState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS });
     return {
       nextState: FlowStates.PROFILE_DISCOUNT_DOCUMENTS,
       response: `📎 Please upload eligibility documents for *${category.replace(/_/g, ' ')}* (ration card, Ayushman card, etc.) as a photo or file. Admin will review and apply the discount at their discretion.\n\n0. Skip`
