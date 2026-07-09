@@ -60,18 +60,35 @@ class TelegramAdapter {
   }
 
   async initialize(token) {
-    this.bot = new TelegramBot(token, { 
+    this.bot = new TelegramBot(token, {
       polling: false,
       request: {
-        agentOptions: {
-          keepAlive: true,
-          keepAliveMsecs: 1000
-        }
+        // No keepAlive: long-polling holds each getUpdates request open for
+        // up to 30s, then fires the next one immediately. A reused
+        // keep-alive socket that's gone idle across that gap is prone to
+        // being silently closed by intermediate network hops, surfacing as
+        // EFATAL/ECONNRESET on the next poll. A fresh connection per poll
+        // avoids that class of error entirely.
+        agentOptions: { keepAlive: false }
       }
     });
 
+    let consecutiveFatal = 0;
     this.bot.on('polling_error', (err) => {
-      const msg = err?.response?.body?.description || err.message || err;
+      const msg = err?.response?.body?.description || err.message || String(err);
+      if (err.code === 'EFATAL') {
+        consecutiveFatal++;
+        console.warn(`[polling_error]: EFATAL (${consecutiveFatal}x): ${msg.substring(0, 100)}`);
+        if (consecutiveFatal >= 5) {
+          consecutiveFatal = 0;
+          console.warn('[polling_error]: Restarting polling after repeated EFATAL');
+          this.bot.stopPolling()
+            .then(() => setTimeout(() => this.bot.startPolling({ params: { timeout: 30 } }), 3000))
+            .catch((e) => console.error('[polling_error]: Failed to restart polling:', e.message));
+        }
+        return;
+      }
+      consecutiveFatal = 0;
       if (msg.includes('timeout') || msg.includes('ETIMEDOUT') || msg.includes('EAI_AGAIN')) {
         console.warn(`[polling_error]: Network error (will retry): ${msg.substring(0, 100)}`);
       } else {
@@ -1029,8 +1046,18 @@ await this.bot.sendMessage(
     }
 
     const verifyPaymentMatch = trimmed.match(/^VERIFY_PAYMENT\s+(\S+)$/i);
+    if (verifyPaymentMatch && isAdmin) {
+      const [, txnId] = verifyPaymentMatch;
+      const verified = await paymentService.verifyPayment(txnId);
+      if (verified) {
+        await this.bot.sendMessage(chatId, `✅ Payment verified: ${txnId}`);
+      } else {
+        await this.bot.sendMessage(chatId, `❌ Payment not found or invalid: ${txnId}`);
+      }
+      return;
+    }
 
-    await this.bot.sendMessage(chatId, 
+    await this.bot.sendMessage(chatId,
       'Admin commands:\n1. Admin Menu\n2. LIST_DOCTORS\n3. LIST_MY_DOCTORS\n4. LIST_PENDING_DOCTORS\n5. REGISTER <name> <phone> <specialty> <cancers>\n6. INVITE_DOCTOR <name> <phone> <specialty> <cancers>\n7. REMOVE_DOCTOR <id>\n8. MSG_DOCTOR <id> <message>\n9. Status\n0. Switch Role\n\nCLOSE <consultation_id> to end consultation',
       { parse_mode: 'Markdown' }
     );

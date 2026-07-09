@@ -43,7 +43,6 @@ PROFILE: 'profile',
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
   ADMIN_REASSIGN_DOCTOR_INPUT: 'admin_reassign_doctor_input',
   ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
-  ADMIN_BOOTSTRAP_SECRET: 'admin_bootstrap_secret',
   ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
   DOCTOR_MENU: 'doctor_menu',
   PROFILE_VIEW: 'profile_view',
@@ -2282,8 +2281,9 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
 
 handleDoctorMenuSelection(selection, phoneNumber, session) {
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
-      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '1': () => this.handleDoctorStatus(phoneNumber, session),
+      '2': () => this.handleViewLinkedPatients(phoneNumber, session),
+      '3': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('doctor', getAvailableRoles(phoneNumber)) };
