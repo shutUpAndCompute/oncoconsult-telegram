@@ -481,7 +481,7 @@ this.bot.on('message', async (msg) => {
           }
 
           if (inPersonaSelect || session?.flowState === FlowStates.WELCOME) {
-            const flowResult = conversationFlow.createFlowHandler(String(chatId), text);
+            const flowResult = await conversationFlow.createFlowHandler(String(chatId), text);
             if (flowResult.nextState && flowResult.response) {
               consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
@@ -502,7 +502,7 @@ this.bot.on('message', async (msg) => {
         return;
       }
 
-      const flowResult = conversationFlow.createFlowHandler(String(chatId), text);
+      const flowResult = await conversationFlow.createFlowHandler(String(chatId), text);
 
       if (flowResult.nextState && flowResult.response) {
         consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });

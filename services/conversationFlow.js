@@ -302,7 +302,7 @@ getMessageOptions(state, persona = 'patient') {
     }
   }
 
-  parseMenuSelection(message, state, phoneNumber, session) {
+  async parseMenuSelection(message, state, phoneNumber, session) {
     const selection = message.trim();
     
     switch (state) {
@@ -933,7 +933,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
   }
 
-  createFlowHandler(phoneNumber, message) {
+  async createFlowHandler(phoneNumber, message) {
     const session = this.consultationManager.getSession(phoneNumber);
     const profileComplete = this.isProfileComplete(session);
     const currentState = session.flowState || FlowStates.WELCOME;
@@ -980,7 +980,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
 
-    const flowResult = this.parseMenuSelection(message, currentState, phoneNumber, session);
+    const flowResult = await this.parseMenuSelection(message, currentState, phoneNumber, session);
 
     if (flowResult.data?.cancerType) {
       this.consultationManager.updateSession(phoneNumber, {
