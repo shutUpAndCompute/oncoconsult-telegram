@@ -121,15 +121,18 @@ Reply with number`,
   platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is NOT emergency care. Call 108 or go to ER for emergencies\n2. Medical data shared ONLY with assigned doctors\n3. Socio-economic documents for discount eligibility (OPT-IN)\n4. Admin reviews discounts at their discretion\n5. Data kept only for consultation period\n\n*For discount eligibility:*\n- You may OPT-IN to share eligibility documents (ration card, Ayushman, etc.)\n- Non-consent = full fee but same medical consultation quality\n- You can request data deletion anytime via /delete\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' to exit.`,
 
   profileLinkedPatients: (patients) => {
+    // Deliberately no phone number here - a doctor communicates with
+    // patients through the app (reply-to-forward), never a raw contact
+    // detail that would let them reach a patient outside it.
     let text = `👥 *Linked Patients*\n\n`;
     if (!patients || patients.length === 0) {
       text += '_No linked patients found._\n';
     } else {
       patients.forEach((p, i) => {
-        text += `${i + 1}. ${p.name} (${p.phoneNumber})\n`;
+        text += `${i + 1}. ${p.name} - ${p.cancerType || 'unknown'}\n`;
       });
     }
-    text += '\nSelect patient to view profile or 0 to go back.';
+    text += '\nReply to this chat to message your active patient, or 0 to go back.';
     return text;
   },
   profileMyDoctors: (doctors) => {
@@ -187,6 +190,20 @@ Reply with number`,
       text += `*Relationship:* ${profile.caregiverRelationship}\n`;
     }
     text += `\n💡 Reply "EDIT" to modify your profile or "MENU" for options.`;
+    return text;
+  },
+
+  doctorProfileView: (doctor) => {
+    let text = `👨‍⚕️ *Your Doctor Profile*\n\n`;
+    text += `*Name:* ${doctor.name || 'Not set'}\n`;
+    text += `*Specialty:* ${doctor.specialty || 'Not set'}\n`;
+    text += `*Cancer Types Treated:* ${doctor.cancerTypes?.join(', ') || 'Not set'}\n`;
+    text += `*Hospital/Clinic:* ${doctor.hospital || 'Not set'}\n`;
+    text += `*City:* ${doctor.city || 'Not set'}\n`;
+    text += `*Qualifications:* ${doctor.qualifications?.join(', ') || 'Not set'}\n`;
+    text += `*Experience:* ${doctor.experience ? `${doctor.experience} years` : 'Not set'}\n`;
+    text += `*Consultation Fee:* ₹${doctor.consultationFee || 1500}\n`;
+    text += `\n💡 Reply "MENU" for options.`;
     return text;
   },
 
@@ -637,6 +654,8 @@ Please enter your full name:`
   // FlowStates.CONSULTATION flow, which requires (and would block on) a
   // patientProfile support agents don't have.
   getActiveConsultationsForSupport(phoneNumber) {
+    // No patient contact info here either - support relays via MSG_PATIENT/
+    // MSG_DOCTOR (app-mediated), not by reaching out directly.
     const active = Array.from(this.consultationManager.consultations.values())
       .filter(c => c.status === 'active');
     let text = `📊 *Active Consultations*\n\n`;
@@ -644,7 +663,7 @@ Please enter your full name:`
       text += `_No active consultations_\n`;
     } else {
       active.forEach(c => {
-        text += `• ${c.id}: ${c.patientPhone} - Dr. ${c.doctorId || 'unassigned'}\n`;
+        text += `• ${c.id} - Dr. ${c.doctorId || 'unassigned'}\n`;
       });
     }
     return {
@@ -1148,6 +1167,21 @@ async handlePaymentStatusCheck(phoneNumber, session) {
         break;
       case 'doctor_cancer_types':
         profile.cancerTypes = trimmed.toLowerCase().split(',').map(c => c.trim());
+        nextStep = 'doctor_hospital';
+        nextPrompt = '🏥 Enter your hospital/clinic name (mandatory):';
+        break;
+      case 'doctor_hospital':
+        profile.doctorHospital = trimmed;
+        nextStep = 'doctor_city';
+        nextPrompt = '📍 Enter your city (mandatory):';
+        break;
+      case 'doctor_city':
+        profile.doctorCity = trimmed;
+        nextStep = 'doctor_qualifications';
+        nextPrompt = '🎓 Enter your qualifications (comma-separated, e.g., MBBS, MD Oncology):';
+        break;
+      case 'doctor_qualifications':
+        profile.doctorQualifications = trimmed.split(',').map(q => q.trim()).filter(q => q);
         this.consultationManager.updateSession(phoneNumber, {
           patientProfile: profile,
           flowState: FlowStates.DOCTOR_MENU
@@ -1157,7 +1191,10 @@ async handlePaymentStatusCheck(phoneNumber, session) {
           telegramId: phoneNumber,
           name: profile.name,
           specialty: profile.specialty?.[0] || 'general',
-          cancerTypes: profile.cancerTypes || []
+          cancerTypes: profile.cancerTypes || [],
+          hospital: profile.doctorHospital || '',
+          city: profile.doctorCity || '',
+          qualifications: profile.doctorQualifications || []
         };
         this.consultationManager.doctorRouter?.persistence?.addDoctor(doctor);
         return {
@@ -1537,6 +1574,20 @@ Use option 1 to view your assigned patients.`
   }
 
   handleViewProfile(phoneNumber, session) {
+    // Show the profile matching whichever mode they're currently operating
+    // in (not just "are they a doctor at all"), so someone who holds both
+    // a doctor record and a patient profile sees the right one depending on
+    // which Switch Role mode they're actually in.
+    if (this.getCurrentEffectiveRole(phoneNumber, session) === 'doctor') {
+      const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
+      const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
+      if (doctor) {
+        return {
+          nextState: FlowStates.PROFILE_VIEW,
+          response: InteractiveMenus.doctorProfileView(doctor)
+        };
+      }
+    }
     const profile = session?.patientProfile || {};
     const isCaregiver = session?.isCaregiver || false;
     return {
@@ -1963,6 +2014,15 @@ Use option 1 to view your assigned patients.`
   }
 
   getDoctorApplications(phoneNumber) {
+    // Only super_admin can actually approve doctor/caregiver/support role
+    // requests (see the isSuperAdmin checks in the approve handlers below),
+    // so a regular admin has no need-to-know for applicants' contact IDs.
+    if (!this.isSuperAdminPhone(phoneNumber)) {
+      return {
+        nextState: FlowStates.ADMIN_ROLE_APPROVALS,
+        response: `❌ Only Super Admin can view/approve role applications.\n\n${InteractiveMenus.adminRoleApprovals}`
+      };
+    }
     const requests = this.userRegistry.getPendingRequests() || [];
     let text = '📋 *Role Applications*\n\n';
     if (requests.length === 0) {
@@ -2146,6 +2206,26 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
   }
 
+  // Contact info (patient/doctor phone or chat identifier) must only be
+  // visible to super_admin or the specific admin who is actually handling
+  // that record (e.g. the admin who assigned a doctor to this
+  // consultation) - not to admins in general. This prevents anyone from
+  // using the app's own admin tools to collect contact details and reach
+  // people outside the platform. Unassigned/pending records have no
+  // handling admin yet, so any admin can see them (someone has to be able
+  // to triage new requests).
+  isSuperAdminPhone(phoneNumber) {
+    return !!(this.adminRegistry?.isSuperAdmin(phoneNumber) || this.adminRegistry?.isSuperAdmin(String(phoneNumber)) ||
+      process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
+      process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber)));
+  }
+
+  canViewConsultationContact(adminPhone, consultation) {
+    if (this.isSuperAdminPhone(adminPhone)) return true;
+    if (!consultation.doctorId) return true;
+    return consultation.adminAssigned === String(adminPhone);
+  }
+
   getPendingRequests(phoneNumber) {
     const isAdmin = this.adminRegistry?.isAdmin(phoneNumber) || this.adminRegistry?.isAdmin(String(phoneNumber)) ||
       process.env.ADMIN_PHONES?.split(',')?.includes(String(phoneNumber)) ||
@@ -2156,15 +2236,16 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     }
     const pending = this.consultationManager.getPendingForAdmin();
     let text = `📋 *Pending Consultations*\n\n`;
-    
+
     if (pending.length === 0) {
       text += `_No pending consultations_\n`;
     } else {
       pending.forEach(c => {
-        text += `• ${c.patientPhone} - ${c.cancerType || 'not set'} - ${c.media?.length || 0} docs\n`;
+        const contact = this.canViewConsultationContact(phoneNumber, c) ? c.patientPhone : c.id;
+        text += `• ${contact} - ${c.cancerType || 'not set'} - ${c.media?.length || 0} docs\n`;
       });
     }
-    
+
     return {
       nextState: FlowStates.ADMIN_MENU,
       response: text + `\n${InteractiveMenus.adminMenu}`
@@ -2182,15 +2263,16 @@ const invitation = this.doctorRouter?.persistence?.createDoctorRequest({
     const active = Array.from(this.consultationManager.consultations.values())
       .filter(c => c.status === 'active');
     let text = `📊 *Active Consultations*\n\n`;
-    
+
     if (active.length === 0) {
       text += `_No active consultations_\n`;
     } else {
       active.forEach(c => {
-        text += `• ${c.id}: ${c.patientPhone} - Dr. ${c.doctorId || 'unassigned'}\n`;
+        const contact = this.canViewConsultationContact(phoneNumber, c) ? c.patientPhone : '(restricted)';
+        text += `• ${c.id}: ${contact} - Dr. ${c.doctorId || 'unassigned'}\n`;
       });
     }
-    
+
     return {
       nextState: FlowStates.ADMIN_MENU,
       response: text + `\n${InteractiveMenus.adminMenu}`
@@ -2401,14 +2483,13 @@ Fee: ₹${doctor.consultationFee || 1500}
   }
 
   handleViewAllPatients(phoneNumber) {
-    const isAdminAuthorized = this.adminRegistry?.isAdmin(phoneNumber) || this.adminRegistry?.isAdmin(String(phoneNumber)) ||
-      process.env.ADMIN_PHONES?.split(',')?.includes(String(phoneNumber)) ||
-      process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
-      process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
-    if (!isAdminAuthorized) {
+    // Unlike Pending/Active Consultations (scoped to a specific record an
+    // admin is actually processing), this browses every patient's contact
+    // info with no task-scoping at all - restricted to super_admin only.
+    if (!this.isSuperAdminPhone(phoneNumber)) {
       return {
         nextState: FlowStates.ADMIN_MENU,
-        response: `❌ Admin access required.\n\n${InteractiveMenus.adminMenu}`
+        response: `❌ Only Super Admin can browse all patient contact info.\n\nUse Pending Requests or Active Consultations to see patients you're actively handling.\n\n${InteractiveMenus.adminMenu}`
       };
     }
     const patients = [];
