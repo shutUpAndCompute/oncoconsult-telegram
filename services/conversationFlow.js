@@ -620,7 +620,7 @@ Please enter your full name:`
 
   handleSupportMenuSelection(selection, phoneNumber, session) {
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
+      '1': () => this.getActiveConsultationsForSupport(phoneNumber),
       '2': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '3': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
       '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
@@ -629,6 +629,28 @@ Please enter your full name:`
     const handler = flowMap[selection];
     if (handler) return handler();
     return { nextState: FlowStates.SUPPORT_MENU, response: InteractiveMenus.supportMenu };
+  }
+
+  // Support has 'view_all' permission over consultations (not a personal
+  // one like patients do), so "My Consultations" must list everyone's
+  // active consultations rather than routing into the patient-personal
+  // FlowStates.CONSULTATION flow, which requires (and would block on) a
+  // patientProfile support agents don't have.
+  getActiveConsultationsForSupport(phoneNumber) {
+    const active = Array.from(this.consultationManager.consultations.values())
+      .filter(c => c.status === 'active');
+    let text = `📊 *Active Consultations*\n\n`;
+    if (active.length === 0) {
+      text += `_No active consultations_\n`;
+    } else {
+      active.forEach(c => {
+        text += `• ${c.id}: ${c.patientPhone} - Dr. ${c.doctorId || 'unassigned'}\n`;
+      });
+    }
+    return {
+      nextState: FlowStates.SUPPORT_MENU,
+      response: text + `\n${InteractiveMenus.supportMenu}`
+    };
   }
 
   startPatientProfile(phoneNumber) {

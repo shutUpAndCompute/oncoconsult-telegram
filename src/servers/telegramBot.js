@@ -28,6 +28,50 @@ const REPORT_TYPE_LABELS = {
   surgical: "Surgical"
 };
 
+// States that belong to the Admin/Super Admin domain (reachable only by
+// navigating admin menus). If an admin's session.flowState ever drifts
+// outside this set (e.g. the WELCOME default before their first /start,
+// or a stale patient-flow state), they must be routed back to ADMIN_MENU
+// instead of silently falling through to the patient conversation flow.
+const ADMIN_DOMAIN_STATES = new Set([
+  FlowStates.ADMIN_MENU,
+  FlowStates.ADMIN_ROLE_APPROVALS,
+  FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_REMOVE_DOCTOR_INPUT,
+  FlowStates.ADMIN_REJECT_DOCTOR_INPUT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
+  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT,
+  FlowStates.ADMIN_VERIFY_PAYMENT_INPUT,
+  FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT,
+  FlowStates.ADMIN_INVITE_DOCTOR_INPUT,
+  FlowStates.ADMIN_REGISTER_DOCTOR_INPUT,
+  FlowStates.ADMIN_APPROVE_DOCTOR_INPUT,
+  FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT,
+  FlowStates.ADMIN_APPROVE_SUPPORT_INPUT,
+  FlowStates.ADMIN_CLOSE_CONSULTATION
+]);
+
+// Same idea for Support: SUPPORT_MENU plus the sub-states its own menu
+// options route into (Message Doctor / Message Patient).
+const SUPPORT_DOMAIN_STATES = new Set([
+  FlowStates.SUPPORT_MENU,
+  FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
+  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT
+]);
+
+// Cross-role states reachable from any persona's own menu (profile viewing/
+// editing, applying for a new role, switching role) - never something to
+// self-heal away from regardless of the current effective role.
+const SHARED_DOMAIN_STATES = new Set([
+  FlowStates.PROFILE_VIEW,
+  FlowStates.PROFILE_EDIT,
+  FlowStates.PROFILE_REMOVE_ROLE,
+  FlowStates.ROLE_APPLICATION,
+  FlowStates.PERSONA_SELECT
+]);
+
 class TelegramAdapter {
   constructor() {
     this.bot = null;
@@ -53,15 +97,11 @@ class TelegramAdapter {
   // Switch Role actually sticks across messages and /start calls.
   getEffectiveRole(persona, session) {
     const selected = session?.selectedPersona;
-    // A privileged admin/super_admin must never be silently downgraded to
-    // 'patient' by a stale selectedPersona. That trapped users out of the
-    // admin panel with no way back (the Switch Role menu doesn't list Admin
-    // Mode for env-seeded admins, since their approvedRoles is empty), so
-    // always surface the admin identity unless they've explicitly chosen a
-    // different *authorized* non-patient view.
-    if (persona.isAdmin() && (selected === 'patient' || !selected)) {
-      return persona.type;
-    }
+    // selectedPersona is null until the user explicitly switches role (see
+    // ConsultationManager.getSession/resetSession) - it must never default
+    // to 'patient', or every non-patient role (admin, doctor, support) would
+    // be silently downgraded to Patient Mode on their very first message,
+    // before they've ever touched Switch Role.
     if (selected && persona.availableRoles?.includes(selected)) {
       return selected;
     }
@@ -412,18 +452,33 @@ class TelegramAdapter {
       const session = consultationManager.getSession(String(chatId));
       const flowState = session?.flowState || FlowStates.WELCOME;
       const persona = new UserPersona(String(chatId));
-      
-      if (flowState === FlowStates.ADMIN_MENU) {
+      const effectiveRole = this.getEffectiveRole(persona, session);
+
+      // Route by effective role first so an admin/support user mid-substate
+      // (e.g. ADMIN_ROLE_APPROVALS) still lands on their own domain's menu
+      // instead of falling into the patient main menu default below.
+      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+        if (flowState !== FlowStates.ADMIN_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+        }
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
         await this.bot.sendMessage(chatId, `${InteractiveMenus.adminMenu}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-      } else if (flowState === FlowStates.DOCTOR_MENU) {
+      } else if (effectiveRole === PersonaTypes.SUPPORT) {
+        if (flowState !== FlowStates.SUPPORT_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
+        }
+        await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
+      } else if (effectiveRole === PersonaTypes.DOCTOR) {
         const doctors = doctorPersistence.getDoctors();
         const doctor = doctors.find(d => d.telegramId === String(chatId) ||
           String(d.phoneNumber).replace('+', '') === String(chatId));
         const hasActive = !!Array.from(consultationManager.consultations.values())
           .find(c => c.doctorId === doctor?.id && c.status === 'active');
+        if (flowState !== FlowStates.DOCTOR_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
+        }
         await this.bot.sendMessage(chatId, InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive), { parse_mode: 'Markdown' });
       } else if (flowState === FlowStates.CAREGIVER_MENU) {
         await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(session?.patientName), { parse_mode: 'Markdown' });
@@ -464,9 +519,20 @@ this.bot.on('message', async (msg) => {
          }
 
          if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN)) {
-            const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
+            const currentFlowState = session?.flowState;
+            const inAdminDomain = ADMIN_DOMAIN_STATES.has(currentFlowState) || SHARED_DOMAIN_STATES.has(currentFlowState);
 
-            if (inAdminFlow) {
+            if (!inAdminDomain) {
+              // Self-heal: an admin whose session drifted outside the admin
+              // domain (WELCOME default, a stale patient-flow state, etc.)
+              // must land back on the admin menu instead of silently
+              // falling through to the patient conversation flow below.
+              consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+              await this.bot.sendMessage(chatId, InteractiveMenus.adminMenu, { parse_mode: 'Markdown' });
+              return;
+            }
+
+            if (currentFlowState === FlowStates.ADMIN_MENU) {
               const flowResult = conversationFlow.handleAdminMenuSelection(text, String(chatId));
               if (flowResult.nextState) {
                 consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
@@ -474,12 +540,23 @@ this.bot.on('message', async (msg) => {
               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
               return;
             }
+            // Other admin-domain sub-states (ADMIN_ROLE_APPROVALS,
+            // ADMIN_*_INPUT, shared profile/persona states) fall through to
+            // createFlowHandler below, whose state-driven dispatch already
+            // routes them to the correct handler.
           }
 
           if (!inPersonaSelect && effectiveRole === PersonaTypes.SUPPORT) {
-            const inSupportFlow = session?.flowState === FlowStates.SUPPORT_MENU;
+            const currentFlowState = session?.flowState;
+            const inSupportDomain = SUPPORT_DOMAIN_STATES.has(currentFlowState) || SHARED_DOMAIN_STATES.has(currentFlowState);
 
-            if (inSupportFlow) {
+            if (!inSupportDomain) {
+              consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
+              await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
+              return;
+            }
+
+            if (currentFlowState === FlowStates.SUPPORT_MENU) {
               const flowResult = conversationFlow.handleSupportMenuSelection(text, String(chatId));
               if (flowResult.nextState) {
                 consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });

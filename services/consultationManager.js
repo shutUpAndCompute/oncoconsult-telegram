@@ -95,7 +95,7 @@ class ConsultationManager {
         patientProfile: null,
         profileStep: null,
         pendingPayment: null,
-        selectedPersona: 'patient',
+        selectedPersona: null,
         isCaregiver: false,
         caregiverConsentGiven: false,
         caregiverName: null,
@@ -201,7 +201,7 @@ class ConsultationManager {
       patientProfile: preservedProfile,
       profileStep: null,
       ...preservedCaregiverData,
-      selectedPersona: preservedPersona || 'patient'
+      selectedPersona: preservedPersona || null
     });
     this.persistence.saveSessions();
     
