@@ -23,12 +23,18 @@ const fs = require('fs');
 const crypto = require('crypto');
 const path = require('path');
 
+let singletonInstance = null;
+
 class PaymentService {
   constructor() {
+    if (singletonInstance) {
+      return singletonInstance;
+    }
     this.dataDir = process.env.DATA_DIR || './data';
     this.paymentsFile = path.join(this.dataDir, 'payments.json');
     this.ensureDataDir();
     this.payments = this.loadPayments();
+    singletonInstance = this;
   }
 
   ensureDataDir() {
