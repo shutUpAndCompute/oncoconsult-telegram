@@ -1229,7 +1229,7 @@ if (consultation?.patientPhone) {
       return;
     }
     
-    const verifyDiscountMatch = trimmed.match(/^VERIFY_DISCOUNT\s+(\S+)\s+(approved|rejected)(?:\\s+(.*))?$/i);
+    const verifyDiscountMatch = trimmed.match(/^VERIFY_DISCOUNT\s+(\S+)\s+(approved|rejected)(?:\s+(.*))?$/i);
     if (verifyDiscountMatch) {
       const [, patientPhone, status, reason] = verifyDiscountMatch;
       const session = consultationManager.getSession(patientPhone);
@@ -1287,7 +1287,7 @@ if (consultation?.patientPhone) {
     const intent = this.classifyIntent(message);
     
     // Handle MSG_ADMIN for patients to contact admin
-    const msgAdminMatch = message.match(/^MSG_ADMINs+(.*)$/i);
+    const msgAdminMatch = message.match(/^MSG_ADMIN\s+(.*)$/i);
     if (msgAdminMatch) {
       await this.notifyAdmin(chatId, `📩 *Patient Message*:\n\nPatient Chat ID: ${chatId}\n\n${msgAdminMatch[1]}`);
       return { message: `✅ Message sent to admin. They will respond shortly.` };
