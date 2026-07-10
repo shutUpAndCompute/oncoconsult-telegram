@@ -185,24 +185,34 @@ class TelegramAdapter {
     // with the ZWJ doctor/stethoscope emoji), the send fails outright with
     // "can't parse entities", regardless of which role or menu triggered
     // it. Escaping every interpolation site individually is error-prone
-    // and easy to miss one, so instead: wrap sendMessage itself to retry
-    // once in plain text on that specific failure, so a malformed name or
-    // emoji degrades to unformatted text instead of silently failing to
-    // send (or crashing the caller if it doesn't handle the rejection).
-    const rawSendMessage = this.bot.sendMessage.bind(this.bot);
-    this.bot.sendMessage = async (chatId, text, options = {}) => {
-      try {
-        return await rawSendMessage(chatId, text, options);
-      } catch (err) {
-        const description = err?.response?.body?.description || err.message || '';
-        if (options.parse_mode && /can't parse entities/i.test(description)) {
-          console.warn(`[sendMessage] Markdown parse failed for chat ${chatId}, retrying as plain text: ${description}`);
-          const { parse_mode, ...plainOptions } = options;
-          return rawSendMessage(chatId, text, plainOptions);
+    // and easy to miss one, so instead: wrap sendMessage/sendPhoto/
+    // sendDocument (captions use the same parse_mode/entity parsing) to
+    // retry once in plain text on that specific failure, so a malformed
+    // name or emoji degrades to unformatted text instead of silently
+    // failing to send. This matters even more for sendPhoto/sendDocument,
+    // since several of their call sites (e.g. forwarding a doctor's photo
+    // to a patient) swallow errors with .catch(() => {}) - without this,
+    // a bad doctor name would silently drop the file with no error
+    // surfaced to anyone.
+    const wrapEntityRetry = (methodName) => {
+      const raw = this.bot[methodName].bind(this.bot);
+      this.bot[methodName] = async (chatId, contentOrFileId, options = {}) => {
+        try {
+          return await raw(chatId, contentOrFileId, options);
+        } catch (err) {
+          const description = err?.response?.body?.description || err.message || '';
+          if (options.parse_mode && /can't parse entities/i.test(description)) {
+            console.warn(`[${methodName}] Markdown parse failed for chat ${chatId}, retrying as plain text: ${description}`);
+            const { parse_mode, ...plainOptions } = options;
+            return raw(chatId, contentOrFileId, plainOptions);
+          }
+          throw err;
         }
-        throw err;
-      }
+      };
     };
+    wrapEntityRetry('sendMessage');
+    wrapEntityRetry('sendPhoto');
+    wrapEntityRetry('sendDocument');
 
     let consecutiveFatal = 0;
     this.bot.on('polling_error', (err) => {
