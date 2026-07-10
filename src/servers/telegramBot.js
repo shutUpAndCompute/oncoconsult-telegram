@@ -176,6 +176,34 @@ class TelegramAdapter {
       }
     });
 
+    // Every outgoing message is built by interpolating user-supplied text
+    // (patient/doctor/caregiver names, hospital names, admin-typed notes,
+    // relayed messages) into parse_mode: 'Markdown' strings, unescaped.
+    // Telegram's legacy Markdown parser treats *, _, ` and [ as formatting
+    // control characters - if any of that free text happens to contain one
+    // (or an unlucky multi-codepoint emoji sequence, as previously seen
+    // with the ZWJ doctor/stethoscope emoji), the send fails outright with
+    // "can't parse entities", regardless of which role or menu triggered
+    // it. Escaping every interpolation site individually is error-prone
+    // and easy to miss one, so instead: wrap sendMessage itself to retry
+    // once in plain text on that specific failure, so a malformed name or
+    // emoji degrades to unformatted text instead of silently failing to
+    // send (or crashing the caller if it doesn't handle the rejection).
+    const rawSendMessage = this.bot.sendMessage.bind(this.bot);
+    this.bot.sendMessage = async (chatId, text, options = {}) => {
+      try {
+        return await rawSendMessage(chatId, text, options);
+      } catch (err) {
+        const description = err?.response?.body?.description || err.message || '';
+        if (options.parse_mode && /can't parse entities/i.test(description)) {
+          console.warn(`[sendMessage] Markdown parse failed for chat ${chatId}, retrying as plain text: ${description}`);
+          const { parse_mode, ...plainOptions } = options;
+          return rawSendMessage(chatId, text, plainOptions);
+        }
+        throw err;
+      }
+    };
+
     let consecutiveFatal = 0;
     this.bot.on('polling_error', (err) => {
       const msg = err?.response?.body?.description || err.message || String(err);
@@ -495,8 +523,8 @@ class TelegramAdapter {
     });
 
 this.bot.on('message', async (msg) => {
+       const chatId = msg.chat.id;
        try {
-         const chatId = msg.chat.id;
          const text = msg.text || '';
 
          if (text.startsWith('/')) return;
@@ -636,7 +664,7 @@ this.bot.on('message', async (msg) => {
         if (flowResult.data?.doctorId && flowResult.data?.patientPhone && !flowResult.data?.newDoctorId) {
           const doctor = doctorPersistence.getDoctorById(flowResult.data.doctorId);
           await this.bot.sendMessage(flowResult.data.patientPhone,
-            `👨‍⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name || 'a specialist'} has been assigned to your consultation (${flowResult.data.consultationId}).`,
+            `👨⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name || 'a specialist'} has been assigned to your consultation (${flowResult.data.consultationId}).`,
             { parse_mode: 'Markdown' }
           ).catch(() => {});
         }
@@ -646,7 +674,7 @@ this.bot.on('message', async (msg) => {
           const newDoctor = doctorPersistence.getDoctorById(flowResult.data.newDoctorId);
           const oldDoctor = doctorPersistence.getDoctorById(flowResult.data.oldDoctorId);
           await this.bot.sendMessage(flowResult.data.patientPhone,
-            `👨‍⚕️ *Doctor Reassigned*\n\nYour consultation has been reassigned to Dr. ${newDoctor?.name || 'a new specialist'}.`,
+            `👨⚕️ *Doctor Reassigned*\n\nYour consultation has been reassigned to Dr. ${newDoctor?.name || 'a new specialist'}.`,
             { parse_mode: 'Markdown' }
           ).catch(() => {});
           if (oldDoctor?.telegramId) {
@@ -666,11 +694,13 @@ this.bot.on('message', async (msg) => {
            const response = await this.routeQuery(chatId, text, session);
            await this.bot.sendMessage(chatId, response.message, { parse_mode: 'Markdown' });
          }
-       } catch (error) {
-         console.error('Message handler error:', error);
-         await this.bot.sendMessage(chatId, 'An error occurred. Please try again.');
-       }
-     });
+} catch (error) {
+          console.error('Message handler error:', error);
+          if (chatId) {
+            await this.bot.sendMessage(chatId, 'An error occurred. Please try again.');
+          }
+        }
+      });
 
 this.bot.on('photo', async (msg) => {
        const chatId = msg.chat.id;
@@ -1088,13 +1118,13 @@ await this.bot.sendMessage(
             { parse_mode: 'Markdown' }
           ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
         }
-         if (consultation?.patientPhone) {
-           console.error(`[NOTIFY] Patient assign notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
-           this.bot.sendMessage(consultation.patientPhone, 
-             `👨‍⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name} has been assigned to your consultation (ID: ${consultationId}).\n\nThey will review your case shortly.`,
-             { parse_mode: 'Markdown' }
-           ).catch(e => console.error(`[NOTIFY-FAIL] Patient assign notify failed for ${consultationId}:`, e));
-         }
+if (consultation?.patientPhone) {
+            console.error(`[NOTIFY] Patient assign notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
+            this.bot.sendMessage(consultation.patientPhone, 
+              `👨⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name} has been assigned to your consultation (ID: ${consultationId}).\n\nThey will review your case shortly.`,
+              { parse_mode: 'Markdown' }
+            ).catch(e => console.error(`[NOTIFY-FAIL] Patient assign notify failed for ${consultationId}:`, e));
+          }
       } else {
         await this.bot.sendMessage(chatId, '❌ Failed to assign doctor.');
       }
