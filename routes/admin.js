@@ -74,20 +74,21 @@ router.get('/list', adminRateLimit, requireAdmin, (req, res) => {
 });
 
 router.post('/register', adminRateLimit, requireSuperAdmin, (req, res) => {
-  const telegramId = sanitizePhone(req.body.telegramId);
-  const phoneNumber = sanitizePhone(req.body.phoneNumber);
-  const role = validateRole(req.body.role);
-  
-  if (!telegramId && !phoneNumber) {
-    return res.status(400).json({ error: 'telegramId or phoneNumber required' });
-  }
-  
-  const addedBy = sanitizePhone(req.body.requesterPhone) || 'api-key';
-  const admin = adminRegistry.addAdmin(telegramId || phoneNumber, addedBy, telegramId, role);
-  
-  console.log(`[AdminAPI] Admin registered: ${admin.id} by ${addedBy}`);
-  res.json({ success: true, admin });
-});
+   const telegramId = sanitizePhone(req.body.telegramId);
+   const phoneNumber = sanitizePhone(req.body.phoneNumber);
+   const role = validateRole(req.body.role);
+   const name = req.body.name?.trim() || null;
+   
+   if (!telegramId && !phoneNumber) {
+     return res.status(400).json({ error: 'telegramId or phoneNumber required' });
+   }
+   
+   const addedBy = sanitizePhone(req.body.requesterPhone) || 'api-key';
+   const admin = adminRegistry.addAdmin(telegramId || phoneNumber, addedBy, telegramId, role, name);
+   
+   console.log(`[AdminAPI] Admin registered: ${admin.id} by ${addedBy}`);
+   res.json({ success: true, admin });
+ });
 
 router.delete('/:identifier', adminRateLimit, requireSuperAdmin, (req, res) => {
   const identifier = sanitizePhone(req.params.identifier);

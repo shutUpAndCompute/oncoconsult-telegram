@@ -50,7 +50,9 @@ const ADMIN_DOMAIN_STATES = new Set([
   FlowStates.ADMIN_APPROVE_DOCTOR_INPUT,
   FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT,
   FlowStates.ADMIN_APPROVE_SUPPORT_INPUT,
-  FlowStates.ADMIN_CLOSE_CONSULTATION
+  FlowStates.ADMIN_CLOSE_CONSULTATION,
+   FlowStates.ADMIN_ADD_ADMIN_INPUT,
+   FlowStates.ADMIN_REMOVE_ADMIN_INPUT
 ]);
 
 // Same idea for Support: SUPPORT_MENU plus the sub-states its own menu
@@ -261,16 +263,17 @@ class TelegramAdapter {
 
       // Route by the effective role (selectedPersona if validly authorized,
       // otherwise the live precedence winner) so Switch Role actually sticks.
-      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
-        if (!inAdminFlow) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
-        }
-        const pendingCount = consultationManager.getPendingForAdmin().length;
-        const activeCount = Array.from(consultationManager.consultations.values())
-          .filter(c => c.status === 'active').length;
-        await this.bot.sendMessage(chatId, `${InteractiveMenus.adminMenu}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-      } else if (effectiveRole === PersonaTypes.SUPPORT) {
+if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+         const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
+         if (!inAdminFlow) {
+           consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+         }
+         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
+         const pendingCount = consultationManager.getPendingForAdmin().length;
+         const activeCount = Array.from(consultationManager.consultations.values())
+           .filter(c => c.status === 'active').length;
+         await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.CAREGIVER) {
@@ -398,6 +401,20 @@ class TelegramAdapter {
     this.bot.onText(/\/profile/, async (msg) => {
       const chatId = String(msg.chat.id);
       const session = consultationManager.getSession(chatId);
+      const persona = new UserPersona(chatId);
+      const effectiveRole = this.getEffectiveRole(persona, session);
+      
+      // Admin/Super Admin profile view
+      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+        const admin = adminRegistry.getAdmin(chatId);
+        if (admin) {
+          await this.bot.sendMessage(chatId, InteractiveMenus.adminProfileView(admin), { parse_mode: 'Markdown' });
+        } else {
+          await this.bot.sendMessage(chatId, `❌ Admin profile not found. Contact super admin.`);
+        }
+        return;
+      }
+      
       const profile = session?.patientProfile || {};
       const isCaregiver = session?.isCaregiver || false;
       
@@ -501,15 +518,16 @@ class TelegramAdapter {
       // Route by effective role first so an admin/support user mid-substate
       // (e.g. ADMIN_ROLE_APPROVALS) still lands on their own domain's menu
       // instead of falling into the patient main menu default below.
-      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        if (flowState !== FlowStates.ADMIN_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
-        }
-        const pendingCount = consultationManager.getPendingForAdmin().length;
-        const activeCount = Array.from(consultationManager.consultations.values())
-          .filter(c => c.status === 'active').length;
-        await this.bot.sendMessage(chatId, `${InteractiveMenus.adminMenu}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-      } else if (effectiveRole === PersonaTypes.SUPPORT) {
+if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+         if (flowState !== FlowStates.ADMIN_MENU) {
+           consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+         }
+         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
+         const pendingCount = consultationManager.getPendingForAdmin().length;
+         const activeCount = Array.from(consultationManager.consultations.values())
+           .filter(c => c.status === 'active').length;
+         await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         if (flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         }
@@ -627,6 +645,21 @@ this.bot.on('message', async (msg) => {
             return;
           }
 
+          // Handle doctor message admin input - send to admin
+          if (session?.flowState === FlowStates.DOCTOR_MSG_ADMIN_INPUT && effectiveRole === PersonaTypes.DOCTOR) {
+            const doctor = doctorPersistence.getDoctors().find(d => d.telegramId === String(chatId));
+            const adminPhone = doctorPersistence.getAdminForDoctor(doctor.id);
+            if (adminPhone) {
+              await this.bot.sendMessage(adminPhone, `📩 *Message from Dr. ${doctor.name}*:\n\n${text}`, { parse_mode: 'Markdown' });
+              consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
+              await this.bot.sendMessage(chatId, `✅ Message sent to admin.\n\n${InteractiveMenus.doctorMenu(doctor.name, false)}`, { parse_mode: 'Markdown' });
+            } else {
+              consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
+              await this.bot.sendMessage(chatId, `❌ No admin associated with your registration.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`, { parse_mode: 'Markdown' });
+            }
+            return;
+          }
+
       if (/^(status|9)$/i.test(text.trim())) {
         const roleLabel = this.getRoleLabel(effectiveRole);
         await this.bot.sendMessage(chatId, `Your current role: *${roleLabel}*\n\n${InteractiveMenus.personaSelect(effectiveRole, persona.availableRoles)}`, { parse_mode: 'Markdown' });
@@ -726,6 +759,17 @@ this.bot.on('photo', async (msg) => {
          });
          if (handled) return;
 
+      // Check consultation state for patients
+      if (effectiveRole === PersonaTypes.PATIENT && !session?.isCaregiver) {
+        const consultation = consultationManager.getConsultationByPatient(String(chatId));
+        const pending = consultationManager.getPendingConsultationByPatient(String(chatId));
+        // Allow uploads for pending or active consultations
+        if (!consultation && !pending) {
+          await this.bot.sendMessage(chatId, 'No active or pending consultation. You cannot upload documents.', { parse_mode: 'Markdown' });
+          return;
+        }
+      }
+
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'image', fileId, reportType, receivedAt: new Date() };
 
@@ -765,14 +809,25 @@ this.bot.on('document', async (msg) => {
          const document = msg.document;
          const fileId = document.file_id;
 
-      const session = consultationManager.getSession(String(chatId));
-      const persona = new UserPersona(String(chatId));
-      const effectiveRole = this.getEffectiveRole(persona, session);
+         const session = consultationManager.getSession(String(chatId));
+         const persona = new UserPersona(String(chatId));
+         const effectiveRole = this.getEffectiveRole(persona, session);
 
-      const handled = await this.handleIncomingMedia(chatId, session, effectiveRole, {
-        kind: 'document', fileId, send: (targetId, opts) => this.bot.sendDocument(targetId, fileId, opts)
-      });
-      if (handled) return;
+         const handled = await this.handleIncomingMedia(chatId, session, effectiveRole, {
+           kind: 'document', fileId, send: (targetId, opts) => this.bot.sendDocument(targetId, fileId, opts)
+         });
+         if (handled) return;
+
+      // Check consultation state for patients
+      if (effectiveRole === PersonaTypes.PATIENT && !session?.isCaregiver) {
+        const consultation = consultationManager.getConsultationByPatient(String(chatId));
+        const pending = consultationManager.getPendingConsultationByPatient(String(chatId));
+        // Allow uploads for pending or active consultations
+        if (!consultation && !pending) {
+          await this.bot.sendMessage(chatId, 'No active or pending consultation. You cannot upload documents.', { parse_mode: 'Markdown' });
+          return;
+        }
+      }
 
       const reportType = session.reportUploadType || 'other';
       const mediaEntry = { type: 'document', fileId, reportType, receivedAt: new Date() };
@@ -875,8 +930,17 @@ await this.bot.sendMessage(
       return;
     }
 
-    if (!consultation) {
-      await this.bot.sendMessage(chatId, 'No active consultation. Wait for assignment.\nUse MSG_ADMIN <message> to contact your admin.');
+if (!consultation) {
+       await this.bot.sendMessage(chatId, 'No active consultation. Wait for assignment.\nUse MSG_ADMIN <message> to contact your admin.');
+       return;
+    }
+
+    // Check doctor profile completeness before messaging patients
+    if (!doctor.name || !doctor.specialty || !doctor.cancerTypes?.length) {
+      await this.bot.sendMessage(chatId, 
+        `⚠️ *Profile Incomplete*\n\nComplete your doctor profile first. Contact admin to set your specialty and cancer types.\n\nUse /profile to view current profile.`, 
+        { parse_mode: 'Markdown' }
+      );
       return;
     }
 
@@ -884,6 +948,15 @@ await this.bot.sendMessage(
     if (!session.paymentVerified) {
       await this.bot.sendMessage(chatId, 
         `Patient has not completed payment yet.\nDocs collected: ${session.media?.length || 0}.`, 
+        { parse_mode: 'Markdown' }
+      );
+      return;
+    }
+
+    // Verify consultation is still active
+    if (consultation.status !== 'active') {
+      await this.bot.sendMessage(chatId, 
+        `❌ Consultation ${consultation.id} is ${consultation.status}. Cannot send messages.`, 
         { parse_mode: 'Markdown' }
       );
       return;

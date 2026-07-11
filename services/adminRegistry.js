@@ -48,25 +48,26 @@ function getAdmins() {
   return [...admins];
 }
 
-function addAdmin(phoneNumber, addedBy, telegramId = null, role = 'admin') {
+function addAdmin(phoneNumber, addedBy, telegramId = null, role = 'admin', name = null) {
    const normalized = normalizePhone(phoneNumber);
    const existing = getAdmin(phoneNumber);
    if (existing) return existing;
-  
+   
    const admin = {
      id: `admin_${Date.now()}`,
      phoneNumber: normalized,
      telegramId: telegramId || null,
+     name: name || null,
      role: role,
      addedBy,
      addedAt: new Date(),
      active: true
    };
-  
+   
    admins.push(admin);
    saveAdmins(admins);
    return admin;
-}
+ }
 
 function removeAdmin(phoneNumber) {
    const normalized = normalizePhone(phoneNumber);
@@ -82,9 +83,17 @@ function removeAdmin(phoneNumber) {
      return true;
    }
    return false;
-}
+ }
 
-function promoteToSuper(phoneNumber) {
+ function updateAdmin(phoneNumber, updates) {
+   const admin = getAdmin(phoneNumber);
+   if (!admin) return null;
+   Object.assign(admin, updates);
+   saveAdmins(admins);
+   return admin;
+ }
+
+ function promoteToSuper(phoneNumber) {
   const admin = getAdmin(phoneNumber);
   if (admin) {
     admin.role = 'super_admin';
@@ -96,21 +105,29 @@ function promoteToSuper(phoneNumber) {
 
 
 function isAdmin(phoneNumber) {
-  const admin = getAdmin(phoneNumber);
-  return admin && admin.active;
-}
+   const admin = getAdmin(phoneNumber);
+   return admin && admin.active;
+ }
 
-function isSuperAdmin(phoneNumber) {
-  const admin = getAdmin(phoneNumber);
-  return admin && admin.active && admin.role === 'super_admin';
-}
+ function isSuperAdmin(phoneNumber) {
+   const admin = getAdmin(phoneNumber);
+   return admin && admin.active && admin.role === 'super_admin';
+ }
 
-module.exports = {
-  getAdmin,
-  getAdmins,
-  addAdmin,
-  removeAdmin,
-  promoteToSuper,
-  isAdmin,
-  isSuperAdmin
-};
+ function isAdminProfileComplete(phoneNumber) {
+   const admin = getAdmin(phoneNumber);
+   if (!admin) return false;
+   return !!(admin.name && admin.phoneNumber);
+ }
+
+ module.exports = {
+    getAdmin,
+    getAdmins,
+    addAdmin,
+    removeAdmin,
+    updateAdmin,
+    promoteToSuper,
+    isAdmin,
+    isSuperAdmin,
+    isAdminProfileComplete
+  };
