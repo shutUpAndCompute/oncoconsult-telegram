@@ -105,35 +105,16 @@ function removeAdmin(phoneNumber) {
 
 
 function isAdmin(phoneNumber) {
-   const { SUPER_ADMIN_CHAT_IDS, SUPER_ADMIN_PHONES } = require('../models/persona');
-   const normalized = normalizePhone(phoneNumber);
-   if (SUPER_ADMIN_CHAT_IDS.includes(phoneNumber) || SUPER_ADMIN_PHONES.includes(phoneNumber) ||
-       SUPER_ADMIN_PHONES.includes(normalized)) {
-     return true;
-   }
    const admin = getAdmin(phoneNumber);
    return admin && admin.active;
  }
 
  function isSuperAdmin(phoneNumber) {
-   const { SUPER_ADMIN_CHAT_IDS, SUPER_ADMIN_PHONES } = require('../models/persona');
-   const normalized = normalizePhone(phoneNumber);
-   if (SUPER_ADMIN_CHAT_IDS.includes(phoneNumber) || SUPER_ADMIN_PHONES.includes(phoneNumber) ||
-       SUPER_ADMIN_PHONES.includes(normalized)) {
-     return true;
-   }
    const admin = getAdmin(phoneNumber);
    return admin && admin.active && admin.role === 'super_admin';
  }
 
  function isAdminProfileComplete(phoneNumber) {
-   const { SUPER_ADMIN_CHAT_IDS, SUPER_ADMIN_PHONES } = require('../models/persona');
-   const normalized = normalizePhone(phoneNumber);
-   if (SUPER_ADMIN_CHAT_IDS.includes(phoneNumber) || SUPER_ADMIN_PHONES.includes(phoneNumber) ||
-       SUPER_ADMIN_PHONES.includes(normalized)) {
-     return true;
-   }
-   
    const admin = getAdmin(phoneNumber);
    if (!admin) return false;
    return !!(admin.name && admin.phoneNumber);
@@ -149,4 +130,4 @@ function isAdmin(phoneNumber) {
     isAdmin,
     isSuperAdmin,
     isAdminProfileComplete
- };
+  };

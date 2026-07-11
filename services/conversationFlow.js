@@ -1840,17 +1840,14 @@ case 'support': {
       }
     };
 
+
     const handler = flowMap[selection];
-    if (handler) {
-      return handler();
-     const handler = flowMap[selection];
     if (handler) {
       const result = handler();
       if (result) return result;
       return { nextState: FlowStates.ADMIN_MENU, response: '❌ Only Super Admin can add/remove admins.\n\n' + InteractiveMenus.adminMenu };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: InteractiveMenus.adminMenu };
-  }
   }
 
   handleAdminDoctorManagementSelection(selection, phoneNumber, session) {
