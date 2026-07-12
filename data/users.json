@@ -1,1 +1,17 @@
-{}
+{
+  "9876543210": {
+    "chatId": "9876543210",
+    "phoneNumber": "9876543210",
+    "appliedRoles": [],
+    "approvedRoles": [
+      "doctor"
+    ],
+    "profile": {},
+    "createdAt": "2026-07-10T11:26:37.608Z",
+    "mobileVerified": true,
+    "roleStatus": {
+      "doctor": "approved"
+    },
+    "approvedBy": "7935248399"
+  }
+}
