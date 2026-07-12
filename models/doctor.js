@@ -51,6 +51,12 @@ class DoctorProfile {
     this.phoneNumber = data.phoneNumber;
     this.telegramId = data.telegramId || null;
     this.email = data.email || '';
+    // The admin who registered/approved this doctor - powers
+    // getAdminForDoctor()/getDoctorsByAdmin(). Silently dropped before
+    // (this constructor never copied it), so any doctor created via
+    // addDoctor() (Register Doctor, self-serve chat onboarding) could
+    // never actually reach an admin via "Message Admin".
+    this.approvedBy = data.approvedBy || null;
     this.specialty = data.specialty;
     this.cancerTypes = data.cancerTypes || [];
     this.qualifications = data.qualifications || [];

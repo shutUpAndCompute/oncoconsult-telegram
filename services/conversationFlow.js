@@ -16,7 +16,6 @@ PROFILE: 'profile',
    PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
    PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
    PROFILE_CONSENTS: 'profile_consents',
-   DATA_SHARING_CONSENT: 'data_sharing_consent',
    CANCER_TYPE: 'cancer_type',
    REPORT_UPLOAD: 'report_upload',
    BILLING: 'billing',
@@ -71,7 +70,7 @@ const InteractiveMenus = {
     return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
   },
 
-   adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ Profile\n6️⃣ View Patient Profiles\n7️⃣ Verify Payment\n8️⃣ Verify Discount\n9️⃣ Message Patient\n🔟 Close Consultation\n\n0️⃣ Switch Role`,
+   adminMenu: `🛠️ *Admin Panel*\n\n1️⃣ Pending Requests\n2️⃣ Active Consultations\n3️⃣ Role Approvals\n4️⃣ Doctor Management\n5️⃣ Profile\n6️⃣ View Patient Profiles\n7️⃣ Verify Payment\n8️⃣ Verify Discount\n9️⃣ Message Patient\n🔟 Close Consultation\n11. Add Admin (Super Admin)\n12. Remove Admin (Super Admin)\n\n0️⃣ Switch Role`,
   adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n\n0️⃣ Back to Menu\n\nReply with number`,
   adminDoctorManagement: `👨⚕️ *Doctor Management*
 
@@ -265,8 +264,6 @@ Complete profile after selection.`,
 
   billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n3️⃣ Apply for Fee Discount\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
-  consent: `📋 *Data Sharing & Discount Consent*\n\nTo qualify for any discounts, you MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, you will be considered for full-fee consultation.\n\nOur administrators will review your eligibility and determine applicable discounts at their discretion.\n\n1. ✅ I consent to share medical data and eligibility information for discount consideration\n2. ❌ No consent (proceed without discount eligibility - full fee)\n\nType CANCEL to exit.`,
-
   caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nTo qualify for any discounts, the patient MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, full-fee consultation applies.\n\nOur administrators will review eligibility and determine discounts at their discretion.\n\n1. ✅ I acknowledge and provide consent for discount eligibility\n2. ❌ No consent (proceed without discount eligibility)`,
 
   paymentRequested: `📩 *Payment Request Sent*\n\nYour admin has been notified. They will review your case and send a payment link with the consultation fee.`,
@@ -281,7 +278,7 @@ Complete profile after selection.`,
 
 closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0. Back to Menu`,
 
-   adminMenuIncomplete: `👤 *Admin Profile Required*\n\nYour admin profile is incomplete. Please complete it first.\n\n1️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`,
+   adminMenuIncomplete: `👤 *Admin Profile Required*\n\nYour admin profile is incomplete. Please complete it first.\n\n5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`,
 
    discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
 
@@ -381,9 +378,6 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.PLATFORM_TERMS:
         return this.handlePlatformTermsInput(selection, phoneNumber, session);
 
-      case FlowStates.DATA_SHARING_CONSENT:
-        return this.handleDataSharingConsentInput(phoneNumber, message, session);
-        
       case FlowStates.BILLING:
         return this.handleBillingSelection(selection, phoneNumber);
 
@@ -894,60 +888,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     return { nextState: FlowStates.PLATFORM_TERMS, response: InteractiveMenus.platformTerms };
   }
 
-  handleDataSharingConsentInput(phoneNumber, message, session) {
-      const selection = message.trim();
-      const profile = session.patientProfile || {};
-      
-      if (selection === '1') {
-        profile.dataSharingConsent = true;
-        profile.consentType = session.isCaregiver ? 'caregiver' : 'patient';
-        this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-      } else if (selection === '2' || selection.toLowerCase() === 'cancel') {
-        profile.dataSharingConsent = false;
-        this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-      } else if (selection === '3') {
-        profile.dataSharingConsent = false;
-        this.consultationManager.updateSession(phoneNumber, { patientProfile: profile });
-      } else {
-        return { nextState: FlowStates.DATA_SHARING_CONSENT, response: InteractiveMenus.consent };
-      }
-
-      if (session.pendingPayment) {
-        const { baseAmount, researchDiscountPercent, commercialDiscountPercent } = session.pendingPayment;
-        let finalAmount = baseAmount;
-        if (selection === '1') {
-          finalAmount = Math.round(baseAmount * (1 - researchDiscountPercent / 100));
-        } else if (selection === '2') {
-          finalAmount = Math.round(baseAmount * (1 - commercialDiscountPercent / 100));
-        }
-        
-        const paymentInfo = this.paymentService?.generatePaymentLink ? 
-          this.paymentService.generatePaymentLink(phoneNumber, finalAmount) :
-          { transactionId: `txn_${Date.now()}` };
-        
-        this.consultationManager.updateSession(phoneNumber, { 
-          patientProfile: profile,
-          paymentTransaction: paymentInfo.transactionId,
-          flowState: FlowStates.WELCOME
-        });
-        return {
-          nextState: FlowStates.WELCOME,
-          response: `✅ Payment link: ${paymentInfo.transactionId}\nAmount: ₹${finalAmount}\n\n${InteractiveMenus.main()}`
-        };
-      }
-
-      this.consultationManager.updateSession(phoneNumber, {
-        patientProfile: profile,
-        flowState: FlowStates.WELCOME
-      });
-      return {
-        nextState: FlowStates.WELCOME,
-        response: `✅ Consent saved!\n\n${this.getGreeting(phoneNumber)}`,
-        data: {}
-      };
-    }
-
-    handleAdminFallback(phoneNumber, message) {
+  handleAdminFallback(phoneNumber, message) {
     const session = this.consultationManager.getSession(phoneNumber);
     
     return {
@@ -1072,10 +1013,6 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
     if (currentState === FlowStates.DOCTOR_MSG_ADMIN_INPUT) {
       return this.handleDoctorMsgAdminInput(phoneNumber, message, session);
-    }
-
-    if (currentState === FlowStates.DATA_SHARING_CONSENT) {
-      return this.handleDataSharingConsentInput(phoneNumber, message, session);
     }
 
     if (currentState === FlowStates.PAYMENT_PENDING) {
@@ -1677,7 +1614,7 @@ case 'support': {
   handleEditProfile(phoneNumber) {
     const session = this.consultationManager?.getSession(phoneNumber);
     const effectiveRole = this.getCurrentEffectiveRole(phoneNumber, session);
-    
+
     // Admin/Super Admin profile edit
     if (effectiveRole === 'admin' || effectiveRole === 'super_admin') {
       return {
@@ -1685,7 +1622,14 @@ case 'support': {
         response: InteractiveMenus.adminProfileEdit
       };
     }
-    
+
+    // Doctor profile edit - matches the doctor branch in handleViewProfile,
+    // so reaching "Edit Profile" via the shared PROFILE_VIEW menu edits the
+    // right (doctor) record instead of the patient-oriented form.
+    if (effectiveRole === 'doctor') {
+      return this.handleEditDoctorProfile(phoneNumber);
+    }
+
     return {
       nextState: FlowStates.PROFILE_EDIT,
       response: InteractiveMenus.profileEdit
@@ -1700,7 +1644,6 @@ case 'support': {
       };
     }
 
-    const admin = this.adminRegistry?.getAdmin(phoneNumber);
     const updates = {};
 
     const lines = message.split('\n');
@@ -1718,13 +1661,25 @@ case 'support': {
       };
     }
 
-    // Update admin profile in registry
-    this.adminRegistry?.updateAdmin(phoneNumber, updates);
-    const updatedAdmin = this.adminRegistry?.getAdmin(phoneNumber);
+    // Env-seeded admins (SUPER_ADMIN_CHAT_IDS/PHONES, ADMIN_PHONES) have no
+    // adminRegistry record until now - updateAdmin() only mutates an
+    // existing record and silently no-ops otherwise, which would leave
+    // isAdminProfileComplete() permanently false and lock them out of every
+    // admin function forever (this was the actual bug: the bootstrap admin
+    // could never complete their own profile). Create the record here if
+    // it doesn't exist yet, instead of just updating.
+    let admin = this.adminRegistry?.getAdmin(phoneNumber);
+    if (!admin) {
+      const role = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
+      admin = this.adminRegistry?.addAdmin(phoneNumber, phoneNumber, phoneNumber, role, updates.name);
+    } else {
+      this.adminRegistry?.updateAdmin(phoneNumber, updates);
+      admin = this.adminRegistry?.getAdmin(phoneNumber);
+    }
 
     return {
       nextState: FlowStates.PROFILE_VIEW,
-      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(updatedAdmin || {})}`
+      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}`
     };
   }
 
@@ -2815,25 +2770,37 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
   }
 
   handleDoctorMsgAdminInput(phoneNumber, message, session) {
+    const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
-      const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
       return {
         nextState: FlowStates.DOCTOR_MENU,
         response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)
       };
     }
 
-    const adminPhone = this.doctorRouter?.persistence?.getAdminForDoctor?.(session?.doctorId);
+    // session.doctorId is the doctor assigned to a PATIENT's consultation -
+    // meaningless on a doctor's own session. The doctor's own record id
+    // (looked up above) is what getAdminForDoctor actually needs; using
+    // session?.doctorId here always resolved to undefined, so this always
+    // fell through to "No admin associated" regardless of whether one
+    // actually approved this doctor.
+    const adminPhone = doctor && this.doctorRouter?.persistence?.getAdminForDoctor?.(doctor.id);
     if (adminPhone) {
-      const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+      const trimmedMessage = message.trim();
       return {
         nextState: FlowStates.DOCTOR_MENU,
-        response: `✅ Message sent to admin.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`
+        response: `✅ Message sent to admin.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`,
+        // The response above claimed success, but nothing actually sent the
+        // message anywhere - conversationFlow.js can't call bot.sendMessage
+        // itself, so surface it via data for telegramBot.js to deliver,
+        // matching the pattern used for doctor-assign/reassign notifications.
+        data: { doctorMsgToAdmin: { adminPhone, doctorName: doctor?.name || 'Doctor', message: trimmedMessage } }
       };
     }
     return {
       nextState: FlowStates.DOCTOR_MENU,
-      response: `❌ No admin associated with your registration.\n\n${InteractiveMenus.doctorMenu(session?.doctorName || 'Doctor', false)}`
+      response: `❌ No admin associated with your registration.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`
     };
   }
 

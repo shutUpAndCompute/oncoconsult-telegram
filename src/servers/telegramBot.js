@@ -52,7 +52,8 @@ const ADMIN_DOMAIN_STATES = new Set([
   FlowStates.ADMIN_APPROVE_SUPPORT_INPUT,
   FlowStates.ADMIN_CLOSE_CONSULTATION,
    FlowStates.ADMIN_ADD_ADMIN_INPUT,
-   FlowStates.ADMIN_REMOVE_ADMIN_INPUT
+   FlowStates.ADMIN_REMOVE_ADMIN_INPUT,
+   FlowStates.ADMIN_PROFILE_EDIT
 ]);
 
 // Same idea for Support: SUPPORT_MENU plus the sub-states its own menu
@@ -61,6 +62,14 @@ const SUPPORT_DOMAIN_STATES = new Set([
   FlowStates.SUPPORT_MENU,
   FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
   FlowStates.ADMIN_MESSAGE_PATIENT_INPUT
+]);
+
+// DOCTOR_MENU plus the sub-states its own menu options route into (Edit
+// Profile, Message Admin).
+const DOCTOR_DOMAIN_STATES = new Set([
+  FlowStates.DOCTOR_MENU,
+  FlowStates.DOCTOR_PROFILE_EDIT,
+  FlowStates.DOCTOR_MSG_ADMIN_INPUT
 ]);
 
 // Cross-role states reachable from any persona's own menu (profile viewing/
@@ -564,14 +573,14 @@ this.bot.on('message', async (msg) => {
 
          // Doctors get intercepted here for MSG_ADMIN/CLOSE/reply-to-patient -
          // except while they're actually sitting in their own menu domain
-         // (DOCTOR_MENU, or the shared Profile/Role-application screens
-         // reachable from it via option 3) or picking a new role, where
-         // plain text is a menu selection instead, not a message to
-         // forward. Previously this only excluded DOCTOR_MENU itself, so a
-         // doctor who navigated to Profile (option 3) had their next reply
-         // swallowed by the MSG_ADMIN/CLOSE/forwarding logic instead of
-         // being processed as a profile menu selection.
-         const inDoctorDomain = session?.flowState === FlowStates.DOCTOR_MENU || SHARED_DOMAIN_STATES.has(session?.flowState);
+         // (DOCTOR_MENU, its own Edit Profile / Message Admin sub-states, or
+         // the shared Profile/Role-application screens) or picking a new
+         // role, where plain text is a menu selection instead, not a
+         // message to forward. Previously this only excluded DOCTOR_MENU
+         // itself, so a doctor who navigated to Profile had their next
+         // reply swallowed by the MSG_ADMIN/CLOSE/forwarding logic instead
+         // of being processed as a menu selection.
+         const inDoctorDomain = DOCTOR_DOMAIN_STATES.has(session?.flowState) || SHARED_DOMAIN_STATES.has(session?.flowState);
          if (effectiveRole === PersonaTypes.DOCTOR && !inPersonaSelect && !inDoctorDomain) {
            await this.handleDoctor(chatId, text);
            return;
@@ -693,6 +702,14 @@ this.bot.on('message', async (msg) => {
 
         if (flowResult.nextState === FlowStates.ADMIN_FALLBACK) {
           await this.notifyAdmin(chatId, flowResult.data.sessionSummary);
+        }
+
+        if (flowResult.data?.doctorMsgToAdmin) {
+          const { adminPhone, doctorName, message: msgText } = flowResult.data.doctorMsgToAdmin;
+          await this.bot.sendMessage(adminPhone,
+            `📩 *Message from Dr. ${doctorName}*:\n\n${msgText}`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
         }
 
         if (flowResult.data?.consultationCreated) {
