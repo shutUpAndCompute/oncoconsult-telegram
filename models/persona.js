@@ -13,6 +13,13 @@ const PersonaTypes = {
 const SUPER_ADMIN_CHAT_IDS = (process.env.SUPER_ADMIN_CHAT_IDS || '').split(',').map(p => p.trim()).filter(p => p);
 const SUPER_ADMIN_PHONES = (process.env.SUPER_ADMIN_PHONES || '').split(',').map(p => p.trim().replace('+', '')).filter(p => p);
 const SUPPORT_PHONES = (process.env.SUPPORT_PHONES || '').split(',').map(p => p.trim().replace('+', '')).filter(p => p);
+// ADMIN_PHONES was already checked in dozens of individual admin-handler
+// functions throughout conversationFlow.js/telegramBot.js, but never here -
+// meaning a user listed only in ADMIN_PHONES was never actually recognized
+// as an admin by identifyPersona()/getAvailableRoles() (the functions that
+// drive routing), so they'd be treated as a fresh patient and could never
+// reach any of those admin-only checks in the first place.
+const ADMIN_PHONES = (process.env.ADMIN_PHONES || '').split(',').map(p => p.trim().replace('+', '')).filter(p => p);
 
 let userRegistryCache = null;
 let adminRegistryCache = null;
@@ -67,6 +74,10 @@ function getAvailableRoles(phoneNumber) {
     roles.add(PersonaTypes.SUPER_ADMIN);
   }
 
+  if (ADMIN_PHONES.includes(phoneNumber) || ADMIN_PHONES.includes(normalized)) {
+    roles.add(PersonaTypes.ADMIN);
+  }
+
   if (SUPPORT_PHONES.includes(phoneNumber) || SUPPORT_PHONES.includes(normalized)) {
     roles.add(PersonaTypes.SUPPORT);
   }
@@ -119,6 +130,10 @@ class UserPersona {
     }
     if (SUPER_ADMIN_PHONES.includes(phoneNumber) || SUPER_ADMIN_PHONES.includes(normalized)) {
       return PersonaTypes.SUPER_ADMIN;
+    }
+
+    if (ADMIN_PHONES.includes(phoneNumber) || ADMIN_PHONES.includes(normalized)) {
+      return PersonaTypes.ADMIN;
     }
 
     if (SUPPORT_PHONES.includes(phoneNumber) || SUPPORT_PHONES.includes(normalized)) {
@@ -222,6 +237,7 @@ module.exports = {
   SUPER_ADMIN_CHAT_IDS,
   SUPER_ADMIN_PHONES,
   SUPPORT_PHONES,
+  ADMIN_PHONES,
   QueryRouter,
   clearCache,
   getAvailableRoles
