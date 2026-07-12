@@ -837,12 +837,27 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     }
 
     const isVerified = await this.paymentService.verifyPayment(session.paymentTransaction);
-    
+
     if (isVerified) {
-      this.consultationManager.updateSession(phoneNumber, { paymentVerified: true });
+      // Nothing else in the live codebase ever creates a Consultation
+      // record from the patient-facing flow (the function that used to do
+      // this automatically, handleConsultationRequest, has no callers; the
+      // manual-pick alternative, handleDoctorSelection, is dispatched only
+      // from DOCTOR_SELECT, which nothing ever transitions into either) - so
+      // payment verification silently dead-ended, and admin's "Assign
+      // Doctor" had nothing to ever assign to. Create it here as pending
+      // (no doctor yet), matching getPendingForAdmin()'s own definition
+      // (status active, doctorId unset) so it surfaces in Pending Requests
+      // for the admin to assign a doctor to - the actual designed workflow,
+      // per the admin-driven assign/reassign/notify features already built.
+      if (!session.consultationId) {
+        this.consultationManager.updateSession(phoneNumber, { paymentVerified: true });
+        const updatedSession = this.consultationManager.getSession(phoneNumber);
+        this.consultationManager.createConsultation(phoneNumber, null, updatedSession);
+      }
       return {
         nextState: FlowStates.CONSULTATION,
-        response: `✅ Payment verified! You can now connect to a doctor.\nType 'CONNECT' or select option 1 to proceed.`,
+        response: `✅ Payment verified! Your consultation request has been sent to the admin, who will assign you a specialist shortly.`,
         data: {}
       };
     }
@@ -934,6 +949,18 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
   handleBillingSelection(selection, phoneNumber) {
     if (selection === '1') {
+      // "Request Payment Link" never actually created a payment transaction -
+      // session.paymentTransaction stayed null forever, which meant
+      // /feebased ("No pending payment request found"), the menu-driven
+      // Verify Payment flow, and handlePaymentStatusCheck could never work
+      // for this patient at all. amount 0 marks the transaction feePending
+      // (admin determines the real fee at their discretion, same as the
+      // discount flow's own design), matching what handlePaymentStatusCheck
+      // already expects to see.
+      const paymentInfo = this.paymentService?.generatePaymentLinkSync
+        ? this.paymentService.generatePaymentLinkSync(phoneNumber, 0, 0)
+        : { transactionId: `txn_${Date.now()}` };
+      this.consultationManager.updateSession(phoneNumber, { paymentTransaction: paymentInfo.transactionId });
       return {
         nextState: FlowStates.PAYMENT_PENDING,
         response: InteractiveMenus.paymentRequested,

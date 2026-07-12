@@ -1,6 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { ConversationFlow, InteractiveMenus, FlowStates } = require('../../services/conversationFlow');
-const { UserPersona, PersonaTypes } = require('../../models/persona');
+const { UserPersona, PersonaTypes, SUPER_ADMIN_CHAT_IDS, SUPER_ADMIN_PHONES } = require('../../models/persona');
+const { normalizePhone } = require('../../utils/phone');
 const ConsultationManager = require('../../services/consultationManager');
 const DoctorRouter = require('../../services/doctorRouter');
 const PaymentService = require('../../services/paymentService');
@@ -9,6 +10,28 @@ const DoctorPersistence = require('../../services/doctorPersistence');
 const { getAdminWelcome } = require('../../services/authGuard');
 const UserRegistry = require('../../services/userRegistry');
 const adminRegistry = require('../../services/adminRegistry');
+
+function ensureEnvSeededAdminRecord(chatId) {
+  const adminRecord = adminRegistry.getAdmin(String(chatId));
+  if (adminRecord) return adminRecord;
+  
+  const normalized = normalizePhone(String(chatId));
+  const isSuperAdminChat = SUPER_ADMIN_CHAT_IDS.includes(String(chatId));
+  const isSuperAdminPhone = SUPER_ADMIN_PHONES.includes(String(chatId)) || SUPER_ADMIN_PHONES.includes(normalized);
+  const isAdminPhone = process.env.ADMIN_PHONES?.split(',')?.map(p => p.trim().replace('+', '')).includes(String(chatId)) ||
+                       process.env.ADMIN_PHONES?.split(',')?.map(p => p.trim().replace('+', '')).includes(normalized);
+  
+  if (isSuperAdminChat || isSuperAdminPhone) {
+    const role = 'super_admin';
+    return adminRegistry.addAdmin(String(chatId), String(chatId), String(chatId), role, null);
+  }
+  
+  if (isAdminPhone) {
+    return adminRegistry.addAdmin(String(chatId), String(chatId), String(chatId), 'admin', null);
+  }
+  
+  return null;
+}
 
 const doctorRouter = new DoctorRouter();
 const consultationManager = new ConsultationManager(doctorRouter);
@@ -272,17 +295,18 @@ class TelegramAdapter {
 
       // Route by the effective role (selectedPersona if validly authorized,
       // otherwise the live precedence winner) so Switch Role actually sticks.
-if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-         const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
-         if (!inAdminFlow) {
-           consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
-         }
-         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-         const pendingCount = consultationManager.getPendingForAdmin().length;
-         const activeCount = Array.from(consultationManager.consultations.values())
-           .filter(c => c.status === 'active').length;
-         await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-       } else if (effectiveRole === PersonaTypes.SUPPORT) {
+      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+        const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
+        if (!inAdminFlow) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+        }
+        ensureEnvSeededAdminRecord(String(chatId));
+        const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
+        const pendingCount = consultationManager.getPendingForAdmin().length;
+        const activeCount = Array.from(consultationManager.consultations.values())
+          .filter(c => c.status === 'active').length;
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+      } else if (effectiveRole === PersonaTypes.SUPPORT) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.CAREGIVER) {
@@ -527,16 +551,17 @@ if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER
       // Route by effective role first so an admin/support user mid-substate
       // (e.g. ADMIN_ROLE_APPROVALS) still lands on their own domain's menu
       // instead of falling into the patient main menu default below.
-if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-         if (flowState !== FlowStates.ADMIN_MENU) {
-           consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
-         }
-         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-         const pendingCount = consultationManager.getPendingForAdmin().length;
-         const activeCount = Array.from(consultationManager.consultations.values())
-           .filter(c => c.status === 'active').length;
-         await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
-       } else if (effectiveRole === PersonaTypes.SUPPORT) {
+      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+        if (flowState !== FlowStates.ADMIN_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+        }
+        ensureEnvSeededAdminRecord(String(chatId));
+        const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
+        const pendingCount = consultationManager.getPendingForAdmin().length;
+        const activeCount = Array.from(consultationManager.consultations.values())
+          .filter(c => c.status === 'active').length;
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+      } else if (effectiveRole === PersonaTypes.SUPPORT) {
         if (flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         }
@@ -559,7 +584,7 @@ if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER
       }
     });
 
-this.bot.on('message', async (msg) => {
+    this.bot.on('message', async (msg) => {
        const chatId = msg.chat.id;
        try {
          const text = msg.text || '';
@@ -718,15 +743,22 @@ this.bot.on('message', async (msg) => {
           if (doctor) await this.notifyDoctorOfNewConsultation(String(chatId), updatedSession, doctor);
         }
 
-        // Menu-driven doctor assign (handleAdminAssignDoctorInput) - the raw
-        // ASSIGN_DOCTOR command already notifies the patient itself; this
-        // covers the menu path, which previously left the patient unaware.
+        // Menu-driven doctor assign (handleAdminAssignDoctorInput)
         if (flowResult.data?.doctorId && flowResult.data?.patientPhone && !flowResult.data?.newDoctorId) {
           const doctor = doctorPersistence.getDoctorById(flowResult.data.doctorId);
           await this.bot.sendMessage(flowResult.data.patientPhone,
             `👨⚕️ *Doctor Assigned*\n\nDr. ${doctor?.name || 'a specialist'} has been assigned to your consultation (${flowResult.data.consultationId}).`,
             { parse_mode: 'Markdown' }
           ).catch(() => {});
+          // Unlike reassignment (below), the doctor was never notified on
+          // the initial assignment at all - they'd have no way to know a
+          // patient was waiting short of proactively checking My Patients.
+          if (doctor?.telegramId) {
+            await this.bot.sendMessage(doctor.telegramId,
+              `📩 *New Consultation Assigned*\n\nConsultation: ${flowResult.data.consultationId}\nPatient: ${flowResult.data.patientPhone}\n\nReply to start consultation.`,
+              { parse_mode: 'Markdown' }
+            ).catch(() => {});
+          }
         }
 
         // Menu-driven doctor reassign (handleAdminReassignDoctorInput)
