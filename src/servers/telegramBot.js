@@ -348,7 +348,7 @@ class TelegramAdapter {
             profile.medicalReports?.length > 0 ? '✅' : '❌'
           ].join(' ');
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.WELCOME });
-          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${InteractiveMenus.main(effectiveRole)}`, { parse_mode: 'Markdown' });
+          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${conversationFlow.getWelcomeMenu(String(chatId))}`, { parse_mode: 'Markdown' });
         } else {
           await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.roleSelect}`, { parse_mode: 'Markdown' });
         }
@@ -429,7 +429,7 @@ class TelegramAdapter {
       const persona = new UserPersona(chatId);
       
       if (session?.patientProfile) {
-        await this.bot.sendMessage(chatId, `📋 *Session Resumed*\n\nProfile: ${session.patientProfile.name || 'set'}\nDocs: ${session.media?.length || 0}\n\n${InteractiveMenus.main(session.selectedPersona || persona.type)}`, { parse_mode: 'Markdown' });
+        await this.bot.sendMessage(chatId, `📋 *Session Resumed*\n\nProfile: ${session.patientProfile.name || 'set'}\nDocs: ${session.media?.length || 0}\n\n${conversationFlow.getWelcomeMenu(chatId)}`, { parse_mode: 'Markdown' });
       } else {
         await this.bot.sendMessage(chatId, `No previous session found. Use /start to begin.`);
       }
@@ -587,8 +587,7 @@ class TelegramAdapter {
       } else if (flowState === FlowStates.CAREGIVER_MENU) {
         await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(session?.patientName), { parse_mode: 'Markdown' });
       } else {
-        const selectedPersona = session?.selectedPersona || persona.type;
-        await this.bot.sendMessage(chatId, InteractiveMenus.main(selectedPersona), { parse_mode: 'Markdown' });
+        await this.bot.sendMessage(chatId, conversationFlow.getWelcomeMenu(String(chatId)), { parse_mode: 'Markdown' });
       }
     });
 
@@ -1084,9 +1083,7 @@ if (!consultation) {
         return await this.handleConnectRequest(String(chatId), session);
         
       default:
-        const sess = consultationManager.getSession(String(chatId));
-        const currentPersona = sess?.selectedPersona || 'patient';
-        return { message: InteractiveMenus.main(currentPersona) };
+        return { message: conversationFlow.getWelcomeMenu(String(chatId)) };
     }
   }
 

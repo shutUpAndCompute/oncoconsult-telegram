@@ -59,7 +59,7 @@ ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
  };
 
 const InteractiveMenus = {
-   main: (persona = 'patient') => `🩺 *Oncology Consultation*\n\n1️⃣ My Consultations\n2️⃣ 👤 Profile & Roles\n\nReply with number`,
+   main: (persona = 'patient', hasOtherRoles = false) => `🩺 *Oncology Consultation*\n\n1️⃣ My Consultations\n2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}\n\nReply with number`,
    personaSelect: (currentPersona, approvedRoles = []) => {
      const options = ['1️⃣ Patient Mode'];
      if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
@@ -515,13 +515,29 @@ case FlowStates.DOCTOR_SELECT:
         return this.handleRoleApplicationSelection(selection, phoneNumber);
 
       default:
-        return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+        return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
   }
 
   handleWelcomeSelection(selection, phoneNumber) {
     if (selection === '0' || selection.toLowerCase() === 'cancel') {
       return this.handleCancel(phoneNumber);
+    }
+
+    // Patient Mode's main menu previously had no way back to other roles -
+    // "0" here is Cancel, not persona select, and both /start and /menu key
+    // off session.selectedPersona, so anyone with another approved role
+    // (e.g. a super admin exploring Patient Mode) had no menu-driven way
+    // back; only /clear worked, and that also wipes session/consultation
+    // state as a side effect. Only offer it (and only honor it) when the
+    // user actually holds another role - InteractiveMenus.main() only
+    // prints "3️⃣ Switch Role" in that case too, via getWelcomeMenu().
+    if (selection === '3') {
+      const { getAvailableRoles } = require('../models/persona');
+      const availableRoles = getAvailableRoles(phoneNumber);
+      if (availableRoles.length > 1) {
+        return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('patient', availableRoles) };
+      }
     }
 
     const flowMap = {
@@ -531,18 +547,28 @@ case FlowStates.DOCTOR_SELECT:
 
     const nextState = flowMap[selection];
     if (nextState) {
-      return { 
-        nextState, 
+      return {
+        nextState,
         response: this.getMessageOptions(nextState, 'patient')
       };
     }
 
-    return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+    return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+  }
+
+  // Every "back to Patient home" exit should consistently show "Switch
+  // Role" when applicable, not just the one a user happens to land on -
+  // otherwise the option would flicker in and out depending on which of
+  // the many WELCOME-returning code paths produced the current screen.
+  getWelcomeMenu(phoneNumber) {
+    const { getAvailableRoles } = require('../models/persona');
+    const hasOtherRoles = getAvailableRoles(phoneNumber).length > 1;
+    return InteractiveMenus.main('patient', hasOtherRoles);
   }
 
   handleRoleSelection(selection, phoneNumber) {
     if (selection === '0' || selection.toLowerCase() === 'cancel') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
     if (selection === '1') {
       return this.startPatientProfile(phoneNumber);
@@ -656,7 +682,7 @@ Please enter your full name:`
     if (patientPhone === '0') {
       return {
         nextState: FlowStates.WELCOME,
-        response: InteractiveMenus.main('caregiver')
+        response: this.getWelcomeMenu(phoneNumber)
       };
     }
     
@@ -678,7 +704,7 @@ Please enter your full name:`
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main('patient') })
+      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
     };
     
     const handler = flowMap[selection];
@@ -694,7 +720,7 @@ Please enter your full name:`
       '2': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '3': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
       '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main('support') })
+      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
     };
     const handler = flowMap[selection];
     if (handler) return handler();
@@ -768,7 +794,7 @@ Please enter your full name:`
     } else if (selection === '3') {
       return this.handleWithdrawalRequest(phoneNumber, session);
     } else if (selection === '4') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
     return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation}` };
   }
@@ -804,7 +830,7 @@ Please enter your full name:`
     if (!session.consultationId && !session.paymentTransaction) {
       return {
         nextState: FlowStates.WELCOME,
-        response: `⚠️ No pending consultation or payment request found.\n\n${InteractiveMenus.main()}`,
+        response: `⚠️ No pending consultation or payment request found.\n\n${this.getWelcomeMenu(phoneNumber)}`,
         data: {}
       };
     }
@@ -1001,7 +1027,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
     if (selection === '2') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
     if (selection === '3') {
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
@@ -1023,8 +1049,23 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const profileComplete = this.isProfileComplete(completenessCheckSession);
     const currentState = session.flowState || FlowStates.WELCOME;
 
+    // "3" (Switch Role) only appears on the Patient menu when the user
+    // actually holds another approved role - reaching PERSONA_SELECT to
+    // leave Patient Mode isn't "using the patient consultation service",
+    // so it must not be blocked behind patient onboarding (platform terms,
+    // profile completeness) the way '1'/'2' correctly are. Without this,
+    // anyone who switched INTO Patient Mode without ever filling out a
+    // patient profile (e.g. an admin/doctor just visiting) would have no
+    // way back out via the very option added to get them back out.
+    const trimmed = message.trim();
+    let isSwitchRoleSelection = false;
+    if (trimmed === '3' && currentState === FlowStates.WELCOME) {
+      const { getAvailableRoles } = require('../models/persona');
+      isSwitchRoleSelection = getAvailableRoles(phoneNumber).length > 1;
+    }
+
     const platformTermsAccepted = session?.patientProfile?.platformTermsAccepted || false;
-    if (!platformTermsAccepted && currentState === FlowStates.WELCOME) {
+    if (!platformTermsAccepted && currentState === FlowStates.WELCOME && !isSwitchRoleSelection) {
       return {
         nextState: FlowStates.PLATFORM_TERMS,
         response: InteractiveMenus.platformTerms
@@ -1038,12 +1079,11 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     // advanced to Role Select. The consultation lock further down still blocks
     // '1' (My Consultations) until the profile is complete.
     if (!profileComplete && currentState === FlowStates.WELCOME) {
-      const trimmed = message.trim();
-      const validWelcome = ['1', '2', '0'].includes(trimmed) || trimmed.toLowerCase() === 'cancel';
+      const validWelcome = ['1', '2', '0'].includes(trimmed) || trimmed.toLowerCase() === 'cancel' || isSwitchRoleSelection;
       if (!validWelcome) {
         return {
           nextState: FlowStates.WELCOME,
-          response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${InteractiveMenus.main()}`
+          response: `👤 *Profile Required*\n\nComplete your profile to access consultation services.\n\n${this.getWelcomeMenu(phoneNumber)}`
         };
       }
     }
@@ -1138,7 +1178,7 @@ isProfileComplete(session) {
       .filter(c => c.patientPhone === phoneNumber);
 
     if (pastConsultations.length === 0) {
-      return InteractiveMenus.main();
+      return this.getWelcomeMenu(phoneNumber);
     }
 
     const last = pastConsultations
@@ -1148,7 +1188,7 @@ isProfileComplete(session) {
     });
     const statusLabel = last.status === 'completed' ? 'Completed' : 'In Progress';
 
-    return `👋 *Welcome back!*\n\n📅 Last consultation: ${dateStr}\n📋 Status: ${statusLabel}\n👨⚕️ Doctor: Dr. ${last.doctorId || 'TBD'}\n\n${InteractiveMenus.main()}`;
+    return `👋 *Welcome back!*\n\n📅 Last consultation: ${dateStr}\n📋 Status: ${statusLabel}\n👨⚕️ Doctor: Dr. ${last.doctorId || 'TBD'}\n\n${this.getWelcomeMenu(phoneNumber)}`;
   }
 
   handleMobileCollection(phoneNumber, message) {
@@ -1579,7 +1619,7 @@ case 'support': {
          };
        }
       default:
-        return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main(role) };
+        return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
   }
 
@@ -2718,7 +2758,7 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
 
   handleDoctorSelection(selection, phoneNumber, session) {
     if (selection === '0') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
 
     const effectiveSession = (session?.isCaregiver && session?.linkedPatientPhone)
@@ -2749,7 +2789,7 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: InteractiveMenus.main() })
+      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
     };
 
     const handler = flowMap[selection];
