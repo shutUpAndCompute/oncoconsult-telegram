@@ -305,7 +305,11 @@ class TelegramAdapter {
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+        const adminMenu = isSuperAdmin 
+          ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
+          : InteractiveMenus.adminMenu;
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
@@ -560,7 +564,11 @@ class TelegramAdapter {
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? InteractiveMenus.adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+        const adminMenu = isSuperAdmin 
+          ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
+          : InteractiveMenus.adminMenu;
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         if (flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
@@ -735,6 +743,32 @@ class TelegramAdapter {
             `📩 *Message from Dr. ${doctorName}*:\n\n${msgText}`,
             { parse_mode: 'Markdown' }
           ).catch(() => {});
+        }
+
+        // Menu-driven admin -> patient message (handleAdminMessagePatientInput).
+        // The handler previously only told the admin to run a raw MSG_PATIENT
+        // command that nothing ever parsed - the message was never actually
+        // delivered. Deliver it here, matching the doctorMsgToAdmin pattern.
+        if (flowResult.data?.adminMsgToPatient) {
+          const { patientPhone, message: msgText } = flowResult.data.adminMsgToPatient;
+          await this.bot.sendMessage(patientPhone,
+            `📩 *Message from Admin*\n\n${msgText}`,
+            { parse_mode: 'Markdown' }
+          ).catch(() => {});
+        }
+
+        // Menu-driven admin -> doctor message (handleAdminMessageDoctorInput).
+        // Same dead-end as adminMsgToPatient above, pointed at a nonexistent
+        // MSG_DOCTOR raw command instead.
+        if (flowResult.data?.adminMsgToDoctor) {
+          const { doctorId, message: msgText } = flowResult.data.adminMsgToDoctor;
+          const doctor = doctorPersistence.getDoctorById(doctorId);
+          if (doctor?.telegramId) {
+            await this.bot.sendMessage(doctor.telegramId,
+              `📩 *Message from Admin*\n\n${msgText}`,
+              { parse_mode: 'Markdown' }
+            ).catch(() => {});
+          }
         }
 
         if (flowResult.data?.consultationCreated) {
