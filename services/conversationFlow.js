@@ -311,7 +311,7 @@ Complete profile after selection.`,
 
 closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0. Back to Menu`,
 
-   adminMenuIncomplete: `👤 *Admin Profile Required*\n\nYour admin profile is incomplete. Please complete it first.\n\n5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`,
+   adminMenuIncomplete: (isSuperAdmin = false) => `👤 *${isSuperAdmin ? 'Super Admin' : 'Admin'} Profile Required*\n\nYour ${isSuperAdmin ? 'super admin' : 'admin'} profile is incomplete. Please complete it first.\n\n5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`,
 
    discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
 
@@ -1607,7 +1607,7 @@ case 'admin':
            nextState: FlowStates.ADMIN_MENU,
            response: adminProfileComplete
              ? this.getAdminMenuText(phoneNumber)
-             : InteractiveMenus.adminMenuIncomplete
+             : InteractiveMenus.adminMenuIncomplete(this.isSuperAdminPhone(phoneNumber))
          };
 case 'support': {
          const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
@@ -1872,7 +1872,7 @@ case 'support': {
     if (!adminProfileComplete && !['5', '0'].includes(selection)) {
       return {
         nextState: FlowStates.ADMIN_MENU,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.adminMenuIncomplete}`
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.adminMenuIncomplete(this.isSuperAdminPhone(phoneNumber))}`
       };
     }
     

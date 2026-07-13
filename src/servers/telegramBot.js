@@ -309,7 +309,7 @@ class TelegramAdapter {
         const adminMenu = isSuperAdmin 
           ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
           : InteractiveMenus.adminMenu;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
@@ -568,7 +568,7 @@ class TelegramAdapter {
         const adminMenu = isSuperAdmin 
           ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
           : InteractiveMenus.adminMenu;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         if (flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
