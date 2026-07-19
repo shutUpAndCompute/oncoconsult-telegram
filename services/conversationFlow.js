@@ -4,6 +4,20 @@ const { DISCOUNT_CATEGORIES, TREATMENT_STATUSES } = require('../models/patient')
 
 const masterData = new MasterDataManager();
 
+// Telegram Markdown V2 sanitization - strips control characters that break parsing
+const sanitizeMarkdown = (text) => {
+  if (!text) return '';
+  return text
+    .replace(/[*_~`\\]/g, '') // Remove: bold, italic, strikethrough, code, escape
+    .replace(/\[/g, '(')       // Replace square brackets (link syntax)
+    .replace(/\]/g, ')')
+    .replace(/\(/g, '[')       // Escape unbalanced brackets
+    .replace(/\)/g, ']');
+};
+
+// File size limit for medical reports (Telegram bot limit)
+const MAX_FILE_SIZE_MB = 20;
+
 const FlowStates = {
   PLATFORM_TERMS: 'platform_terms',
   WELCOME: 'welcome',
@@ -218,64 +232,89 @@ Enter phone number of doctor to approve:
 
 Example: 9876543210
 
+Type "cancel" or 0 to exit.
+
 0️⃣ Back to Role Approvals`,
   adminApproveCaregiverInput: `👤 *Approve Caregiver*
 
 Enter patient phone number to approve:
+
+Example: 9876543210
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Role Approvals`,
   adminApproveSupportInput: `🛎️ *Approve Support*
 
 Enter user phone number to approve:
 
+Example: 9876543210
+
+Type "cancel" or 0 to exit.
+
 0️⃣ Back to Role Approvals`,
   adminRegisterDoctorInput: `📝 *Register Doctor*
 
-Enter: NAME, SPECIALIZATION, PHONE, CANCERS
+Format: NAME, SPECIALIZATION, PHONE, CANCER_TYPES
 
 Example: John Smith, Medical Oncology, 9876543210, lung,breast
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Doctor Management`,
   adminInviteDoctorInput: `📧 *Invite Doctor*
 
-Enter: NAME, SPECIALIZATION, PHONE, CANCERS
+Format: NAME, SPECIALIZATION, PHONE, CANCER_TYPES
 
 Example: Jane Doe, Surgical Oncology, 9876543210, lung
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Doctor Management`,
   adminVerifyDiscountInput: `📎 *Verify Discount*
 
-Enter: PHONE approved/rejected [reason]
+Format: PHONE_NUMBER status [reason]
 
-Example: 9876543210 approved
+Example: 9876543210 approved "BPL family"
+Example: 9876543210 rejected "ineligible"
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Admin Menu`,
   adminVerifyPaymentInput: `💳 *Verify Payment*
 
-Enter transaction ID:
+Format: TRANSACTION_ID
 
 Example: txn_abc123
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Admin Menu`,
   adminMessagePatientInput: `📩 *Message Patient*
 
-Enter: PHONE MESSAGE
+Format: PHONE_NUMBER YOUR_MESSAGE
 
-Example: 9876543210 How are you feeling?
+Example: 9876543210 How are you feeling today?
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Admin Menu`,
   adminSetFeeInput: `💰 *Set Consultation Fee*
 
-Enter: PHONE AMOUNT [NOTE]
+Format: PHONE_NUMBER AMOUNT [OPTIONAL_NOTE]
 
 Example: 9811111111 1500 "Standard consultation"
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Admin Menu`,
   adminReassignDoctorInput: `🔁 *Reassign Doctor*
 
-Enter: CONSULTATION_ID NEW_DOCTOR_ID
+Format: CONSULTATION_ID NEW_DOCTOR_ID
 
 Example: cons_1234567890 doc_9876543210
+
+Type "cancel" or 0 to exit.
 
 0️⃣ Back to Doctor Management`,
   profileRemoveRole: `📝 *Remove Role*
@@ -622,7 +661,7 @@ case FlowStates.CAREGIVER_AUTH:
         return this.handleDoctorMenuSelection(selection, phoneNumber, session);
 
       case FlowStates.CANCER_TYPE:
-        return this.handleCancerTypeSelection(selection);
+        return this.handleCancerTypeSelection(selection, phoneNumber);
         
       case FlowStates.PLATFORM_TERMS:
         return this.handlePlatformTermsInput(selection, phoneNumber, session);
@@ -713,10 +752,15 @@ return this.handleAdminSetFeeInput(message, phoneNumber, session);
 case FlowStates.DOCTOR_SELECT:
         return this.handleDoctorSelection(selection, phoneNumber, session);
 
-      case FlowStates.REPORT_UPLOAD:
+case FlowStates.REPORT_UPLOAD:
         return {
           nextState: FlowStates.REPORT_UPLOAD,
-          response: '📎 Please upload a medical report (image or PDF). Send /menu to go back.'
+          response: `📎 Please upload a medical report (image or PDF).
+
+⚠️ Max file size: ${MAX_FILE_SIZE_MB}MB per file
+⚠️ DICOM files should be converted to PDF/image first
+
+Send /menu to go back.`
         };
 
       case FlowStates.COMPLETED:
@@ -1038,8 +1082,24 @@ Example: 9876543210
     const effectiveSession = (session?.isCaregiver && session?.linkedPatientPhone)
       ? { ...session, ...this.consultationManager.getSession(session.linkedPatientPhone) }
       : session;
-    const hasCancerType = effectiveSession?.patientProfile?.cancerType || effectiveSession?.cancerType;
-    const hasReports = effectiveSession?.media?.length > 0 || effectiveSession?.patientProfile?.medicalReports?.length > 0;
+    
+    // CRITICAL: Check essential profile completeness before proceeding
+    // This enforces the hard gate that the UI indicator suggests
+    const profile = effectiveSession?.patientProfile || {};
+    const consents = profile?.confirmedConsents || {};
+    const hasEssentialProfile = !!(profile.name && profile.age && profile.gender && profile.cancerType);
+    const hasEssentialConsents = !!(consents.teleconsultation && consents.dataSharing && consents.dpdp);
+    
+    if (!hasEssentialProfile || !hasEssentialConsents) {
+      return {
+        nextState: FlowStates.WELCOME,
+        response: `⚠️ *Profile Incomplete*\n\nComplete your profile before starting consultation:\n• Name: ${profile.name ? '✅' : '❌'}\n• Age: ${profile.age ? '✅' : '❌'}\n• Gender: ${profile.gender ? '✅' : '❌'}\n• Cancer Type: ${profile.cancerType ? '✅' : '❌'}\n• Teleconsultation Consent: ${consents.teleconsultation ? '✅' : '❌'}\n• Data Sharing Consent: ${consents.dataSharing ? '✅' : '❌'}\n• DPDP Consent: ${consents.dpdp ? '✅' : '❌'}\n\nUse option 2 (Profile & Roles) to update.\n\n${InteractiveMenus.consultation(false)}`,
+        data: {}
+      };
+    }
+    
+    const hasCancerType = profile.cancerType || effectiveSession?.cancerType;
+    const hasReports = effectiveSession?.media?.length > 0 || profile.medicalReports?.length > 0;
     
     if (!hasCancerType) {
       return {
@@ -1048,6 +1108,7 @@ Example: 9876543210
       };
     }
     
+    // CRITICAL: Check for reports even after cancer type is selected
     if (!hasReports) {
       return {
         nextState: FlowStates.REPORT_UPLOAD,
@@ -1214,7 +1275,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     };
   }
 
-  handleCancerTypeSelection(selection) {
+  handleCancerTypeSelection(selection, phoneNumber) {
     if (selection === '0') {
       return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
     }
@@ -1233,7 +1294,20 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     if (!cancerType) {
       return { nextState: FlowStates.CANCER_TYPE, response: InteractiveMenus.cancerTypes };
     }
-
+    
+    // CRITICAL: Check for reports before proceeding to billing
+    const session = this.consultationManager.getSession(phoneNumber);
+    const hasReports = session?.media?.length > 0 || session?.patientProfile?.medicalReports?.length > 0;
+    
+    if (!hasReports) {
+      this.consultationManager.updateSession(phoneNumber, { cancerType });
+      return {
+        nextState: FlowStates.REPORT_UPLOAD,
+        response: '📎 Please upload at least one medical report (biopsy, imaging, discharge summary):'
+      };
+    }
+    
+    this.consultationManager.updateSession(phoneNumber, { cancerType });
     return {
       nextState: FlowStates.BILLING,
       response: InteractiveMenus.billing,

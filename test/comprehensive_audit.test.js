@@ -65,13 +65,61 @@ test.describe('Support Role Audit', () => {
 test.describe('Consultation Lifecycle Audit', () => {
   test('Consultation request flow', async () => {
     const session = {
-      patientProfile: { name: 'Test Patient', age: 30, gender: 'M', cancerType: 'breast' },
+      patientProfile: { 
+        name: 'Test Patient', 
+        age: 30, 
+        gender: 'M', 
+        cancerType: 'breast',
+        confirmedConsents: {
+          teleconsultation: true,
+          dataSharing: true,
+          dpdp: true
+        }
+      },
       media: [{ id: 'media1', type: 'photo' }],
       isCaregiver: false,
       selectedPersona: 'patient'
     };
     const result = await flow.handleStartConsultation('patient_phone', session);
     assert.strictEqual(result.nextState, 'billing', 'Should go to billing after consultation request');
+  });
+
+  test('Consultation request blocked without consents', async () => {
+    const session = {
+      patientProfile: { 
+        name: 'Test Patient', 
+        age: 30, 
+        gender: 'M', 
+        cancerType: 'breast'
+        // Missing consents
+      },
+      media: [{ id: 'media1', type: 'photo' }],
+      isCaregiver: false,
+      selectedPersona: 'patient'
+    };
+    const result = await flow.handleStartConsultation('patient_phone', session);
+    assert.strictEqual(result.nextState, 'welcome', 'Should go to welcome when consents missing');
+  });
+
+  test('Consultation request blocked without reports', async () => {
+    const session = {
+      patientProfile: { 
+        name: 'Test Patient', 
+        age: 30, 
+        gender: 'M', 
+        cancerType: 'breast',
+        confirmedConsents: {
+          teleconsultation: true,
+          dataSharing: true,
+          dpdp: true
+        }
+      },
+      media: [], // No reports
+      isCaregiver: false,
+      selectedPersona: 'patient'
+    };
+    const result = await flow.handleStartConsultation('patient_phone', session);
+    assert.strictEqual(result.nextState, 'report_upload', 'Should go to report_upload when no reports');
   });
 
   test('Withdrawal confirmation flow', () => {
@@ -160,13 +208,17 @@ test.describe('Payment Flow Audit', () => {
 
 test.describe('Doctor Management Audit', () => {
   test('List doctors', () => {
+    adminRegistry.addAdmin('admin_phone', 'system', 'admin_phone', 'admin', 'Test Admin');
     const result = flow.listDoctors('admin_phone');
     assert.strictEqual(result.nextState, 'admin_doctor_management', 'Should show doctor list');
+    adminRegistry.removeAdmin('admin_phone');
   });
 
   test('List pending doctors', () => {
+    adminRegistry.addAdmin('admin_phone', 'system', 'admin_phone', 'admin', 'Test Admin');
     const result = flow.listPendingDoctors('admin_phone');
     assert.strictEqual(result.nextState, 'admin_doctor_management', 'Should show pending doctors');
+    adminRegistry.removeAdmin('admin_phone');
   });
 
   test('Assign doctor flow', () => {
