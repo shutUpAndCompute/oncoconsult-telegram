@@ -58,6 +58,7 @@ const REPORT_TYPE_LABELS = {
 // instead of silently falling through to the patient conversation flow.
 const ADMIN_DOMAIN_STATES = new Set([
   FlowStates.ADMIN_MENU,
+  FlowStates.SUPER_ADMIN_MENU,
   FlowStates.ADMIN_ROLE_APPROVALS,
   FlowStates.ADMIN_DOCTOR_MANAGEMENT,
   FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
@@ -76,6 +77,7 @@ const ADMIN_DOMAIN_STATES = new Set([
   FlowStates.ADMIN_CLOSE_CONSULTATION,
    FlowStates.ADMIN_ADD_ADMIN_INPUT,
    FlowStates.ADMIN_REMOVE_ADMIN_INPUT,
+   FlowStates.ADMIN_SET_FEE_INPUT,
    FlowStates.ADMIN_PROFILE_EDIT
 ]);
 
@@ -296,62 +298,42 @@ class TelegramAdapter {
       // Route by the effective role (selectedPersona if validly authorized,
       // otherwise the live precedence winner) so Switch Role actually sticks.
       if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        const inAdminFlow = session?.flowState === FlowStates.ADMIN_MENU;
+        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+        const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        const inAdminFlow = session?.flowState === adminMenuState;
         if (!inAdminFlow) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+          consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
         }
         ensureEnvSeededAdminRecord(String(chatId));
         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
-        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
-        const adminMenu = isSuperAdmin 
+const adminMenu = isSuperAdmin 
           ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
           : InteractiveMenus.adminMenu;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        const missingFields = adminRegistry.getIncompleteProfileFields(String(chatId));
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin, missingFields)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
-        consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
-        await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
-      } else if (effectiveRole === PersonaTypes.CAREGIVER) {
-        // Check if caregiver has linked patient
-        const linkedPatientPhone = session?.linkedPatientPhone;
-        if (!linkedPatientPhone) {
-          // Need to link to patient first
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.CAREGIVER_PATIENT_LINK });
-          await this.bot.sendMessage(chatId, InteractiveMenus.caregiverPatientLink, { parse_mode: 'Markdown' });
-        } else {
-          const linkedSession = consultationManager.getSession(linkedPatientPhone);
-          const patientInfo = linkedSession?.patientProfile?.name ? `\nPatient: ${linkedSession.patientProfile.name}` : '';
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.CAREGIVER_MENU });
-          await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(linkedSession?.patientProfile?.name), { parse_mode: 'Markdown' });
+        if (flowState !== FlowStates.SUPPORT_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         }
+        await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.DOCTOR) {
         const doctors = doctorPersistence.getDoctors();
         const doctor = doctors.find(d => d.telegramId === String(chatId) ||
           String(d.phoneNumber).replace('+', '') === String(chatId));
-        const activeConsultation = Array.from(consultationManager.consultations.values())
+        const hasActive = !!Array.from(consultationManager.consultations.values())
           .find(c => c.doctorId === doctor?.id && c.status === 'active');
-        const consultationInfo = activeConsultation ? `\nActive: ${activeConsultation.id}` : '';
-        consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
-        await this.bot.sendMessage(chatId, `*${roleLabel} Mode*${consultationInfo}\n\nSend /menu for options or wait for consultation.\nUse MSG_ADMIN <message> to contact your admin.\n\n9. Status\n0. Switch Role`, { parse_mode: 'Markdown' });
-      } else {
-        // Patient (either genuinely a patient, or another role that switched
-        // to Patient Mode) - show the main menu if they have a profile
-        if (session?.patientProfile) {
-          const profile = session.patientProfile;
-          const profileCompleteness = [
-            profile.name ? '✅' : '❌',
-            profile.age ? '✅' : '❌',
-            profile.gender ? '✅' : '❌',
-            profile.cancerType ? '✅' : '❌',
-            profile.medicalReports?.length > 0 ? '✅' : '❌'
-          ].join(' ');
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.WELCOME });
-          await this.bot.sendMessage(chatId, `👋 *Welcome back!*\n\nProfile: ${profileCompleteness}\n\n${conversationFlow.getWelcomeMenu(String(chatId))}`, { parse_mode: 'Markdown' });
-        } else {
-          await this.bot.sendMessage(chatId, `Welcome! Please select your role:\n\n${InteractiveMenus.roleSelect}`, { parse_mode: 'Markdown' });
+        const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
+        if (flowState !== FlowStates.DOCTOR_MENU) {
+          consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
         }
+        await this.bot.sendMessage(chatId, InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive, pendingActions), { parse_mode: 'Markdown' });
+      } else if (flowState === FlowStates.CAREGIVER_MENU) {
+        await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(session?.patientName), { parse_mode: 'Markdown' });
+      } else {
+        await this.bot.sendMessage(chatId, conversationFlow.getWelcomeMenu(String(chatId)), { parse_mode: 'Markdown' });
       }
     });
 
@@ -556,19 +538,21 @@ class TelegramAdapter {
       // (e.g. ADMIN_ROLE_APPROVALS) still lands on their own domain's menu
       // instead of falling into the patient main menu default below.
       if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        if (flowState !== FlowStates.ADMIN_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
+        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+        const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        if (flowState !== adminMenuState) {
+          consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
         }
         ensureEnvSeededAdminRecord(String(chatId));
         const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
-        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
         const adminMenu = isSuperAdmin 
           ? InteractiveMenus.superAdminMenu(pendingCount, activeCount)
           : InteractiveMenus.adminMenu;
-        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
+        const missingFields = adminRegistry.getIncompleteProfileFields(String(chatId));
+        await this.bot.sendMessage(chatId, `${adminProfileComplete ? adminMenu : InteractiveMenus.adminMenuIncomplete(isSuperAdmin, missingFields)}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { parse_mode: 'Markdown' });
       } else if (effectiveRole === PersonaTypes.SUPPORT) {
         if (flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
@@ -580,10 +564,11 @@ class TelegramAdapter {
           String(d.phoneNumber).replace('+', '') === String(chatId));
         const hasActive = !!Array.from(consultationManager.consultations.values())
           .find(c => c.doctorId === doctor?.id && c.status === 'active');
+        const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
         if (flowState !== FlowStates.DOCTOR_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
         }
-        await this.bot.sendMessage(chatId, InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive), { parse_mode: 'Markdown' });
+        await this.bot.sendMessage(chatId, InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive, pendingActions), { parse_mode: 'Markdown' });
       } else if (flowState === FlowStates.CAREGIVER_MENU) {
         await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(session?.patientName), { parse_mode: 'Markdown' });
       } else {
@@ -629,33 +614,40 @@ class TelegramAdapter {
          // etc.) fall through to createFlowHandler below, whose
          // state-driven dispatch routes them correctly.
 
-         if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN)) {
-            const currentFlowState = session?.flowState;
-            const inAdminDomain = ADMIN_DOMAIN_STATES.has(currentFlowState) || SHARED_DOMAIN_STATES.has(currentFlowState);
+if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN)) {
+             const currentFlowState = session?.flowState;
+             const inAdminDomain = ADMIN_DOMAIN_STATES.has(currentFlowState) || SHARED_DOMAIN_STATES.has(currentFlowState);
 
-            if (!inAdminDomain) {
-              // Self-heal: an admin whose session drifted outside the admin
-              // domain (WELCOME default, a stale patient-flow state, etc.)
-              // must land back on the admin menu instead of silently
-              // falling through to the patient conversation flow below.
-              consultationManager.updateSession(String(chatId), { flowState: FlowStates.ADMIN_MENU });
-              await this.bot.sendMessage(chatId, InteractiveMenus.adminMenu, { parse_mode: 'Markdown' });
-              return;
-            }
+             if (!inAdminDomain) {
+               const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+               const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+               consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
+               const menu = isSuperAdmin ? InteractiveMenus.superAdminMenu() : InteractiveMenus.adminMenu;
+               await this.bot.sendMessage(chatId, menu, { parse_mode: 'Markdown' });
+               return;
+             }
 
-            if (currentFlowState === FlowStates.ADMIN_MENU) {
-              const flowResult = conversationFlow.handleAdminMenuSelection(text, String(chatId));
-              if (flowResult.nextState) {
-                consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
-              }
-              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
-              return;
-            }
-            // Other admin-domain sub-states (ADMIN_ROLE_APPROVALS,
-            // ADMIN_*_INPUT, shared profile/persona states) fall through to
-            // createFlowHandler below, whose state-driven dispatch already
-            // routes them to the correct handler.
-          }
+             if (currentFlowState === FlowStates.SUPER_ADMIN_MENU) {
+               const flowResult = conversationFlow.handleSuperAdminMenuSelection(text, String(chatId), session);
+               if (flowResult.nextState) {
+                 consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+               }
+               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+               return;
+             }
+             if (currentFlowState === FlowStates.ADMIN_MENU) {
+               const flowResult = conversationFlow.handleAdminMenuSelection(text, String(chatId));
+               if (flowResult.nextState) {
+                 consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
+               }
+               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+               return;
+             }
+             // Other admin-domain sub-states (ADMIN_ROLE_APPROVALS,
+             // ADMIN_*_INPUT, shared profile/persona states) fall through to
+             // createFlowHandler below, whose state-driven dispatch already
+             // routes them to the correct handler.
+           }
 
           if (!inPersonaSelect && effectiveRole === PersonaTypes.SUPPORT) {
             const currentFlowState = session?.flowState;

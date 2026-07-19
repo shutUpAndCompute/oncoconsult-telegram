@@ -12,7 +12,7 @@ const FlowStates = {
   CAREGIVER_CONSENT_ACK: 'caregiver_consent_ack',
   CAREGIVER_PATIENT_LINK: 'caregiver_patient_link',
   CAREGIVER_MENU: 'caregiver_menu',
-PROFILE: 'profile',
+ PROFILE: 'profile',
    PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
    PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
    PROFILE_CONSENTS: 'profile_consents',
@@ -43,96 +43,185 @@ PROFILE: 'profile',
   ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
   ADMIN_VERIFY_PAYMENT_INPUT: 'admin_verify_payment_input',
   ADMIN_VERIFY_DISCOUNT_INPUT: 'admin_verify_discount_input',
-ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
-    DOCTOR_MENU: 'doctor_menu',
-    DOCTOR_PROFILE_EDIT: 'doctor_profile_edit',
-    DOCTOR_MSG_ADMIN_INPUT: 'doctor_msg_admin_input',
-    PROFILE_VIEW: 'profile_view',
-   PROFILE_EDIT: 'profile_edit',
-   ADMIN_PROFILE_EDIT: 'admin_profile_edit',
-   ROLE_APPLICATION: 'role_application',
-  PROFILE_REMOVE_ROLE: 'profile_remove_role',
-  MOBILE_COLLECTION: 'mobile_collection',
+ ADMIN_CLOSE_CONSULTATION: 'admin_close_consultation',
+DOCTOR_MENU: 'doctor_menu',
+     DOCTOR_PROFILE_EDIT: 'doctor_profile_edit',
+     DOCTOR_MSG_ADMIN_INPUT: 'doctor_msg_admin_input',
+     PROFILE_VIEW: 'profile_view',
+    PROFILE_EDIT: 'profile_edit',
+    ADMIN_PROFILE_EDIT: 'admin_profile_edit',
+    ADMIN_PROFILE_EDIT_NAME: 'admin_profile_edit_name',
+    ADMIN_PROFILE_EDIT_PHONE: 'admin_profile_edit_phone',
+    ROLE_APPLICATION: 'role_application',
+   PROFILE_REMOVE_ROLE: 'profile_remove_role',
+   MOBILE_COLLECTION: 'mobile_collection',
    PERSONA_SELECT: 'persona_select',
-   ADMIN_ADD_ADMIN_INPUT: 'admin_add_admin_input',
-   ADMIN_REMOVE_ADMIN_INPUT: 'admin_remove_admin_input'
- };
+   ADMIN_MENU: 'admin_menu',
+   SUPER_ADMIN_MENU: 'super_admin_menu',
+    ADMIN_ADD_ADMIN_INPUT: 'admin_add_admin_input',
+    ADMIN_REMOVE_ADMIN_INPUT: 'admin_remove_admin_input',
+    ADMIN_SET_FEE_INPUT: 'admin_set_fee_input',
+    ADMIN_PROFILE_COMPLETE_OPTIONS: 'admin_profile_complete_options'
+  };
 
 const InteractiveMenus = {
-   main: (persona = 'patient', hasOtherRoles = false) => `🩺 *Oncology Consultation*\n\n1️⃣ My Consultations\n2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}\n\nReply with number`,
+main: (persona = 'patient', hasOtherRoles = false, profileComplete = true) => `🩺 *Oncology Consultation*
+
+${!profileComplete ? '🔴 ' : ''}1️⃣ My Consultations
+2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}
+
+Reply with number`,
    personaSelect: (currentPersona, approvedRoles = []) => {
-     const options = ['1️⃣ Patient Mode'];
-     if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
-     if (approvedRoles.includes('doctor')) options.push('3️⃣ Doctor Mode');
-     if (approvedRoles.includes('admin') || approvedRoles.includes('super_admin')) options.push('4️⃣ Admin Mode');
-     if (approvedRoles.includes('support')) options.push('5️⃣ Support Mode');
-     options.push('0️⃣ Main Menu');
-     return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
-   },
+      const options = ['1️⃣ Patient Mode'];
+      if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
+      if (approvedRoles.includes('doctor')) options.push('3️⃣ Doctor Mode');
+      if (approvedRoles.includes('admin') || approvedRoles.includes('super_admin')) options.push('4️⃣ Admin Mode');
+      if (approvedRoles.includes('support')) options.push('5️⃣ Support Mode');
+      options.push('0️⃣ Main Menu');
+      return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
+    },
 
-adminMenu: `🛠️ *Admin Panel*
+adminMenu: (pending = 0, active = 0, highlightOption = null) => `🛠️ *Admin Panel*
 
-1️⃣ Pending Requests
-2️⃣ Active Consultations
+${pending > 0 || highlightOption === 5 ? '🔴 ' : ''}1️⃣ Pending Requests
+${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations
 3️⃣ Role Approvals
 4️⃣ Doctor Management
-5️⃣ Profile
+${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View Patient Profiles
 7️⃣ Verify Payment
 8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
-11. Add Admin (Super Admin)
-12. Remove Admin (Super Admin)
+13️⃣ Set Fee
 
 0️⃣ Switch Role`,
-   superAdminMenu: (pending = 0, active = 0) => `🔐 *Super Admin Panel*
+   superAdminMenu: (pending = 0, active = 0, highlightOption = null) => `🔐 *Super Admin Panel*
 
 You have full system access.
 
-1️⃣ Pending Requests
-2️⃣ Active Consultations
+${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
+${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations (${active} active)
 3️⃣ Role Approvals
 4️⃣ Doctor Management
-5️⃣ Profile
+${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View All Patients
 7️⃣ Verify Payment
 8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
-11. Add Admin
-12. Remove Admin
+1️⃣1 Add Admin
+1️⃣2 Remove Admin
 
 0️⃣ Switch Role`,
-  adminRoleApprovals: `🔐 *Role Approvals*\n\n1️⃣ View Role Applications\n2️⃣ Approve Doctor\n3️⃣ Approve Caregiver\n4️⃣ Approve Support\n\n0️⃣ Back to Menu\n\nReply with number`,
-  adminDoctorManagement: `👨⚕️ *Doctor Management*
+   adminRoleApprovals: (pendingApps = 0, highlightOption = null) => `🔐 *Role Approvals*
 
-1️⃣ List Doctors
-2️⃣ List Pending Doctors
-3️⃣ Assign Doctor
-4️⃣ Reassign Doctor
-5️⃣ Remove Doctor
-6️⃣ Reject Doctor
-7️⃣ Message Doctor
-8️⃣ Register Doctor
-9️⃣ Invite Doctor
+${pendingApps > 0 ? '🔴 ' : ''}1️⃣ View Role Applications
+${highlightOption === 2 ? '🔴 ' : ''}2️⃣ Approve Doctor
+${highlightOption === 3 ? '🔴 ' : ''}3️⃣ Approve Caregiver
+${highlightOption === 4 ? '🔴 ' : ''}4️⃣ Approve Support
 
-0️⃣ Back to Menu
+0️⃣ Back to Admin Menu
 
 Reply with number`,
-  adminAssignDoctorInput: `🔗 *Assign Doctor*\n\nEnter consultation ID and doctor ID:\n\nFormat: CONSULTATION_ID DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
-  adminRemoveDoctorInput: `🗑️ *Remove Doctor*\n\nEnter doctor ID:\n\n0. Back to Menu`,
-  adminRejectDoctorInput: `❌ *Reject Doctor*\n\nEnter doctor request ID:\n\n0. Back to Menu`,
-  adminMessageDoctorInput: `📩 *Message Doctor*\n\nEnter: DOCTOR_ID MESSAGE\n\nExample: doc_1234567890 Please review case\n\n0. Back to Menu`,
-  adminApproveDoctorInput: `👨⚕️ *Approve Doctor*\n\nEnter phone number of doctor to approve:\n\nExample: 9876543210\n\n0. Back to Menu`,
-  adminApproveCaregiverInput: `👤 *Approve Caregiver*\n\nEnter patient phone number to approve:\n\n0. Back to Menu`,
-  adminApproveSupportInput: `🛎️ *Approve Support*\n\nEnter user phone number to approve:\n\n0. Back to Menu`,
-  adminRegisterDoctorInput: `📝 *Register Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: John Smith, Medical Oncology, 9876543210, lung,breast\n\n0. Back to Menu`,
-  adminVerifyDiscountInput: `📎 *Verify Discount*\n\nEnter: PHONE approved/rejected [reason]\n\nExample: 9876543210 approved\n\n0. Back to Menu`,
-  adminVerifyPaymentInput: `💳 *Verify Payment*\n\nEnter transaction ID:\n\nExample: txn_abc123\n\n0. Back to Menu`,
-  adminMessagePatientInput: `📩 *Message Patient*\n\nEnter: PHONE MESSAGE\n\nExample: 9876543210 How are you feeling?\n\n0. Back to Menu`,
-adminReassignDoctorInput: `🔁 *Reassign Doctor*\n\nEnter: CONSULTATION_ID NEW_DOCTOR_ID\n\nExample: cons_1234567890 doc_9876543210\n\n0. Back to Menu`,
-profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver/support\n\n0. Back to Menu`,
+   adminDoctorManagement: (pendingDoctors = 0, highlightOption = null) => `👨⚕️ *Doctor Management*
+
+${pendingDoctors > 0 ? '🔴 ' : ''}1️⃣ List Doctors
+${pendingDoctors > 0 ? '🔴 ' : ''}2️⃣ List Pending Doctors
+${highlightOption === 3 ? '🔴 ' : ''}3️⃣ Assign Doctor
+${highlightOption === 4 ? '🔴 ' : ''}4️⃣ Reassign Doctor
+${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Remove Doctor
+${highlightOption === 6 ? '🔴 ' : ''}6️⃣ Reject Doctor
+${highlightOption === 7 ? '🔴 ' : ''}7️⃣ Message Doctor
+${highlightOption === 8 ? '🔴 ' : ''}8️⃣ Register Doctor
+${highlightOption === 9 ? '🔴 ' : ''}9️⃣ Invite Doctor
+
+0️⃣ Back to Admin Menu
+
+Reply with number`,
+adminAssignDoctorInput: `🔗 *Assign Doctor*
+
+Enter consultation ID and doctor ID:
+
+Format: CONSULTATION_ID DOCTOR_ID
+
+Example: cons_1234567890 doc_9876543210
+
+0️⃣ Back to Doctor Management`,
+  adminRemoveDoctorInput: `🗑️ *Remove Doctor*
+
+Enter doctor ID:
+
+0️⃣ Back to Doctor Management`,
+  adminRejectDoctorInput: `❌ *Reject Doctor*
+
+Enter doctor request ID:
+
+0️⃣ Back to Doctor Management`,
+  adminMessageDoctorInput: `📩 *Message Doctor*
+
+Enter: DOCTOR_ID MESSAGE
+
+Example: doc_1234567890 Please review case
+
+0️⃣ Back to Doctor Management`,
+  adminApproveDoctorInput: `👨⚕️ *Approve Doctor*
+
+Enter phone number of doctor to approve:
+
+Example: 9876543210
+
+0️⃣ Back to Role Approvals`,
+  adminApproveCaregiverInput: `👤 *Approve Caregiver*
+
+Enter patient phone number to approve:
+
+0️⃣ Back to Role Approvals`,
+  adminApproveSupportInput: `🛎️ *Approve Support*
+
+Enter user phone number to approve:
+
+0️⃣ Back to Role Approvals`,
+  adminRegisterDoctorInput: `📝 *Register Doctor*
+
+Enter: NAME, SPECIALIZATION, PHONE, CANCERS
+
+Example: John Smith, Medical Oncology, 9876543210, lung,breast
+
+0️⃣ Back to Doctor Management`,
+  adminVerifyDiscountInput: `📎 *Verify Discount*
+
+Enter: PHONE approved/rejected [reason]
+
+Example: 9876543210 approved
+
+0️⃣ Back to Admin Menu`,
+  adminVerifyPaymentInput: `💳 *Verify Payment*
+
+Enter transaction ID:
+
+Example: txn_abc123
+
+0️⃣ Back to Admin Menu`,
+  adminMessagePatientInput: `📩 *Message Patient*
+
+Enter: PHONE MESSAGE
+
+Example: 9876543210 How are you feeling?
+
+0️⃣ Back to Admin Menu`,
+ adminReassignDoctorInput: `🔁 *Reassign Doctor*
+
+Enter: CONSULTATION_ID NEW_DOCTOR_ID
+
+Example: cons_1234567890 doc_9876543210
+
+0️⃣ Back to Doctor Management`,
+ profileRemoveRole: `📝 *Remove Role*
+
+Enter role to remove: doctor/caregiver/support
+
+0️⃣ Back to Profile`,
    supportMenu: `👩⚕️ *Support Menu*
 
 1️⃣ My Consultations
@@ -140,24 +229,40 @@ profileRemoveRole: `📝 *Remove Role*\n\nEnter role to remove: doctor/caregiver
 3️⃣ Patient Chat
 4️⃣ Profile
 
-0️⃣ Main Menu
+0️⃣ Switch Role
 
 Reply with number`,
    doctorSelect: (doctors) => {
-    let text = `👨⚕️ *Select Doctor*\n\n`;
-    if (!doctors || doctors.length === 0) {
-      text += '_No doctors available for your cancer type._\n\n';
-    } else {
-      doctors.forEach((d, i) => {
-        text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
-      });
-    }
-    text += '\n0. Back to Menu';
-    return text;
-  },
-  caregiverPatientLink: `📲 *Link to Patient*\n\nEnter the patient's phone number (10 digits):\n\nExample: 9876543210\n\n0. Back to Menu`,
-  profileStateMenu: `📍 *Select Your State*\n\nEnter your state:`,
-  consultationCompleted: `✅ *Consultation Completed*\n\nThank you for using Oncology Consultation.\n\n1. My Consultations\n2. View Profile\n3. Main Menu`,
+     let text = `👨⚕️ *Select Doctor*
+
+`;
+     if (!doctors || doctors.length === 0) {
+       text += '_No doctors available for your cancer type._\n\n';
+     } else {
+       doctors.forEach((d, i) => {
+         text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
+       });
+     }
+     text += '\n0️⃣ Back to Menu';
+     return text;
+   },
+   caregiverPatientLink: `📲 *Link to Patient*
+
+Enter the patient's phone number (10 digits):
+
+Example: 9876543210
+
+0️⃣ Switch Role`,
+   profileStateMenu: `📍 *Select Your State*
+
+Enter your state:`,
+   consultationCompleted: `✅ *Consultation Completed*
+
+Thank you for using Oncology Consultation.
+
+1️⃣ My Consultations
+2️⃣ View Profile
+3️⃣ Main Menu`,
   platformTerms: `📋 *Platform Terms & Consent*\n\nBy using this service, you agree:\n\n1. Teleconsultation is NOT emergency care. Call 108 or go to ER for emergencies\n2. Medical data shared ONLY with assigned doctors\n3. Socio-economic documents for discount eligibility (OPT-IN)\n4. Admin reviews discounts at their discretion\n5. Data kept only for consultation period\n\n*For discount eligibility:*\n- You may OPT-IN to share eligibility documents (ration card, Ayushman, etc.)\n- Non-consent = full fee but same medical consultation quality\n- You can request data deletion anytime via /delete\n\n1. ✅ I Agree & Continue\n2. ❌ Disagree - Exit\n\nType 'CANCEL' to exit.`,
 
   profileLinkedPatients: (patients) => {
@@ -195,14 +300,34 @@ Linked to: ${patientName}
 
 2️⃣ 👤 Profile & Roles
 
-0️⃣ Main Menu
+0️⃣ Switch Role
 
 Reply with number`,
-  adminInviteDoctorInput: `📧 *Invite Doctor*\n\nEnter: NAME, SPECIALIZATION, PHONE, CANCERS\n\nExample: Jane Doe, Surgical Oncology, 9876543210, lung\n\n0. Back to Menu`,
+  adminInviteDoctorInput: `📧 *Invite Doctor*
 
-  mobileCollection: `📱 *Phone Verification*\n\nEnter your 10-digit mobile number to continue:\n\nOr type SKIP to skip verification`,
+Enter: NAME, SPECIALIZATION, PHONE, CANCERS
 
-  profileMenu: `👤 *Profile & Roles*\n\n1️⃣ View Profile\n2️⃣ Edit Profile\n3️⃣ Apply for Role\n4️⃣ My Roles\n5️⃣ Remove Role\n\n0️⃣ Back to Menu\n\nReply with number`,
+Example: Jane Doe, Surgical Oncology, 9876543210, lung
+
+0️⃣ Back to Doctor Management`,
+
+  mobileCollection: `📱 *Phone Verification*
+
+Enter your 10-digit mobile number to continue:
+
+Or type SKIP to skip verification`,
+
+  profileMenu: `👤 *Profile & Roles*
+
+1️⃣ View Profile
+2️⃣ Edit Profile
+3️⃣ Apply for Role
+4️⃣ My Roles
+5️⃣ Remove Role
+
+0️⃣ Back to Profile
+
+Reply with number`,
 
   profileView: (profile, isCaregiver) => {
     let text = `📋 *Your Profile*\n\n`;
@@ -256,7 +381,14 @@ Reply with number`,
     return text;
   },
 
-  adminProfileEdit: `✏️ *Edit Admin Profile*\n\nSend your details in this format:\n\`NAME:<your name>\n\nOr reply FIELD:VALUE on separate lines.`,
+  adminProfileEdit: `✏️ *Edit Admin Profile*
+
+1️⃣ Edit Name
+2️⃣ Edit Phone Number
+3️⃣ View Profile
+0️⃣ Back to Profile
+
+Reply with number`,
 
   profileEdit: `✏️ *Edit Profile*\n\nSend your details in this format:\n\`NAME:<name>\nAGE:<age>\nGENDER:<gender>\nADDRESS:<full address>\nLOCATION:<city>\n\nOr reply FIELD:VALUE on separate lines.`,
 
@@ -279,7 +411,9 @@ Roles require admin approval. Select a role to apply for.`,
     return text;
   },
 
-  doctorMenu: (doctorName, hasActive) => `👨⚕️ *Doctor Menu*\n\nHi ${doctorName}\n1️⃣ Status\n2️⃣ My Patients\n3️⃣ Edit Profile\n4️⃣ Message Admin\n\n${hasActive ? '_Has active consultation_' : ''}\n\n0️⃣ Switch Role`,
+  doctorMenu: (doctorName, hasActive, pendingActions = 0) => `👨⚕️ *Doctor Menu*\n\nHi ${doctorName}\n${pendingActions > 0 ? '🔴 ' : ''}1️⃣ Status\n2️⃣ My Patients\n3️⃣ Edit Profile\n4️⃣ Message Admin\n\n${hasActive ? '_Has active consultation_' : ''}
+${pendingActions > 0 ? `_${pendingActions} pending action${pendingActions > 1 ? 's' : ''}_` : ''}
+0️⃣ Switch Role`,
 
   roleSelect: `👤 *Select Your Role*
 
@@ -303,19 +437,47 @@ Complete profile after selection.`,
 
   confirmPayment: `✅ *Payment Status*\n\n1️⃣ Payment Completed\n2️⃣ Payment Pending\n3️⃣ Back to Menu\n\nReply "1" after making payment`,
 
-  consultation: `📋 *My Consultations*\n\nStart a new consultation or manage existing ones.\n\n1️⃣ Start New Consultation\n2️⃣ Check Payment Status\n3️⃣ Withdraw Consultation\n4️⃣ Back to Menu\n\nReply with number`,
+  consultation: (profileComplete = false) => `📋 *My Consultations*\n\n${!profileComplete ? '⚠️ ' : ''}Start a new consultation or manage existing ones.
+
+${!profileComplete ? '🔴 ' : ''}1️⃣ Start New Consultation
+${!profileComplete ? '⚠️ ' : ''}2️⃣ Check Payment Status
+3️⃣ Withdraw Consultation
+4️⃣ Back to Menu
+
+Reply with number`,
 
   withdrawalConfirm: `⚠️ *Withdraw Consultation*\n\nThis will cancel your pending consultation. Your data will be saved but you'll need to re-request a consultation.\n\n1️⃣ Yes, withdraw\n2️⃣ No, keep consultation\n\nReply with number`,
 
   withdrawalSuccess: `✅ *Consultation Withdrawn*\n\nYour pending consultation has been cancelled. All uploaded documents are saved.\nYou can request a new consultation anytime from the main menu.`,
 
-closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0. Back to Menu`,
+closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to close:\n\nExample: cons_1234567890\n\n0️⃣ Back to Admin Menu`,
 
-   adminMenuIncomplete: (isSuperAdmin = false) => `👤 *${isSuperAdmin ? 'Super Admin' : 'Admin'} Profile Required*\n\nYour ${isSuperAdmin ? 'super admin' : 'admin'} profile is incomplete. Please complete it first.\n\n5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`,
+   adminMenuIncomplete: (isSuperAdmin = false, missingFields = []) => {
+     const roleLabel = isSuperAdmin ? 'Super Admin' : 'Admin';
+     const roleDesc = isSuperAdmin ? 'super admin' : 'admin';
+     const missingList = missingFields.length > 0 
+       ? `\n\n❌ Missing: ${missingFields.map(f => '`' + f + '`').join(', ')}`
+       : '';
+     return `👤 *${roleLabel} Profile Required*\n\nYour ${roleDesc} profile is incomplete.${missingList}\n\n✅ 5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`;
+   },
 
-   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Freedom Fighter Dependent\n🔟 Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
+   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
 
-  consentsMenu: `📋 *Mandatory Consents*\n\nThese consents are REQUIRED for consultation:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n\nType 1, 2, 3 to confirm each\nType 'CANCEL' to exit without consenting`,
+   consentsMenu: `📋 *Mandatory Consents*\n\nThese consents are REQUIRED for consultation:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n\nType 1, 2, 3 to confirm each\nType 'CANCEL' to exit without consenting`,
+
+   adminSetFeeInput: `💰 *Set Consultation Fee*\n\nEnter: PHONE AMOUNT [NOTE]\n\nExample: 9811111111 1500 "Standard consultation"\n\n0️⃣ Back to Admin Menu`,
+
+   adminProfileCompleteOptions: (role) => `✅ *${role} Profile Complete!*\n\nYour profile is now ready. What would you like to do?\n\n1️⃣ Go to Admin Menu\n2️⃣ Continue Editing\n3️⃣ Cancel\n\nReply with number`,
+
+    profileMenu: (highlightMissing = {}) => `👤 *Profile & Roles*
+
+${!highlightMissing.name ? '🔴 ' : ''}1️⃣ Edit Name
+${!highlightMissing.phoneNumber ? '🔴 ' : ''}2️⃣ Edit Phone Number
+3️⃣ View Profile
+4️⃣ Role Application
+0️⃣ Switch Role
+
+Reply with number`,
 };
 
 class ConversationFlow {
@@ -333,7 +495,7 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ROLE_SELECT: return InteractiveMenus.roleSelect;
       case FlowStates.CAREGIVER_AUTH: return InteractiveMenus.caregiverAuth;
       case FlowStates.CAREGIVER_CONSENT_ACK: return InteractiveMenus.caregiverConsentAck;
-      case FlowStates.CONSULTATION: return InteractiveMenus.consultation;
+      case FlowStates.CONSULTATION: return InteractiveMenus.consultation(session?.profileComplete !== false);
       case FlowStates.CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.BILLING: return InteractiveMenus.billing;
       case FlowStates.REPORT_UPLOAD: return '📎 Send your diagnostic report (image/PDF)';
@@ -359,6 +521,9 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: return InteractiveMenus.adminMessagePatientInput;
       case FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT: return InteractiveMenus.adminMessageDoctorInput;
       case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT: return InteractiveMenus.adminReassignDoctorInput;
+      case FlowStates.ADMIN_PROFILE_EDIT: return InteractiveMenus.adminProfileEdit;
+      case FlowStates.ADMIN_PROFILE_EDIT_NAME: return '✏️ *Edit Name*\n\nEnter your full name:\n\n0. Cancel';
+      case FlowStates.ADMIN_PROFILE_EDIT_PHONE: return '✏️ *Edit Phone Number*\n\nEnter your phone number:\n\n0. Cancel';
       case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
       case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
       case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: return '📎 Please upload eligibility documents for your selected discount category (ration card, Ayushman card, etc.):\n\n0. Skip';
@@ -473,9 +638,16 @@ case FlowStates.CAREGIVER_AUTH:
      case FlowStates.ADMIN_ADD_ADMIN_INPUT:
        return this.handleAdminAddAdminInput(message, phoneNumber, session);
 
-     case FlowStates.ADMIN_REMOVE_ADMIN_INPUT:
-       return this.handleAdminRemoveAdminInput(message, phoneNumber, session);
-      case FlowStates.PROFILE_CONSENTS:
+case FlowStates.ADMIN_REMOVE_ADMIN_INPUT:
+        return this.handleAdminRemoveAdminInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_SET_FEE_INPUT:
+return this.handleAdminSetFeeInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS:
+        return this.handleAdminProfileCompleteOptions(selection, phoneNumber);
+
+       case FlowStates.PROFILE_CONSENTS:
         return this.handleProfileConsentsSelection(selection, phoneNumber, session);
 
       case FlowStates.PROFILE_REMOVE_ROLE:
@@ -560,10 +732,10 @@ case FlowStates.DOCTOR_SELECT:
   // Role" when applicable, not just the one a user happens to land on -
   // otherwise the option would flicker in and out depending on which of
   // the many WELCOME-returning code paths produced the current screen.
-  getWelcomeMenu(phoneNumber) {
+  getWelcomeMenu(phoneNumber, profileComplete = true) {
     const { getAvailableRoles } = require('../models/persona');
     const hasOtherRoles = getAvailableRoles(phoneNumber).length > 1;
-    return InteractiveMenus.main('patient', hasOtherRoles);
+    return InteractiveMenus.main('patient', hasOtherRoles, profileComplete);
   }
 
   handleRoleSelection(selection, phoneNumber) {
@@ -675,15 +847,19 @@ Please enter your full name:`
     if (!patientPhone || !patientPhone.match(/^\d{10}$/)) {
       return {
         nextState: FlowStates.CAREGIVER_PATIENT_LINK,
-        response: `📲 *Link to Patient*\n\nEnter the patient's phone number (10 digits):\n\nExample: 9876543210\n\n0. Back to Menu`
+        response: `📲 *Link to Patient*
+
+Enter the patient's phone number (10 digits):
+
+Example: 9876543210
+
+0️⃣ Switch Role`
       };
     }
     
     if (patientPhone === '0') {
-      return {
-        nextState: FlowStates.WELCOME,
-        response: this.getWelcomeMenu(phoneNumber)
-      };
+      const { getAvailableRoles } = require('../models/persona');
+      return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('caregiver', getAvailableRoles(phoneNumber)) };
     }
     
     this.consultationManager.updateSession(phoneNumber, {
@@ -704,7 +880,11 @@ Please enter your full name:`
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
+      '0': () => {
+        const { getAvailableRoles } = require('../models/persona');
+        const currentRole = session?.selectedPersona || 'caregiver';
+        return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) };
+      }
     };
     
     const handler = flowMap[selection];
@@ -720,7 +900,11 @@ Please enter your full name:`
       '2': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '3': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
       '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
+      '0': () => {
+        const { getAvailableRoles } = require('../models/persona');
+        const currentRole = session?.selectedPersona || 'support';
+        return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) };
+      }
     };
     const handler = flowMap[selection];
     if (handler) return handler();
@@ -796,7 +980,7 @@ Please enter your full name:`
     } else if (selection === '4') {
       return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
-    return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation}` };
+    return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation(true)}` };
   }
 
   async handleStartConsultation(phoneNumber, session) {
@@ -847,7 +1031,7 @@ Please enter your full name:`
     }
     return {
       nextState: FlowStates.CONSULTATION,
-      response: `❌ Withdrawal cancelled. Your consultation remains active.\n\n${InteractiveMenus.consultation}`,
+      response: `❌ Withdrawal cancelled. Your consultation remains active.\n\n${InteractiveMenus.consultation(true)}`,
       data: {}
     };
   }
@@ -1027,7 +1211,8 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       };
     }
     if (selection === '2') {
-      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+      const session = this.consultationManager.getSession(phoneNumber);
+      return { nextState: FlowStates.CONSULTATION, response: this.handlePaymentStatusCheck(phoneNumber, session)?.response || 'No pending payment found.' };
     }
     if (selection === '3') {
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
@@ -1453,14 +1638,14 @@ async handleConsultationRequest(phoneNumber, session) {
        ? { ...session, ...this.consultationManager.getSession(session.linkedPatientPhone) }
        : session;
      
-     // Check profile completeness before starting consultation
-     if (!this.isProfileComplete(effectiveSession)) {
-       return {
-         nextState: FlowStates.CONSULTATION,
-         response: `⚠️ *Profile Incomplete*\n\nComplete your profile first before starting a consultation.\n\nUse option 2 (Profile & Roles) to update.\n\n${InteractiveMenus.consultation}`,
-         data: {}
-       };
-     }
+// Check profile completeness before starting consultation
+      if (!this.isProfileComplete(effectiveSession)) {
+        return {
+          nextState: FlowStates.CONSULTATION,
+          response: `⚠️ *Profile Incomplete*\n\nComplete your profile first before starting a consultation.\n\nUse option 2 (Profile & Roles) to update.\n\n${InteractiveMenus.consultation(false)}`,
+          data: {}
+        };
+      }
      
      const isVerified = effectiveSession.paymentTransaction && 
        await this.paymentService.verifyPayment(effectiveSession.paymentTransaction);
@@ -1598,7 +1783,8 @@ async handleConsultationRequest(phoneNumber, session) {
         const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
         const hasActive = !!doctor && Array.from(this.consultationManager.consultations.values())
           .some(c => c.doctorId === doctor.id && c.status === 'active');
-        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive) };
+        const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
+        return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive, pendingActions) };
       }
 case 'admin':
        case 'super_admin':
@@ -1737,15 +1923,131 @@ case 'support': {
   }
 
   handleAdminProfileEditInput(phoneNumber, message, session) {
-    if (message.trim().toLowerCase() === 'menu') {
+    const selection = message.trim();
+    
+    // Menu navigation - return to PROFILE_VIEW (parent menu)
+    if (selection === '0' || selection.toLowerCase() === 'menu' || selection.toLowerCase() === 'back') {
+      const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+      const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+      if (!profileComplete) {
+        return {
+          nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+          response: InteractiveMenus.adminProfileCompleteOptions(role)
+        };
+      }
       return {
         nextState: FlowStates.PROFILE_VIEW,
         response: InteractiveMenus.profileMenu
       };
     }
-
+    
+    // View profile option
+    if (selection === '3') {
+      return this.handleViewProfile(phoneNumber, session);
+    }
+    
+    // Edit Name
+    if (selection === '1') {
+      this.consultationManager.updateSession(phoneNumber, { flowState: FlowStates.ADMIN_PROFILE_EDIT_NAME });
+      return {
+        nextState: FlowStates.ADMIN_PROFILE_EDIT_NAME,
+        response: `✏️ *Edit Name*\n\nEnter your full name:\n\n0. Cancel`
+      };
+    }
+    
+    // Edit Phone Number
+    if (selection === '2') {
+      this.consultationManager.updateSession(phoneNumber, { flowState: FlowStates.ADMIN_PROFILE_EDIT_PHONE });
+      return {
+        nextState: FlowStates.ADMIN_PROFILE_EDIT_PHONE,
+        response: `✏️ *Edit Phone Number*\n\nEnter your phone number:\n\n0. Cancel`
+      };
+    }
+    
+    // Handle name input
+    if (session?.flowState === FlowStates.ADMIN_PROFILE_EDIT_NAME) {
+      if (selection === '0' || selection.toLowerCase() === 'cancel') {
+        const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+        if (!profileComplete) {
+          return {
+            nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+            response: InteractiveMenus.adminProfileCompleteOptions(role)
+          };
+        }
+        return {
+          nextState: FlowStates.PROFILE_VIEW,
+          response: InteractiveMenus.profileMenu
+        };
+      }
+      const name = selection;
+      const updates = { name };
+      
+      let admin = this.adminRegistry?.getAdmin(phoneNumber);
+      if (!admin) {
+        const role = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
+        admin = this.adminRegistry?.addAdmin(phoneNumber, phoneNumber, phoneNumber, role, name);
+      } else {
+        this.adminRegistry?.updateAdmin(phoneNumber, updates);
+        admin = this.adminRegistry?.getAdmin(phoneNumber);
+      }
+      
+      const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+      const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+      
+      if (profileComplete) {
+        return {
+          nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+          response: InteractiveMenus.adminProfileCompleteOptions(role)
+        };
+      }
+      
+      return {
+        nextState: FlowStates.PROFILE_VIEW,
+        response: `✅ Name updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
+      };
+    }
+    
+    // Handle phone input
+    if (session?.flowState === FlowStates.ADMIN_PROFILE_EDIT_PHONE) {
+      if (selection === '0' || selection.toLowerCase() === 'cancel') {
+        const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+        if (!profileComplete) {
+          return {
+            nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+            response: InteractiveMenus.adminProfileCompleteOptions(role)
+          };
+        }
+        return {
+          nextState: FlowStates.PROFILE_VIEW,
+          response: InteractiveMenus.profileMenu
+        };
+      }
+      const phone = selection.replace(/\D/g, '');
+      const updates = { phoneNumber: phone };
+      
+      this.adminRegistry?.updateAdmin(phoneNumber, updates);
+      const admin = this.adminRegistry?.getAdmin(phoneNumber);
+      
+      const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+      const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+      
+      if (profileComplete) {
+        return {
+          nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+          response: InteractiveMenus.adminProfileCompleteOptions(role)
+        };
+      }
+      
+      return {
+        nextState: FlowStates.PROFILE_VIEW,
+        response: `✅ Phone number updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
+      };
+    }
+    
+    // Legacy format support (NAME:value)
     const updates = {};
-
     const lines = message.split('\n');
     for (const line of lines) {
       const [key, ...valueParts] = line.split(':');
@@ -1757,17 +2059,10 @@ case 'support': {
     if (Object.keys(updates).length === 0) {
       return {
         nextState: FlowStates.ADMIN_PROFILE_EDIT,
-        response: `No valid fields found. Use format: NAME:<your name>\n\n0. Menu`
+        response: `No valid fields found. Use menu options or format: NAME:<your name>\n\n0. Menu`
       };
     }
 
-    // Env-seeded admins (SUPER_ADMIN_CHAT_IDS/PHONES, ADMIN_PHONES) have no
-    // adminRegistry record until now - updateAdmin() only mutates an
-    // existing record and silently no-ops otherwise, which would leave
-    // isAdminProfileComplete() permanently false and lock them out of every
-    // admin function forever (this was the actual bug: the bootstrap admin
-    // could never complete their own profile). Create the record here if
-    // it doesn't exist yet, instead of just updating.
     let admin = this.adminRegistry?.getAdmin(phoneNumber);
     if (!admin) {
       const role = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
@@ -1779,7 +2074,7 @@ case 'support': {
 
     return {
       nextState: FlowStates.PROFILE_VIEW,
-      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}`
+      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
     };
   }
 
@@ -1879,16 +2174,38 @@ case 'support': {
     const flowMap = {
       '1': () => this.getPendingRequests(phoneNumber),
       '2': () => this.getActiveConsultations(phoneNumber),
-      '3': () => ({ nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals }),
-      '4': () => ({ nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement }),
-      '5': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '3': () => {
+        const pendingApps = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
+        return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) };
+      },
+      '4': () => {
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
+      },
+      '5': () => {
+        const missingFields = this.adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
+        const highlightMissing = {
+          name: !missingFields.includes('name') && !missingFields.includes('Name'),
+          phoneNumber: !missingFields.includes('phoneNumber') && !missingFields.includes('Phone Number')
+        };
+        return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu(highlightMissing) };
+      },
       '6': () => this.handleViewAllPatients(phoneNumber),
       '7': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
       '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
       '9': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
       '10': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
-      '11': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*\n\nEnter phone number for new admin:\n\n0. Back` }) : null,
-      '12': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*\n\nEnter admin phone to remove:\n\n0. Back` }) : null,
+      '11': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*
+
+Enter phone number for new admin:
+
+0. Back to Admin Menu` }) : null,
+      '12': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*
+
+Enter admin phone to remove:
+
+0. Back to Admin Menu` }) : null,
+      '13': () => ({ nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: InteractiveMenus.adminSetFeeInput }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const current = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
@@ -1901,9 +2218,65 @@ case 'support': {
     if (handler) {
       const result = handler();
       if (result) return result;
-      return { nextState: FlowStates.ADMIN_MENU, response: '❌ Only Super Admin can add/remove admins.\n\n' + this.getAdminMenuText(phoneNumber) };
+      const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+      return { nextState: FlowStates.ADMIN_MENU, response: '❌ Only Super Admin can add/remove admins.\n\n' + this.getAdminMenuText(phoneNumber, profileComplete ? null : 5) };
     }
-    return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
+    const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+    return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber, profileComplete ? null : 5) };
+  }
+
+handleSuperAdminMenuSelection(selection, phoneNumber, session) {
+    const isAdminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+    const missingFields = this.adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
+    const highlightMissing = {
+      name: !missingFields.includes('name') && !missingFields.includes('Name'),
+      phoneNumber: !missingFields.includes('phoneNumber') && !missingFields.includes('Phone Number')
+    };
+    
+    if (!isAdminProfileComplete && selection !== '5' && selection !== '0') {
+      return {
+        nextState: FlowStates.SUPER_ADMIN_MENU,
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.superAdminMenu(0, 0, 5)}`
+      };
+    }
+    
+    const pendingCount = this.consultationManager?.getPendingForAdmin(phoneNumber)?.length || 0;
+    const activeCount = Array.from(this.consultationManager?.consultations?.values() || [])
+      .filter(c => c.status === 'active').length;
+    const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
+    const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+    
+    const flowMap = {
+      '1': () => this.getPendingRequests(phoneNumber),
+      '2': () => this.getActiveConsultations(phoneNumber),
+      '3': () => ({ nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) }),
+      '4': () => ({ nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) }),
+      '5': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu(highlightMissing) }),
+      '6': () => this.handleViewAllPatients(phoneNumber),
+      '7': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
+      '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
+      '9': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
+      '10': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
+      '11': () => ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*
+
+Enter phone number for new admin:
+
+0. Back to Admin Menu` }),
+      '12': () => ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*
+
+Enter admin phone to remove:
+
+0. Back to Admin Menu` }),
+      '0': () => {
+        const { getAvailableRoles } = require('../models/persona');
+        const currentRole = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
+        return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) };
+      }
+    };
+    
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.SUPER_ADMIN_MENU, response: InteractiveMenus.superAdminMenu(pendingCount, activeCount) };
   }
 
   handleAdminDoctorManagementSelection(selection, phoneNumber, session) {
@@ -1916,11 +2289,13 @@ case 'support': {
     }
     const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
     
+    const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+    
     // Block all doctor management actions when profile incomplete
     if (!adminProfileComplete) {
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first (option 5 from main admin menu).\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first (option 5 from main admin menu).\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     
@@ -1934,11 +2309,15 @@ case 'support': {
       '7': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '8': () => ({ nextState: FlowStates.ADMIN_REGISTER_DOCTOR_INPUT, response: InteractiveMenus.adminRegisterDoctorInput }),
       '9': () => ({ nextState: FlowStates.ADMIN_INVITE_DOCTOR_INPUT, response: InteractiveMenus.adminInviteDoctorInput }),
-      '0': () => ({ nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) })
+      '0': () => {
+        const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+        const targetState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        return { nextState: targetState, response: this.getAdminMenuText(phoneNumber) };
+      }
     };
     const handler = flowMap[selection];
     if (handler) return handler();
-    return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement };
+    return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
   }
 
 listDoctors(phoneNumber) {
@@ -2288,6 +2667,7 @@ listDoctors(phoneNumber) {
   }
 
   handleAdminRoleApprovalsSelection(selection, phoneNumber, session) {
+    const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
     const flowMap = {
       '1': () => this.getDoctorApplications(phoneNumber),
       '2': () => ({ nextState: FlowStates.ADMIN_APPROVE_DOCTOR_INPUT, response: InteractiveMenus.adminApproveDoctorInput }),
@@ -2297,17 +2677,18 @@ listDoctors(phoneNumber) {
     };
     const handler = flowMap[selection];
     if (handler) return handler();
-    return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
+    return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) };
   }
 
   getDoctorApplications(phoneNumber) {
+    const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
     // Only super_admin can actually approve doctor/caregiver/support role
     // requests (see the isSuperAdmin checks in the approve handlers below),
     // so a regular admin has no need-to-know for applicants' contact IDs.
     if (!this.isSuperAdminPhone(phoneNumber)) {
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `❌ Only Super Admin can view/approve role applications.\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `❌ Only Super Admin can view/approve role applications.\n\n${InteractiveMenus.adminRoleApprovals(pendingApps)}`
       };
     }
     const requests = this.userRegistry.getPendingRequests() || [];
@@ -2321,7 +2702,7 @@ listDoctors(phoneNumber) {
     }
     return {
       nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-      response: text + '\n' + InteractiveMenus.adminRoleApprovals
+      response: text + '\n' + InteractiveMenus.adminRoleApprovals(pendingApps)
     };
   }
 
@@ -2566,12 +2947,12 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
   // "Admin Panel" label (and lost "View All Patients" -> "View Patient
   // Profiles") after their very first message. This mirrors what /start
   // does so every return-to-menu response stays consistent.
-  getAdminMenuText(phoneNumber) {
-    if (!this.isSuperAdminPhone(phoneNumber)) return InteractiveMenus.adminMenu;
+  getAdminMenuText(phoneNumber, highlightOption = null) {
     const pendingCount = this.consultationManager?.getPendingForAdmin().length || 0;
     const activeCount = Array.from(this.consultationManager?.consultations?.values() || [])
       .filter(c => c.status === 'active').length;
-    return InteractiveMenus.superAdminMenu(pendingCount, activeCount);
+    if (!this.isSuperAdminPhone(phoneNumber)) return InteractiveMenus.adminMenu(pendingCount, activeCount, highlightOption);
+    return InteractiveMenus.superAdminMenu(pendingCount, activeCount, highlightOption);
   }
 
   canViewConsultationContact(adminPhone, consultation) {
@@ -2636,7 +3017,13 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
   getCloseConsultationPrompt() {
     return {
       nextState: FlowStates.ADMIN_CLOSE_CONSULTATION,
-      response: `🔚 *Close Consultation*\n\nSend the consultation ID to close.\n\nExample: cons_1234567890\n\n0. Back to Menu`
+      response: `🔚 *Close Consultation*
+
+Enter consultation ID to close:
+
+Example: cons_1234567890
+
+0. Back to Admin Menu`
     };
   }
 
@@ -2785,11 +3172,15 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
     };
   }
 
-  handleConsultationCompleted(selection, phoneNumber) {
+  handleConsultationCompleted(selection, phoneNumber, session) {
+    const { getAvailableRoles } = require('../models/persona');
+    const currentRole = this.getCurrentEffectiveRole(phoneNumber, session);
+    const profileComplete = this.isProfileComplete(session);
+    
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
+      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete) }),
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
-      '0': () => ({ nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) })
+      '0': () => ({ nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) })
     };
 
     const handler = flowMap[selection];
@@ -2825,29 +3216,37 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
 
 
 handleDoctorMenuSelection(selection, phoneNumber, session) {
-    const flowMap = {
-      '1': () => this.handleDoctorStatus(phoneNumber, session),
-      '2': () => this.handleViewLinkedPatients(phoneNumber, session),
-      '3': () => this.handleEditDoctorProfile(phoneNumber),
-      '4': () => ({ nextState: FlowStates.DOCTOR_MSG_ADMIN_INPUT, response: `📩 *Message Admin*\n\nSend your message to admin:\n\n0. Back` }),
-      '0': () => {
-        const { getAvailableRoles } = require('../models/persona');
-        return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('doctor', getAvailableRoles(phoneNumber)) };
-      }
-    };
+     const flowMap = {
+       '1': () => this.handleDoctorStatus(phoneNumber, session),
+       '2': () => this.handleViewLinkedPatients(phoneNumber, session),
+       '3': () => this.handleEditDoctorProfile(phoneNumber),
+       '4': () => ({ nextState: FlowStates.DOCTOR_MSG_ADMIN_INPUT, response: `📩 *Message Admin*
 
-    const handler = flowMap[selection];
-    if (handler) {
-      return handler();
-    }
+Send your message to admin:
 
-    const activeConsultation = Array.from(this.consultationManager.consultations.values())
-      .find(c => c.doctorId === session?.doctorId && c.status === 'active');
-    const consultationInfo = activeConsultation ? `\nActive: ${activeConsultation.id}` : '';
-    return {
-      nextState: FlowStates.DOCTOR_MENU,
-      response: `Invalid option.\n\n${InteractiveMenus.doctorMenu('Doctor', !!activeConsultation)}`
-    };
+0️⃣ Back to Doctor Menu` }),
+       '0': () => {
+         const { getAvailableRoles } = require('../models/persona');
+         return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect('doctor', getAvailableRoles(phoneNumber)) };
+       }
+     };
+
+     const handler = flowMap[selection];
+     if (handler) {
+       return handler();
+     }
+
+const activeConsultation = Array.from(this.consultationManager.consultations.values())
+        .find(c => c.doctorId === session?.doctorId && c.status === 'active');
+      const consultationInfo = activeConsultation ? `\nActive: ${activeConsultation.id}` : '';
+      const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(session?.doctorId));
+      const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
+      return {
+        nextState: FlowStates.DOCTOR_MENU,
+        response: `Invalid option.
+ 
+ ${InteractiveMenus.doctorMenu('Doctor', !!activeConsultation, pendingActions)}`
+      };
   }
 
   handleEditDoctorProfile(phoneNumber) {
@@ -2867,9 +3266,10 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
   handleDoctorProfileEditInput(phoneNumber, message, session) {
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
       const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+      const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
       return {
         nextState: FlowStates.DOCTOR_MENU,
-        response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)
+        response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false, pendingActions)
       };
     }
 
@@ -2896,9 +3296,10 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
     }
 
     this.doctorRouter?.persistence?.updateDoctor(doctor.id, updates);
+    const pendingActions = this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0;
     return {
       nextState: FlowStates.DOCTOR_MENU,
-      response: `✅ Doctor profile updated!\n\n${InteractiveMenus.doctorMenu(doctor.name, false)}`
+      response: `✅ Doctor profile updated!\n\n${InteractiveMenus.doctorMenu(doctor.name, false, pendingActions)}`
     };
   }
 
@@ -2906,9 +3307,10 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
     const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
 
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
+      const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
       return {
         nextState: FlowStates.DOCTOR_MENU,
-        response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)
+        response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false, pendingActions)
       };
     }
 
@@ -2919,21 +3321,18 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
     // fell through to "No admin associated" regardless of whether one
     // actually approved this doctor.
     const adminPhone = doctor && this.doctorRouter?.persistence?.getAdminForDoctor?.(doctor.id);
+    const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
     if (adminPhone) {
       const trimmedMessage = message.trim();
       return {
         nextState: FlowStates.DOCTOR_MENU,
-        response: `✅ Message sent to admin.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`,
-        // The response above claimed success, but nothing actually sent the
-        // message anywhere - conversationFlow.js can't call bot.sendMessage
-        // itself, so surface it via data for telegramBot.js to deliver,
-        // matching the pattern used for doctor-assign/reassign notifications.
+        response: `✅ Message sent to admin.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false, pendingActions)}`,
         data: { doctorMsgToAdmin: { adminPhone, doctorName: doctor?.name || 'Doctor', message: trimmedMessage } }
       };
     }
     return {
       nextState: FlowStates.DOCTOR_MENU,
-      response: `❌ No admin associated with your registration.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false)}`
+      response: `❌ No admin associated with your registration.\n\n${InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', false, pendingActions)}`
     };
   }
 
@@ -2946,7 +3345,7 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
       return { nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `❌ Invalid phone number.\n\n0. Back to Menu` };
     }
     this.adminRegistry?.addAdmin(trimmed, phoneNumber, null, 'admin');
-    return { nextState: FlowStates.ADMIN_MENU, response: `✅ Admin added for ${trimmed}.\n\n${this.getAdminMenuText(phoneNumber)}` };
+    return { nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `✅ Admin added for ${trimmed}.\n\nEnter another phone number or 0 to return to menu.` };
   }
 
   handleAdminRemoveAdminInput(message, phoneNumber, session) {
@@ -2956,9 +3355,52 @@ handleDoctorMenuSelection(selection, phoneNumber, session) {
     const trimmed = message.trim();
     const removed = this.adminRegistry?.removeAdmin(trimmed);
     if (removed) {
-      return { nextState: FlowStates.ADMIN_MENU, response: `✅ Admin ${trimmed} removed.\n\n${this.getAdminMenuText(phoneNumber)}` };
+      return { nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `✅ Admin ${trimmed} removed.\n\nEnter another phone number or 0 to return to menu.` };
     }
     return { nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `❌ Admin ${trimmed} not found.\n\n0. Back to Menu` };
+  }
+
+  handleAdminSetFeeInput(message, phoneNumber, session) {
+    if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
+      return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
+    }
+    
+    const trimmed = message.trim();
+    const parts = trimmed.split(/\s+/);
+    if (parts.length < 2) {
+      return { nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: `❌ Invalid format.\n\nFormat: PHONE AMOUNT [NOTE]\n\nExample: 9811111111 1500 "Standard consultation"\n\n0. Back to Admin Menu` };
+    }
+    
+    const targetPhone = parts[0].replace(/\D/g, '');
+    const amount = parseInt(parts[1]);
+    const adminNote = parts.slice(2).join(' ') || '';
+    
+    if (!targetPhone || !amount) {
+      return { nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: `❌ Invalid phone or amount.\n\nFormat: PHONE AMOUNT [NOTE]\n\n0. Back to Admin Menu` };
+    }
+    
+    const targetSession = this.consultationManager.getSession(targetPhone);
+    if (targetSession?.pendingPayment) {
+      this.paymentService?.setFee?.(targetPhone, amount, adminNote);
+      return { nextState: FlowStates.ADMIN_MENU, response: `✅ Fee set to ₹${amount} for ${targetPhone}${adminNote ? ` (${adminNote})` : ''}.\n\n${this.getAdminMenuText(phoneNumber)}` };
+    }
+    
+    return { nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: `❌ No pending payment found for ${targetPhone}.\n\n0. Back to Admin Menu` };
+  }
+
+  handleAdminProfileCompleteOptions(selection, phoneNumber) {
+    const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
+    const flowMap = {
+      '1': () => ({ nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '3': () => ({ nextState: FlowStates.WELCOME, response: `👋 *Session Ended*\n\nYou can start fresh anytime. Use /start to begin.` })
+    };
+
+    const handler = flowMap[selection];
+    if (handler) {
+      return handler();
+    }
+    return { nextState: FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS, response: InteractiveMenus.adminProfileCompleteOptions(role) };
   }
 
   handleDoctorStatus(phoneNumber, session) {

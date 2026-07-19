@@ -114,13 +114,22 @@ function isAdmin(phoneNumber) {
    return admin && admin.active && admin.role === 'super_admin';
  }
 
- function isAdminProfileComplete(phoneNumber) {
-   const admin = getAdmin(phoneNumber);
-   if (!admin) return false;
-   return !!(admin.name && admin.phoneNumber);
- }
+function isAdminProfileComplete(phoneNumber) {
+    const admin = getAdmin(phoneNumber);
+    if (!admin) return false;
+    return !!(admin.name && admin.phoneNumber);
+  }
 
- module.exports = {
+  function getIncompleteProfileFields(phoneNumber) {
+    const admin = getAdmin(phoneNumber);
+    if (!admin) return ['name', 'phone'];
+    const missing = [];
+    if (!admin.name) missing.push('Name');
+    if (!admin.phoneNumber) missing.push('Phone Number');
+    return missing;
+  }
+
+  module.exports = {
     getAdmin,
     getAdmins,
     addAdmin,
@@ -129,5 +138,6 @@ function isAdmin(phoneNumber) {
     promoteToSuper,
     isAdmin,
     isSuperAdmin,
-    isAdminProfileComplete
+    isAdminProfileComplete,
+    getIncompleteProfileFields
   };

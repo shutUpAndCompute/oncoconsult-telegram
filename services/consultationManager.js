@@ -344,6 +344,20 @@ class ConsultationManager {
     );
   }
 
+  getConsultationsByDoctor(doctorId) {
+    return Array.from(this.consultations.values()).filter(
+      c => c.doctorId === doctorId
+    );
+  }
+
+  getPendingActionsForDoctor(doctorId) {
+    const consultations = this.getConsultationsByDoctor(doctorId);
+    return consultations.filter(c => 
+      c.status === 'active' && 
+      (!c.completedAt || !c.reviewedAt)
+    ).length;
+  }
+
   cleanupStalePendingConsultations(maxAgeHours = 24) {
     const cutoff = Date.now() - maxAgeHours * 60 * 60 * 1000;
     let cleaned = 0;
