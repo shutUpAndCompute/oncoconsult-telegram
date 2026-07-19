@@ -6,15 +6,15 @@ const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComple
   const buttons = [];
   
   if (!profileComplete) {
-    buttons.push(['🔴 1️⃣ My Consultations']);
+    buttons.push([{ text: '🔴 1️⃣ My Consultations', callback_data: 'consultation' }]);
   } else {
-    buttons.push(['1️⃣ My Consultations']);
+    buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
   }
   
-  buttons.push(['2️⃣ Profile & Roles']);
+  buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
   
   if (hasOtherRoles) {
-    buttons.push(['3️⃣ Switch Role']);
+    buttons.push([{ text: '3️⃣ Switch Role', callback_data: 'switch_role' }]);
   }
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -23,21 +23,21 @@ const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComple
 const buildPersonaSelect = (currentPersona, approvedRoles = []) => {
   const buttons = [];
   const roleLabels = {
-    patient: '1️⃣ Patient Mode',
-    caregiver: '2️⃣ Caregiver Mode',
-    doctor: '3️⃣ Doctor Mode',
-    admin: '4️⃣ Admin Mode',
-    super_admin: '4️⃣ Admin Mode',
-    support: '5️⃣ Support Mode'
+    patient: { text: '1️⃣ Patient Mode', data: 'patient' },
+    caregiver: { text: '2️⃣ Caregiver Mode', data: 'caregiver' },
+    doctor: { text: '3️⃣ Doctor Mode', data: 'doctor' },
+    admin: { text: '4️⃣ Admin Mode', data: 'admin' },
+    super_admin: { text: '4️⃣ Admin Mode', data: 'super_admin' },
+    support: { text: '5️⃣ Support Mode', data: 'support' }
   };
   
   approvedRoles.forEach(role => {
     if (roleLabels[role]) {
-      buttons.push([roleLabels[role]]);
+      buttons.push([{ text: roleLabels[role].text, callback_data: roleLabels[role].data }]);
     }
   });
   
-  buttons.push(['0️⃣ Main Menu']);
+  buttons.push([{ text: '0️⃣ Main Menu', callback_data: 'main_menu' }]);
   
   return {
     reply_markup: { inline_keyboard: buttons },
@@ -48,18 +48,18 @@ const buildPersonaSelect = (currentPersona, approvedRoles = []) => {
 const buildProfileMenu = (highlightMissing = {}) => {
   const buttons = [];
   
-  buttons.push(['1️⃣ View Profile']);
+  buttons.push([{ text: '1️⃣ View Profile', callback_data: 'view_profile' }]);
   
   if (highlightMissing.name) {
-    buttons.push(['🔴 2️⃣ Edit Profile']);
+    buttons.push([{ text: '🔴 2️⃣ Edit Profile', callback_data: 'edit_profile' }]);
   } else {
-    buttons.push(['2️⃣ Edit Profile']);
+    buttons.push([{ text: '2️⃣ Edit Profile', callback_data: 'edit_profile' }]);
   }
   
-  buttons.push(['3️⃣ Apply for Role']);
-  buttons.push(['4️⃣ My Roles']);
-  buttons.push(['5️⃣ Remove Role']);
-  buttons.push(['0️⃣ Back to Profile']);
+  buttons.push([{ text: '3️⃣ Apply for Role', callback_data: 'apply_role' }]);
+  buttons.push([{ text: '4️⃣ My Roles', callback_data: 'my_roles' }]);
+  buttons.push([{ text: '5️⃣ Remove Role', callback_data: 'remove_role' }]);
+  buttons.push([{ text: '0️⃣ Back to Profile', callback_data: 'main_menu' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
 };
@@ -77,18 +77,18 @@ const buildAdminMenu = (pending = 0, active = 0, isProfileComplete = true, hasPe
   
   const showIndicator = (opt) => indicatorOption === opt;
   
-  buttons.push([pending > 0 && showIndicator(1) ? '🔴 1️⃣ Pending Requests' : '1️⃣ Pending Requests']);
-  buttons.push([active > 0 ? '🟢 2️⃣ Active Consultations' : '2️⃣ Active Consultations']);
-  buttons.push(['3️⃣ Role Approvals']);
-  buttons.push(['4️⃣ Doctor Management']);
-  buttons.push([!isProfileComplete && showIndicator(5) ? '🔴 5️⃣ Profile' : '5️⃣ Profile']);
-  buttons.push(['6️⃣ View Patient Profiles']);
-  buttons.push([hasPendingPayments && showIndicator(7) ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment']);
-  buttons.push([hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount']);
-  buttons.push(['9️⃣ Message Patient']);
-  buttons.push(['🔟 Close Consultation']);
-  buttons.push(['13️⃣ Set Fee']);
-  buttons.push(['0️⃣ Switch Role']);
+  buttons.push([{ text: pending > 0 && showIndicator(1) ? '🔴 1️⃣ Pending Requests' : '1️⃣ Pending Requests', callback_data: 'pending_requests' }]);
+  buttons.push([{ text: active > 0 ? '🟢 2️⃣ Active Consultations' : '2️⃣ Active Consultations', callback_data: 'active_consultations' }]);
+  buttons.push([{ text: '3️⃣ Role Approvals', callback_data: 'role_approvals' }]);
+  buttons.push([{ text: '4️⃣ Doctor Management', callback_data: 'doctor_management' }]);
+  buttons.push([{ text: !isProfileComplete && showIndicator(5) ? '🔴 5️⃣ Profile' : '5️⃣ Profile', callback_data: 'profile' }]);
+  buttons.push([{ text: '6️⃣ View Patient Profiles', callback_data: 'view_patients' }]);
+  buttons.push([{ text: hasPendingPayments && showIndicator(7) ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment', callback_data: 'verify_payment' }]);
+  buttons.push([{ text: hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
+  buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
+  buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
+  buttons.push([{ text: '13️⃣ Set Fee', callback_data: 'set_fee' }]);
+  buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
 };
@@ -106,29 +106,29 @@ const buildSuperAdminMenu = (pending = 0, active = 0, isProfileComplete = true, 
   
   const showIndicator = (opt) => indicatorOption === opt;
   
-  buttons.push([pending > 0 && showIndicator(1) ? `🔴 1️⃣ Pending Requests (${pending} pending)` : `1️⃣ Pending Requests (${pending} pending)`]);
-  buttons.push([active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : `2️⃣ Active Consultations (${active} active)`]);
-  buttons.push(['3️⃣ Role Approvals']);
-  buttons.push(['4️⃣ Doctor Management']);
-  buttons.push([!isProfileComplete && showIndicator(5) ? '🔴 5️⃣ Profile' : '5️⃣ Profile']);
-  buttons.push(['6️⃣ View All Patients']);
-  buttons.push([hasPendingPayments && showIndicator(7) ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment']);
-  buttons.push([hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount']);
-  buttons.push(['9️⃣ Message Patient']);
-  buttons.push(['🔟 Close Consultation']);
-  buttons.push(['1️⃣1 Add Admin']);
-  buttons.push(['1️⃣2 Remove Admin']);
-  buttons.push(['0️⃣ Switch Role']);
+  buttons.push([{ text: pending > 0 && showIndicator(1) ? `🔴 1️⃣ Pending Requests (${pending} pending)` : `1️⃣ Pending Requests (${pending} pending)`, callback_data: 'pending_requests' }]);
+  buttons.push([{ text: active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : `2️⃣ Active Consultations (${active} active)`, callback_data: 'active_consultations' }]);
+  buttons.push([{ text: '3️⃣ Role Approvals', callback_data: 'role_approvals' }]);
+  buttons.push([{ text: '4️⃣ Doctor Management', callback_data: 'doctor_management' }]);
+  buttons.push([{ text: !isProfileComplete && showIndicator(5) ? '🔴 5️⃣ Profile' : '5️⃣ Profile', callback_data: 'profile' }]);
+  buttons.push([{ text: '6️⃣ View All Patients', callback_data: 'view_all_patients' }]);
+  buttons.push([{ text: hasPendingPayments && showIndicator(7) ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment', callback_data: 'verify_payment' }]);
+  buttons.push([{ text: hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
+  buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
+  buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
+  buttons.push([{ text: '1️⃣1 Add Admin', callback_data: 'add_admin' }]);
+  buttons.push([{ text: '1️⃣2 Remove Admin', callback_data: 'remove_admin' }]);
+  buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
 const buildCancerTypeMenu = () => {
   const buttons = [
-    ['1️⃣ Lung Cancer', '2️⃣ Breast Cancer', '3️⃣ Prostate Cancer'],
-    ['4️⃣ Liver Cancer', '5️⃣ Pancreatic', '6️⃣ Ovarian'],
-    ['7️⃣ Blood Cancer', '8️⃣ Other/General'],
-    ['0️⃣ Cancel']
+    [{ text: '1️⃣ Lung Cancer', callback_data: 'cancer_lung' }, { text: '2️⃣ Breast Cancer', callback_data: 'cancer_breast' }, { text: '3️⃣ Prostate Cancer', callback_data: 'cancer_prostate' }],
+    [{ text: '4️⃣ Liver Cancer', callback_data: 'cancer_liver' }, { text: '5️⃣ Pancreatic', callback_data: 'cancer_pancreatic' }, { text: '6️⃣ Ovarian', callback_data: 'cancer_ovarian' }],
+    [{ text: '7️⃣ Blood Cancer', callback_data: 'cancer_blood' }, { text: '8️⃣ Other/General', callback_data: 'cancer_other' }],
+    [{ text: '0️⃣ Cancel', callback_data: 'cancel' }]
   ];
   return { reply_markup: { inline_keyboard: buttons } };
 };
@@ -137,404 +137,148 @@ const buildConsultationMenu = (profileComplete = false) => {
   const buttons = [];
   
   if (!profileComplete) {
-    buttons.push(['🔴 1️⃣ Start New Consultation']);
-    buttons.push(['⚠️ 2️⃣ Check Payment Status']);
+    buttons.push([{ text: '🔴 1️⃣ Start New Consultation', callback_data: 'start_consultation' }]);
+    buttons.push([{ text: '⚠️ 2️⃣ Check Payment Status', callback_data: 'payment_status' }]);
   } else {
-    buttons.push(['1️⃣ Start New Consultation']);
-    buttons.push(['2️⃣ Check Payment Status']);
+    buttons.push([{ text: '1️⃣ Start New Consultation', callback_data: 'start_consultation' }]);
+    buttons.push([{ text: '2️⃣ Check Payment Status', callback_data: 'payment_status' }]);
   }
   
-  buttons.push(['3️⃣ Withdraw Consultation']);
-  buttons.push(['4️⃣ Back to Menu']);
+  buttons.push([{ text: '3️⃣ Withdraw Consultation', callback_data: 'withdraw' }]);
+  buttons.push([{ text: '4️⃣ Back to Menu', callback_data: 'main_menu' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-const buildDoctorMenu = (doctorName, hasActive, pendingActions = 0) => {
-  const buttons = [];
-  
-  buttons.push([pendingActions > 0 ? `🔴 1️⃣ Status` : '1️⃣ Status']);
-  buttons.push(['2️⃣ My Patients']);
-  buttons.push(['3️⃣ Edit Profile']);
-  buttons.push(['4️⃣ Message Admin']);
-  
-  if (hasActive) {
-    buttons.push(['_Has active consultation_']);
-  }
-  
-  if (pendingActions > 0) {
-    buttons.push([`_${pendingActions} pending action${pendingActions > 1 ? 's' : ''}_`]);
-  }
-  
-  buttons.push(['0️⃣ Switch Role']);
-  
-  return { reply_markup: { inline_keyboard: buttons } };
-};
-
-const buildAdminRoleApprovals = (pendingApps = 0) => {
-  const buttons = [];
-  
-  buttons.push([pendingApps > 0 ? '🔴 1️⃣ View Role Applications' : '1️⃣ View Role Applications']);
-  buttons.push(['2️⃣ Approve Doctor']);
-  buttons.push(['3️⃣ Approve Caregiver']);
-  buttons.push(['4️⃣ Approve Support']);
-  buttons.push(['0️⃣ Back to Admin Menu']);
-  
-  return { reply_markup: { inline_keyboard: buttons } };
-};
-
-const buildAdminDoctorManagement = (pendingDoctors = 0) => {
-  const buttons = [];
-  
-  buttons.push([pendingDoctors > 0 ? '🔴 1️⃣ List Doctors' : '1️⃣ List Doctors']);
-  buttons.push([pendingDoctors > 0 ? '🔴 2️⃣ List Pending Doctors' : '2️⃣ List Pending Doctors']);
-  buttons.push(['3️⃣ Assign Doctor']);
-  buttons.push(['4️⃣ Reassign Doctor']);
-  buttons.push(['5️⃣ Remove Doctor']);
-  buttons.push(['6️⃣ Reject Doctor']);
-  buttons.push(['7️⃣ Message Doctor']);
-  buttons.push(['8️⃣ Register Doctor']);
-  buttons.push(['9️⃣ Invite Doctor']);
-  buttons.push(['0️⃣ Back to Admin Menu']);
-  
-  return { reply_markup: { inline_keyboard: buttons } };
-};
-
-const buildBillingMenu = () => {
+const buildRoleSelect = () => {
   const buttons = [
-    ['1️⃣ Request Payment Link'],
-    ['2️⃣ Back to Menu'],
-    ['3️⃣ Apply for Fee Discount']
+    [{ text: '1️⃣ Patient', callback_data: 'patient' }],
+    [{ text: '2️⃣ Caregiver', callback_data: 'caregiver' }],
+    [{ text: '3️⃣ Doctor', callback_data: 'doctor' }],
+    [{ text: '4️⃣ Admin', callback_data: 'admin' }],
+    [{ text: '5️⃣ Support', callback_data: 'support' }]
   ];
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
-const buildProfileCompleteOptions = (role) => {
-  const buttons = [
-    ['1️⃣ Go to Admin Menu'],
-    ['2️⃣ Continue Editing'],
-    ['3️⃣ Cancel']
-  ];
-  return {
-    reply_markup: { inline_keyboard: buttons },
-    text: `✅ *${role} Profile Complete!*\n\nYour profile is now ready. What would you like to do?`
-  };
-};
+const buildCaregiverAuth = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Yes, I am the patient', callback_data: 'caregiver_yes' }, { text: '2️⃣ No, I am a caregiver', callback_data: 'caregiver_no' }]] } });
 
-const buildRoleSelect = () => ({
+const buildPlatformTerms = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ I Agree', callback_data: 'terms_accept' }, { text: '2️⃣ Decline', callback_data: 'terms_decline' }]] } });
+
+const buildProfileView = (profile = {}) => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ View Profile', callback_data: 'view_profile' }]] } });
+
+const buildProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }, { text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }]] } });
+
+const buildRoleApplication = () => ({ reply_markup: { inline_keyboard: [[{ text: 'Apply for Role', callback_data: 'apply_role' }]] } });
+
+const buildMyRoles = (roles = [], profile = {}) => ({ reply_markup: { inline_keyboard: roles.map(r => [{ text: r, callback_data: `role_${r}` }]) } });
+
+const buildProfileRemoveRole = () => ({ reply_markup: { inline_keyboard: [[{ text: 'doctor', callback_data: 'remove_doctor' }, { text: 'caregiver', callback_data: 'remove_caregiver' }, { text: 'support', callback_data: 'remove_support' }, { text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+
+const buildDiscountCategories = () => ({ reply_markup: { inline_keyboard: [[{ text: 'Aadhaar', callback_data: 'discount_aadhaar' }, { text: 'Ayushman', callback_data: 'discount_ayushman' }]] } });
+
+const buildConsentsMenu = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Teleconsultation', callback_data: 'consent_tele' }, { text: '✅ Data Sharing', callback_data: 'consent_data' }, { text: '✅ DPDP', callback_data: 'consent_dpdp' }]] } });
+
+const buildDoctorSelect = (doctors = []) => ({ reply_markup: { inline_keyboard: doctors.map(d => [{ text: d.name || 'Doctor', callback_data: `doctor_${d.id}` }]) } });
+
+const buildConsultationCompleted = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ View Details', callback_data: 'consultation_details' }, { text: '2️⃣ Rate Experience', callback_data: 'rate_consultation' }, { text: '0️⃣ Main Menu', callback_data: 'main_menu' }]] } });
+
+const buildCloseConsultationPrompt = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Close', callback_data: 'close_confirm' }, { text: '❌ No, Keep Open', callback_data: 'close_cancel' }]] } });
+
+const buildMobileCollection = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Skip', callback_data: 'mobile_skip' }]] } });
+
+const buildCaregiverPatientLink = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]] } });
+
+const buildAdminProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }, { text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }, { text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+
+const buildAdminProfileEditName = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+
+const buildAdminProfileEditPhone = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+
+const buildDoctorProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+
+const buildDoctorMsgAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Menu', callback_data: 'doctor_menu' }]] } });
+
+const buildAdminAssignDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminRemoveDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminRejectDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminMessageDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminReassignDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminMessagePatientInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildAdminVerifyPaymentInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildAdminVerifyDiscountInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildAdminInviteDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminRegisterDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+const buildAdminApproveDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Role Approvals', callback_data: 'role_approvals' }]] } });
+
+const buildAdminApproveCaregiverInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Role Approvals', callback_data: 'role_approvals' }]] } });
+
+const buildAdminApproveSupportInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Role Approvals', callback_data: 'role_approvals' }]] } });
+
+const buildAdminAddAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'super_admin_menu' }]] } });
+
+const buildAdminRemoveAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'super_admin_menu' }]] } });
+
+const buildAdminSetFeeInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildPendingRequests = (count = 0) => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildActiveConsultations = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+
+const buildViewAllPatients = (patients = []) => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'super_admin_menu' }]] } });
+
+const buildViewLinkedPatients = (patients = []) => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]] } });
+
+const buildDoctorStatus = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Menu', callback_data: 'doctor_menu' }]] } });
+
+const buildWithdrawalConfirm = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Withdraw', callback_data: 'withdraw_confirm' }, { text: '❌ Cancel', callback_data: 'withdraw_cancel' }]] } });
+
+const buildReportUpload = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Skip', callback_data: 'skip_upload' }]] } });
+
+const buildProfileDiscountDocuments = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Skip', callback_data: 'skip_documents' }]] } });
+
+const buildAdminProfileCompleteOptions = (role = 'Admin') => ({
+  reply_markup: { inline_keyboard: [[{ text: '1️⃣ Go to Menu', callback_data: 'go_to_menu' }, { text: '2️⃣ Continue Editing', callback_data: 'continue_edit' }, { text: '3️⃣ Cancel', callback_data: 'cancel' }]] },
+  text: `👤 *Profile Complete*\n\n${role} profile is now complete. What would you like to do?`
+});
+
+const buildAdminRoleApprovals = (pending = 0) => ({
   reply_markup: { inline_keyboard: [
-    ['1️⃣ Patient (need consultation)'],
-    ['2️⃣ Caregiver (helping someone)'],
-    ['3️⃣ Doctor (oncologist)'],
-    ['0️⃣ Cancel']
+    [{ text: '1️⃣ View Role Applications', callback_data: 'view_role_apps' }],
+    [{ text: '2️⃣ Approve Doctor', callback_data: 'approve_doctor' }],
+    [{ text: '3️⃣ Approve Caregiver', callback_data: 'approve_caregiver' }],
+    [{ text: '4️⃣ Approve Support', callback_data: 'approve_support' }],
+    [{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]
   ]}
 });
 
-const buildCaregiverAuth = () => ({
+const buildDoctorMenu = (name = 'Doctor', hasActive = false, pendingActions = 0) => ({
   reply_markup: { inline_keyboard: [
-    ['1️⃣ I am authorized to act on patient\'s behalf'],
-    ['2️⃣ I am the patient myself'],
-    ['0️⃣ Cancel']
-  ]}
-});
-
-const buildPlatformTerms = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ ✅ I Agree & Continue'],
-    ['2️⃣ ❌ Disagree - Exit'],
-    ['cancel']
-  ]}
-});
-
-const buildProfileView = () => ({
-  reply_markup: { inline_keyboard: [
-    ['EDIT', 'MENU'],
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildProfileEdit = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Cancel']
-  ]}
-});
-
-const buildRoleApplication = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ Doctor'],
-    ['2️⃣ Caregiver'],
-    ['3️⃣ Support'],
-    ['4️⃣ Cancel']
-  ]}
-});
-
-const buildMyRoles = (roles, roleStatus) => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Menu']
-  ]}
-});
-
-const buildProfileRemoveRole = () => ({
-  reply_markup: { inline_keyboard: [
-    ['doctor', 'caregiver', 'support'],
-    ['0️⃣ Back to Menu']
-  ]}
-});
-
-const buildDiscountCategories = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ BPL / EWS', '2️⃣ Ayushman Bharat'],
-    ['3️⃣ e-Shram', '4️⃣ Farmer'],
-    ['5️⃣ Defence', '6️⃣ Paramilitary'],
-    ['7️⃣ Police', '8️⃣ Government Employee'],
-    ['9️⃣ Senior Citizen', '1️⃣1️⃣ Widow'],
-    ['1️⃣2️⃣ PwD', '1️⃣3️⃣ SC/ST'],
-    ['1️⃣4️⃣ Minority', '1️⃣5️⃣ Rural/Tribal'],
-    ['1️⃣6️⃣ Healthcare Worker', '1️⃣7️⃣ Teacher'],
-    ['1️⃣8️⃣ Journalist', '1️⃣9️⃣ No Discount'],
-    ['0️⃣ Cancel']
-  ]}
-});
-
-const buildConsentsMenu = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ ✅ Teleconsultation'],
-    ['2️⃣ ✅ Data Sharing'],
-    ['3️⃣ ✅ DPDP Act'],
-    ['CANCEL']
-  ]}
-});
-
-const buildDoctorSelect = (doctors) => {
-  const buttons = [];
-  if (!doctors || doctors.length === 0) {
-    buttons.push(['_No doctors available_']);
-  } else {
-    doctors.forEach((d, i) => {
-      buttons.push([`${i + 1}. Dr. ${d.name} - ${d.specialty}`]);
-    });
-  }
-  buttons.push(['0️⃣ Back to Menu']);
-  return { reply_markup: { inline_keyboard: buttons } };
-};
-
-const buildConsultationCompleted = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ My Consultations'],
-    ['2️⃣ View Profile'],
-    ['3️⃣ Main Menu']
-  ]}
-});
-
-const buildCloseConsultationPrompt = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildMobileCollection = () => ({
-  reply_markup: { inline_keyboard: [
-    ['SKIP']
-  ]}
-});
-
-const buildCaregiverPatientLink = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Switch Role']
-  ]}
-});
-
-const buildAdminProfileEdit = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ Edit Name'],
-    ['2️⃣ Edit Phone Number'],
-    ['3️⃣ View Profile'],
-    ['0️⃣ Back to Profile']
-  ]}
-});
-
-const buildAdminProfileEditName = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Cancel']
-  ]}
-});
-
-const buildAdminProfileEditPhone = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Cancel']
-  ]}
-});
-
-const buildDoctorProfileEdit = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Menu']
-  ]}
-});
-
-const buildDoctorMsgAdminInput = (pendingActions = 0) => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Doctor Menu']
-  ]}
-});
-
-const buildAdminAssignDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminRemoveDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminRejectDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminMessageDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminReassignDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminMessagePatientInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminVerifyPaymentInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminVerifyDiscountInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminInviteDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminRegisterDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminApproveDoctorInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminApproveCaregiverInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminApproveSupportInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildAdminAddAdminInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildAdminRemoveAdminInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildAdminSetFeeInput = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildPendingRequests = (pending) => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildActiveConsultations = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildViewAllPatients = (patients) => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Admin Menu']
-  ]}
-});
-
-const buildViewLinkedPatients = (patients) => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildDoctorStatus = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back']
-  ]}
-});
-
-const buildWithdrawalConfirm = () => ({
-  reply_markup: { inline_keyboard: [
-    ['1️⃣ Yes, withdraw'],
-    ['2️⃣ No, keep consultation']
-  ]}
-});
-
-const buildReportUpload = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Back to Menu']
-  ]}
-});
-
-const buildProfileDiscountDocuments = () => ({
-  reply_markup: { inline_keyboard: [
-    ['0️⃣ Skip']
+    [{ text: hasActive ? '🟢 1️⃣ Status' : '1️⃣ Status', callback_data: 'doctor_status' }],
+    [{ text: '2️⃣ My Patients', callback_data: 'my_patients' }],
+    [{ text: '3️⃣ Edit Profile', callback_data: 'edit_profile' }],
+    [{ text: '4️⃣ Message Admin', callback_data: 'message_admin' }]
   ]}
 });
 
 module.exports = {
   buildMainMenu,
   buildPersonaSelect,
-  buildProfileMenu,
   buildAdminMenu,
   buildSuperAdminMenu,
   buildCancerTypeMenu,
   buildConsultationMenu,
   buildDoctorMenu,
-  buildAdminRoleApprovals,
-  buildAdminDoctorManagement,
-  buildBillingMenu,
-  buildProfileCompleteOptions,
   buildRoleSelect,
   buildCaregiverAuth,
   buildPlatformTerms,
@@ -579,5 +323,6 @@ module.exports = {
   buildWithdrawalConfirm,
   buildReportUpload,
   buildProfileDiscountDocuments,
-  MAX_FILE_SIZE_MB
+  buildAdminProfileCompleteOptions,
+  buildAdminRoleApprovals
 };

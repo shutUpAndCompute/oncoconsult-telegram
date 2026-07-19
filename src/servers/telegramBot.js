@@ -436,7 +436,52 @@ class TelegramAdapter {
       const selection = data;
       const currentState = session?.flowState || FlowStates.WELCOME;
       
-      if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
+      // Handle callback data payloads (new inline keyboard style)
+      const callbackPayloads = {
+        'consultation': () => { nextState = FlowStates.CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildConsultationMenu(); },
+        'profile': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildProfileView(); },
+        'switch_role': () => { nextState = FlowStates.PERSONA_SELECT; responseText = '', replyMarkup = telegramKeyboards.buildPersonaSelect('patient', []); },
+        'pending_requests': () => { nextState = FlowStates.ADMIN_ROLE_APPROVALS; responseText = '', replyMarkup = telegramKeyboards.buildPendingRequests(); },
+        'active_consultations': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
+        'role_approvals': () => { nextState = FlowStates.ADMIN_ROLE_APPROVALS; responseText = '', replyMarkup = telegramKeyboards.buildAdminRoleApprovals(); },
+        'doctor_management': () => { nextState = FlowStates.ADMIN_DOCTOR_MANAGEMENT; responseText = '', replyMarkup = telegramKeyboards.buildAdminDoctorManagement(); },
+        'view_patients': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
+        'verify_payment': () => { nextState = FlowStates.ADMIN_VERIFY_PAYMENT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminVerifyPaymentInput(); },
+        'verify_discount': () => { nextState = FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminVerifyDiscountInput(); },
+        'message_patient': () => { nextState = FlowStates.ADMIN_MESSAGE_PATIENT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminMessagePatientInput(); },
+        'close_consultation': () => { nextState = FlowStates.ADMIN_CLOSE_CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildCloseConsultationPrompt(); },
+        'set_fee': () => { nextState = FlowStates.ADMIN_SET_FEE_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminSetFeeInput(); },
+        'view_all_patients': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildSuperAdminMenu(); },
+        'add_admin': () => { nextState = FlowStates.ADMIN_ADD_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminAddAdminInput(); },
+        'remove_admin': () => { nextState = FlowStates.ADMIN_REMOVE_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminRemoveAdminInput(); },
+        'admin_menu': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
+        'super_admin_menu': () => { nextState = FlowStates.SUPER_ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildSuperAdminMenu(); },
+        'doctor_menu': () => { nextState = FlowStates.DOCTOR_MENU; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMenu(); },
+        'main_menu': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
+        'cancel': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
+        'patient': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('patient', false); },
+        'caregiver': () => { nextState = FlowStates.CAREGIVER_MENU; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('caregiver', false); },
+        'doctor': () => { nextState = FlowStates.DOCTOR_MENU; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMenu(); },
+        'admin': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
+        'support': () => { nextState = FlowStates.SUPPORT_MENU; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('support', false); },
+        'start_consultation': () => { nextState = FlowStates.CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildConsultationMenu(); },
+        'payment_status': () => { nextState = FlowStates.BILLING; responseText = '', replyMarkup = telegramKeyboards.buildBillingMenu(); },
+        'withdraw': () => { nextState = FlowStates.CONSULTATION_WITHDRAW; responseText = '', replyMarkup = telegramKeyboards.buildWithdrawalConfirm(); },
+        'message_admin': () => { nextState = FlowStates.DOCTOR_MSG_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMsgAdminInput(); },
+        'edit_profile': () => { nextState = FlowStates.PROFILE_EDIT; responseText = '', replyMarkup = telegramKeyboards.buildProfileEdit(); },
+        'view_profile': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildProfileView(); },
+        'apply_role': () => { nextState = FlowStates.ROLE_APPLICATION; responseText = '', replyMarkup = telegramKeyboards.buildRoleApplication(); },
+        'my_roles': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildMyRoles(); },
+        'remove_role': () => { nextState = FlowStates.PROFILE_REMOVE_ROLE; responseText = '', replyMarkup = telegramKeyboards.buildProfileRemoveRole(); },
+        'skip_upload': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
+        'skip_documents': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
+        'go_to_menu': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
+        'continue_edit': () => { nextState = FlowStates.ADMIN_PROFILE_EDIT; responseText = '', replyMarkup = telegramKeyboards.buildAdminProfileEdit(); }
+      };
+      
+      if (callbackPayloads[selection]) {
+        callbackPayloads[selection]();
+      } else if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
         if (selection === '0' || selection.toLowerCase() === 'cancel') {
           if (currentState === FlowStates.ROLE_SELECT) {
             nextState = FlowStates.WELCOME;

@@ -48,7 +48,16 @@ test.describe('Data Persistence Audit', () => {
   });
 
   test.after(() => {
-    fs.rmSync(DATA_DIR, { recursive: true, force: true });
+    try {
+      if (fs.existsSync(DATA_DIR)) {
+        const files = fs.readdirSync(DATA_DIR);
+        for (const file of files) {
+          fs.unlinkSync(path.join(DATA_DIR, file));
+        }
+        fs.rmdirSync(DATA_DIR);
+      }
+    } catch (e) {
+    }
   });
 
   test('Session persistence: updateSession saves to file', () => {

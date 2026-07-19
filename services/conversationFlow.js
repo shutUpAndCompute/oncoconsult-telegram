@@ -579,7 +579,7 @@ class ConversationFlow {
     this.adminRegistry = adminRegistry;
   }
 
-getMessageOptions(state, persona = 'patient') {
+getMessageOptions(state, persona = 'patient', session = null) {
     switch (state) {
       case FlowStates.WELCOME: return InteractiveMenus.main(persona);
       case FlowStates.ROLE_SELECT: return InteractiveMenus.roleSelect;
@@ -816,7 +816,7 @@ Send /menu to go back.`
     if (nextState) {
       return {
         nextState,
-        response: this.getMessageOptions(nextState, 'patient')
+        response: this.getMessageOptions(nextState, 'patient', null)
       };
     }
 
