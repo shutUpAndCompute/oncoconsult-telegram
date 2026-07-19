@@ -46,6 +46,7 @@ class PersistenceManager {
 
   save(type, data) {
     try {
+      this.ensureDataDir();
       const file = type === 'sessions' ? this.sessionsFile : this.consultationsFile;
       const tempFile = file + '.tmp';
       const serialized = JSON.stringify(Array.from(data.entries()), (key, value) => {
@@ -269,12 +270,14 @@ class ConsultationManager {
 
   assignDoctor(consultationId, doctorId, adminPhone) {
     const consultation = this.consultations.get(consultationId);
-    if (consultation) {
+    if (consultation && !consultation.doctorId) {
       consultation.doctorId = doctorId;
       consultation.adminAssigned = adminPhone;
       consultation.assignedAt = new Date();
       this.persistence.saveConsultations();
+      return true;
     }
+    return false;
   }
 
   reassignDoctor(consultationId, newDoctorId) {

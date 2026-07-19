@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --check src/servers/telegramBot.js)",
+      "Bash(sed -i \"s|require\\('/home/rajeev/oncoconsult-telegram/src/servers/telegramBot'\\)|require\\('./src/servers/telegramBot'\\)|; s|require\\('/home/rajeev/oncoconsult-telegram/services/conversationFlow'\\)|require\\('./services/conversationFlow'\\)|; s|require\\('/home/rajeev/oncoconsult-telegram/services/consultationManager'\\)|require\\('./services/consultationManager'\\)|; s|require\\('/home/rajeev/oncoconsult-telegram/services/adminRegistry'\\)|require\\('./services/adminRegistry'\\)|\" test_paths_tmp.js)",
+      "Bash(node test_paths_tmp.js)",
+      "Bash(sed -i \"s|process.env.TELEGRAM_BOT_TOKEN = 'fake-token';|process.env.TELEGRAM_BOT_TOKEN = 'fake-token';\\\\nprocess.env.SUPPORT_PHONES = '910000000303';|\" test_paths_tmp.js)",
+      "Bash(sed -i \"/^  \\\\/\\\\/ TEST 6/,/^  process.env.SUPPORT_PHONES/{/^  process.env.SUPPORT_PHONES/d}\" test_paths_tmp.js)",
+      "Bash(SUPPORT_PHONES=910000000303 node -e ' *)",
+      "Bash(python3 -c ' *)",
+      "Bash(node --check services/consultationManager.js)"
+    ]
+  }
+}

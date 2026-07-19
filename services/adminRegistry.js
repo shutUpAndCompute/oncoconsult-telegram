@@ -23,6 +23,7 @@ function loadAdmins() {
 
 function saveAdmins(admins) {
   try {
+    ensureDataDir();
     const tempFile = adminsFile + '.tmp';
     fs.writeFileSync(tempFile, JSON.stringify(admins, null, 2));
     fs.renameSync(tempFile, adminsFile);

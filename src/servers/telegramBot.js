@@ -837,8 +837,8 @@ this.bot.on('photo', async (msg) => {
       if (effectiveRole === PersonaTypes.PATIENT && !session?.isCaregiver) {
         const consultation = consultationManager.getConsultationByPatient(String(chatId));
         const pending = consultationManager.getPendingConsultationByPatient(String(chatId));
-        // Allow uploads for pending or active consultations
-        if (!consultation && !pending) {
+        // Allow uploads for pending or active consultations or when in REPORT_UPLOAD or PROFILE state
+        if (!consultation && !pending && session?.flowState !== FlowStates.REPORT_UPLOAD && session?.flowState !== FlowStates.PROFILE && session?.flowState !== FlowStates.PROFILE_DISCOUNT_DOCUMENTS) {
           await this.bot.sendMessage(chatId, 'No active or pending consultation. You cannot upload documents.', { parse_mode: 'Markdown' });
           return;
         }
@@ -896,8 +896,8 @@ this.bot.on('document', async (msg) => {
       if (effectiveRole === PersonaTypes.PATIENT && !session?.isCaregiver) {
         const consultation = consultationManager.getConsultationByPatient(String(chatId));
         const pending = consultationManager.getPendingConsultationByPatient(String(chatId));
-        // Allow uploads for pending or active consultations
-        if (!consultation && !pending) {
+        // Allow uploads for pending or active consultations or when in REPORT_UPLOAD or PROFILE state
+        if (!consultation && !pending && session?.flowState !== FlowStates.REPORT_UPLOAD && session?.flowState !== FlowStates.PROFILE && session?.flowState !== FlowStates.PROFILE_DISCOUNT_DOCUMENTS) {
           await this.bot.sendMessage(chatId, 'No active or pending consultation. You cannot upload documents.', { parse_mode: 'Markdown' });
           return;
         }
@@ -988,7 +988,7 @@ await this.bot.sendMessage(
         const success = consultationManager.closeConsultation(consultationId, 'doctor');
         if (success) {
           await this.bot.sendMessage(chatId, `✅ Consultation ${consultationId} closed.`);
-         console.error(`[NOTIFY] Close consultation notify attempt: chatId=${consultation.patientPhone}, consultationId=${consultationId}`);
+          console.error(`[NOTIFY] Close consultation notify attempt: chatId=${targetConsultation.patientPhone}, consultationId=${consultationId}`);
           await this.bot.sendMessage(targetConsultation.patientPhone, 
             `🔚 *Consultation Closed*\n\nYour consultation has been marked as complete.`, 
             { parse_mode: 'Markdown' }

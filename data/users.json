@@ -13,5 +13,44 @@
       "doctor": "approved"
     },
     "approvedBy": "7935248399"
+  },
+  "9999999999": {
+    "chatId": "9999999999",
+    "phoneNumber": null,
+    "appliedRoles": [],
+    "approvedRoles": [],
+    "profile": {
+      "name": "John Doe",
+      "age": "30"
+    },
+    "createdAt": "2026-07-16T16:56:41.408Z",
+    "mobileVerified": false
+  },
+  "user_phone": {
+    "chatId": "user_phone",
+    "phoneNumber": null,
+    "appliedRoles": [
+      "doctor"
+    ],
+    "approvedRoles": [],
+    "profile": {},
+    "createdAt": "2026-07-16T16:56:41.410Z",
+    "mobileVerified": false,
+    "roleStatus": {
+      "doctor": "pending"
+    }
+  },
+  "patient_phone": {
+    "chatId": "patient_phone",
+    "phoneNumber": null,
+    "appliedRoles": [],
+    "approvedRoles": [],
+    "profile": {
+      "name": "John",
+      "age": "30",
+      "gender": "male"
+    },
+    "createdAt": "2026-07-19T11:40:34.551Z",
+    "mobileVerified": false
   }
 }

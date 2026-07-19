@@ -47,6 +47,7 @@ class DoctorPersistence {
 
   saveDoctors() {
     try {
+      this.ensureDataDir();
       const tempFile = this.doctorsFile + '.tmp';
       fs.writeFileSync(tempFile, JSON.stringify(this.doctors, null, 2));
       fs.renameSync(tempFile, this.doctorsFile);
@@ -57,6 +58,7 @@ class DoctorPersistence {
 
   savePendingDoctors() {
     try {
+      this.ensureDataDir();
       const tempFile = this.pendingDoctorsFile + '.tmp';
       fs.writeFileSync(tempFile, JSON.stringify(this.pendingDoctors, null, 2));
       fs.renameSync(tempFile, this.pendingDoctorsFile);

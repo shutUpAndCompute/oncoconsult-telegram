@@ -7,10 +7,16 @@ const DoctorRouter = require('../services/doctorRouter');
 const PaymentService = require('../services/paymentService');
 const UserRegistry = require('../services/userRegistry');
 
+const fs = require('fs');
+
 const cm = new ConsultationManager(new DoctorRouter());
 const ps = new PaymentService();
 const ur = new UserRegistry();
 const flow = new ConversationFlow(cm, new DoctorRouter(), ps, ur, adminRegistry);
+
+test.after(() => {
+  fs.rmSync('./data', { recursive: true, force: true });
+});
 
 test.describe('Caregiver Role Audit', () => {
   test('Caregiver session with linked patient', () => {

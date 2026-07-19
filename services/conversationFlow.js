@@ -65,81 +65,128 @@ DOCTOR_MENU: 'doctor_menu',
   };
 
 const InteractiveMenus = {
-main: (persona = 'patient', hasOtherRoles = false, profileComplete = true) => `🩺 *Oncology Consultation*
+  main: (persona = 'patient', hasOtherRoles = false, profileComplete = true) => `🩺 *Oncology Consultation*
 
 ${!profileComplete ? '🔴 ' : ''}1️⃣ My Consultations
 2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}
 
 Reply with number`,
-   personaSelect: (currentPersona, approvedRoles = []) => {
-      const options = ['1️⃣ Patient Mode'];
-      if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
-      if (approvedRoles.includes('doctor')) options.push('3️⃣ Doctor Mode');
-      if (approvedRoles.includes('admin') || approvedRoles.includes('super_admin')) options.push('4️⃣ Admin Mode');
-      if (approvedRoles.includes('support')) options.push('5️⃣ Support Mode');
-      options.push('0️⃣ Main Menu');
-      return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
-    },
+  personaSelect: (currentPersona, approvedRoles = []) => {
+    const options = ['1️⃣ Patient Mode'];
+    if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
+    if (approvedRoles.includes('doctor')) options.push('3️⃣ Doctor Mode');
+    if (approvedRoles.includes('admin') || approvedRoles.includes('super_admin')) options.push('4️⃣ Admin Mode');
+    if (approvedRoles.includes('support')) options.push('5️⃣ Support Mode');
+    options.push('0️⃣ Main Menu');
+    return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
+  },
 
-adminMenu: (pending = 0, active = 0, highlightOption = null) => `🛠️ *Admin Panel*
+  adminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
+    // Determine which item should have the indicator (last actionable item in workflow)
+    // Priority cascades to the LAST item needing action:
+    // 8 (Verify Discount) > 7 (Verify Payment) > 5 (Profile) > 1 (Pending Requests) > 3 (Roles) > 4 (Doctors)
+    let indicatorOption = 0;
+    if (hasPendingDiscounts) indicatorOption = 8;
+    else if (hasPendingPayments) indicatorOption = 7;
+    else if (!isProfileComplete) indicatorOption = 5;
+    else if (pending > 0) indicatorOption = 1;
+    else if (pendingRoles > 0) indicatorOption = 3;
+    else if (pendingDocs > 0) indicatorOption = 4;
+    
+    const showIndicator = (opt) => indicatorOption === opt;
+    
+    return `🛠️ *Admin Panel*
 
-${pending > 0 || highlightOption === 5 ? '🔴 ' : ''}1️⃣ Pending Requests
+${pending > 0 && showIndicator(1) ? '🔴 ' : ''}1️⃣ Pending Requests
 ${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations
-3️⃣ Role Approvals
-4️⃣ Doctor Management
-${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Profile
+${pendingRoles > 0 && showIndicator(3) ? '🔴 ' : ''}3️⃣ Role Approvals
+${pendingDocs > 0 && showIndicator(4) ? '🔴 ' : ''}4️⃣ Doctor Management
+${!isProfileComplete && showIndicator(5) ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View Patient Profiles
-7️⃣ Verify Payment
-8️⃣ Verify Discount
+${hasPendingPayments && showIndicator(7) ? '🔴 ' : ''}7️⃣ Verify Payment
+${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
 13️⃣ Set Fee
 
-0️⃣ Switch Role`,
-   superAdminMenu: (pending = 0, active = 0, highlightOption = null) => `🔐 *Super Admin Panel*
+0️⃣ Switch Role`;
+  },
+  superAdminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
+    // Determine which item should have the indicator (last actionable item in workflow)
+    let indicatorOption = 0;
+    if (hasPendingDiscounts) indicatorOption = 8;
+    else if (hasPendingPayments) indicatorOption = 7;
+    else if (!isProfileComplete) indicatorOption = 5;
+    else if (pending > 0) indicatorOption = 1;
+    else if (pendingRoles > 0) indicatorOption = 3;
+    else if (pendingDocs > 0) indicatorOption = 4;
+    
+    const showIndicator = (opt) => indicatorOption === opt;
+    
+    return `🔐 *Super Admin Panel*
 
 You have full system access.
 
-${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
+${pending > 0 && showIndicator(1) ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
 ${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations (${active} active)
-3️⃣ Role Approvals
-4️⃣ Doctor Management
-${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Profile
+${pendingRoles > 0 && showIndicator(3) ? '🔴 ' : ''}3️⃣ Role Approvals
+${pendingDocs > 0 && showIndicator(4) ? '🔴 ' : ''}4️⃣ Doctor Management
+${!isProfileComplete && showIndicator(5) ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View All Patients
-7️⃣ Verify Payment
-8️⃣ Verify Discount
+${hasPendingPayments && showIndicator(7) ? '🔴 ' : ''}7️⃣ Verify Payment
+${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
 1️⃣1 Add Admin
 1️⃣2 Remove Admin
 
-0️⃣ Switch Role`,
-   adminRoleApprovals: (pendingApps = 0, highlightOption = null) => `🔐 *Role Approvals*
+0️⃣ Switch Role`;
+  },
+  adminRoleApprovals: (pendingApps = 0, highlightOption = null) => {
+    const showAppsIndicator = pendingApps > 0;
+    const showApproveDoctor = highlightOption === 2;
+    const showApproveCaregiver = highlightOption === 3;
+    const showApproveSupport = highlightOption === 4;
+    
+    return `🔐 *Role Approvals*
 
-${pendingApps > 0 ? '🔴 ' : ''}1️⃣ View Role Applications
-${highlightOption === 2 ? '🔴 ' : ''}2️⃣ Approve Doctor
-${highlightOption === 3 ? '🔴 ' : ''}3️⃣ Approve Caregiver
-${highlightOption === 4 ? '🔴 ' : ''}4️⃣ Approve Support
-
-0️⃣ Back to Admin Menu
-
-Reply with number`,
-   adminDoctorManagement: (pendingDoctors = 0, highlightOption = null) => `👨⚕️ *Doctor Management*
-
-${pendingDoctors > 0 ? '🔴 ' : ''}1️⃣ List Doctors
-${pendingDoctors > 0 ? '🔴 ' : ''}2️⃣ List Pending Doctors
-${highlightOption === 3 ? '🔴 ' : ''}3️⃣ Assign Doctor
-${highlightOption === 4 ? '🔴 ' : ''}4️⃣ Reassign Doctor
-${highlightOption === 5 ? '🔴 ' : ''}5️⃣ Remove Doctor
-${highlightOption === 6 ? '🔴 ' : ''}6️⃣ Reject Doctor
-${highlightOption === 7 ? '🔴 ' : ''}7️⃣ Message Doctor
-${highlightOption === 8 ? '🔴 ' : ''}8️⃣ Register Doctor
-${highlightOption === 9 ? '🔴 ' : ''}9️⃣ Invite Doctor
+${showAppsIndicator ? '🔴 ' : ''}1️⃣ View Role Applications
+${showApproveDoctor ? '🔴 ' : ''}2️⃣ Approve Doctor
+${showApproveCaregiver ? '🔴 ' : ''}3️⃣ Approve Caregiver
+${showApproveSupport ? '🔴 ' : ''}4️⃣ Approve Support
 
 0️⃣ Back to Admin Menu
 
-Reply with number`,
-adminAssignDoctorInput: `🔗 *Assign Doctor*
+Reply with number`;
+  },
+  adminDoctorManagement: (pendingDoctors = 0, highlightOption = null) => {
+    const showListDoctors = pendingDoctors > 0 || highlightOption === 1;
+    const showListPending = pendingDoctors > 0;
+    const showAssignDoctor = highlightOption === 3;
+    const showReassignDoctor = highlightOption === 4;
+    const showRemoveDoctor = highlightOption === 5;
+    const showRejectDoctor = highlightOption === 6;
+    const showMessageDoctor = highlightOption === 7;
+    const showRegisterDoctor = highlightOption === 8;
+    const showInviteDoctor = highlightOption === 9;
+    
+    return `👨⚕️ *Doctor Management*
+
+${showListDoctors ? '🔴 ' : ''}1️⃣ List Doctors
+${showListPending ? '🔴 ' : ''}2️⃣ List Pending Doctors
+${showAssignDoctor ? '🔴 ' : ''}3️⃣ Assign Doctor
+${showReassignDoctor ? '🔴 ' : ''}4️⃣ Reassign Doctor
+${showRemoveDoctor ? '🔴 ' : ''}5️⃣ Remove Doctor
+${showRejectDoctor ? '🔴 ' : ''}6️⃣ Reject Doctor
+${showMessageDoctor ? '🔴 ' : ''}7️⃣ Message Doctor
+${showRegisterDoctor ? '🔴 ' : ''}8️⃣ Register Doctor
+${showInviteDoctor ? '🔴 ' : ''}9️⃣ Invite Doctor
+
+0️⃣ Back to Admin Menu
+
+Reply with number`;
+  },
+  adminAssignDoctorInput: `🔗 *Assign Doctor*
 
 Enter consultation ID and doctor ID:
 
@@ -189,6 +236,13 @@ Enter: NAME, SPECIALIZATION, PHONE, CANCERS
 Example: John Smith, Medical Oncology, 9876543210, lung,breast
 
 0️⃣ Back to Doctor Management`,
+  adminInviteDoctorInput: `📧 *Invite Doctor*
+
+Enter: NAME, SPECIALIZATION, PHONE, CANCERS
+
+Example: Jane Doe, Surgical Oncology, 9876543210, lung
+
+0️⃣ Back to Doctor Management`,
   adminVerifyDiscountInput: `📎 *Verify Discount*
 
 Enter: PHONE approved/rejected [reason]
@@ -210,19 +264,26 @@ Enter: PHONE MESSAGE
 Example: 9876543210 How are you feeling?
 
 0️⃣ Back to Admin Menu`,
- adminReassignDoctorInput: `🔁 *Reassign Doctor*
+  adminSetFeeInput: `💰 *Set Consultation Fee*
+
+Enter: PHONE AMOUNT [NOTE]
+
+Example: 9811111111 1500 "Standard consultation"
+
+0️⃣ Back to Admin Menu`,
+  adminReassignDoctorInput: `🔁 *Reassign Doctor*
 
 Enter: CONSULTATION_ID NEW_DOCTOR_ID
 
 Example: cons_1234567890 doc_9876543210
 
 0️⃣ Back to Doctor Management`,
- profileRemoveRole: `📝 *Remove Role*
+  profileRemoveRole: `📝 *Remove Role*
 
 Enter role to remove: doctor/caregiver/support
 
 0️⃣ Back to Profile`,
-   supportMenu: `👩⚕️ *Support Menu*
+  supportMenu: `👩⚕️ *Support Menu*
 
 1️⃣ My Consultations
 2️⃣ Doctor Chat
@@ -232,31 +293,31 @@ Enter role to remove: doctor/caregiver/support
 0️⃣ Switch Role
 
 Reply with number`,
-   doctorSelect: (doctors) => {
-     let text = `👨⚕️ *Select Doctor*
+  doctorSelect: (doctors) => {
+    let text = `👨⚕️ *Select Doctor*
 
 `;
-     if (!doctors || doctors.length === 0) {
-       text += '_No doctors available for your cancer type._\n\n';
-     } else {
-       doctors.forEach((d, i) => {
-         text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
-       });
-     }
-     text += '\n0️⃣ Back to Menu';
-     return text;
-   },
-   caregiverPatientLink: `📲 *Link to Patient*
+    if (!doctors || doctors.length === 0) {
+      text += '_No doctors available for your cancer type._\n\n';
+    } else {
+      doctors.forEach((d, i) => {
+        text += `${i + 1}. Dr. ${d.name} - ${d.specialty}\n`;
+      });
+    }
+    text += '\n0️⃣ Back to Menu';
+    return text;
+  },
+  caregiverPatientLink: `📲 *Link to Patient*
 
 Enter the patient's phone number (10 digits):
 
 Example: 9876543210
 
 0️⃣ Switch Role`,
-   profileStateMenu: `📍 *Select Your State*
+  profileStateMenu: `📍 *Select Your State*
 
 Enter your state:`,
-   consultationCompleted: `✅ *Consultation Completed*
+  consultationCompleted: `✅ *Consultation Completed*
 
 Thank you for using Oncology Consultation.
 
@@ -1490,11 +1551,17 @@ Use option 1 to view your assigned patients.`
         nextPrompt = 'Please enter your age:';
         break;
       case 'age':
+        if (!trimmed.match(/^\d+$/) || parseInt(trimmed) < 1 || parseInt(trimmed) > 120) {
+          return { nextState: FlowStates.PROFILE, response: '❌ Invalid age. Please enter a valid number (e.g., 45):', data: {} };
+        }
         profile.age = trimmed;
         nextStep = 'gender';
         nextPrompt = 'Please enter your gender (M/F/Other):';
         break;
       case 'gender':
+        if (!['m', 'f', 'other', 'male', 'female'].includes(trimmed.toLowerCase())) {
+          return { nextState: FlowStates.PROFILE, response: '❌ Invalid gender. Please enter M, F, or Other:', data: {} };
+        }
         profile.gender = trimmed;
         nextStep = 'address';
         nextPrompt = '🏠 Please enter your full address (mandatory):';
@@ -2204,18 +2271,18 @@ Enter admin phone to remove:
     };
 
 
-    const handler = flowMap[selection];
+const handler = flowMap[selection];
     if (handler) {
       const result = handler();
       if (result) return result;
       const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
-      return { nextState: FlowStates.ADMIN_MENU, response: '❌ Only Super Admin can add/remove admins.\n\n' + this.getAdminMenuText(phoneNumber, profileComplete ? null : 5) };
+      return { nextState: FlowStates.ADMIN_MENU, response: '❌ Only Super Admin can add/remove admins.\n\n' + this.getAdminMenuText(phoneNumber) };
     }
     const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
-    return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber, profileComplete ? null : 5) };
+    return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
   }
 
-handleSuperAdminMenuSelection(selection, phoneNumber, session) {
+  handleSuperAdminMenuSelection(selection, phoneNumber, session) {
     const isAdminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
     const missingFields = this.adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
     const highlightMissing = {
@@ -2226,7 +2293,7 @@ handleSuperAdminMenuSelection(selection, phoneNumber, session) {
     if (!isAdminProfileComplete && selection !== '5' && selection !== '0') {
       return {
         nextState: FlowStates.SUPER_ADMIN_MENU,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.superAdminMenu(0, 0, 5)}`
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.superAdminMenu(0, 0, isAdminProfileComplete)}`
       };
     }
     
@@ -2316,7 +2383,7 @@ listDoctors(phoneNumber) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isAdmin) {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ Admin access required.\n\n${InteractiveMenus.adminDoctorManagement}` };
+      return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${this.getWelcomeMenu(phoneNumber)}` };
     }
     const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
     let text = '👨⚕️ *All Doctors*\n\n';
@@ -2339,7 +2406,7 @@ listDoctors(phoneNumber) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isAdmin) {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ Admin access required.\n\n${InteractiveMenus.adminDoctorManagement}` };
+      return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${this.getWelcomeMenu(phoneNumber)}` };
     }
     const pending = this.doctorRouter?.persistence?.getPendingDoctors() || [];
     let text = '👨⚕️ *Pending Doctor Requests*\n\n';
@@ -2390,7 +2457,10 @@ listDoctors(phoneNumber) {
     if (!doctor) {
       return { nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT, response: `❌ Doctor ${doctorId} not found\n\n0. Back` };
     }
-    this.consultationManager.assignDoctor(consultationId, doctorId, String(phoneNumber));
+    const success = this.consultationManager.assignDoctor(consultationId, doctorId, String(phoneNumber));
+    if (!success) {
+      return { nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT, response: `❌ Consultation is already assigned or cannot be updated.\n\n0. Back` };
+    }
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
       response: `✅ Assigned ${doctor.name} to ${consultationId}\n\n${InteractiveMenus.adminDoctorManagement}`,
@@ -2941,8 +3011,16 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
     const pendingCount = this.consultationManager?.getPendingForAdmin().length || 0;
     const activeCount = Array.from(this.consultationManager?.consultations?.values() || [])
       .filter(c => c.status === 'active').length;
-    if (!this.isSuperAdminPhone(phoneNumber)) return InteractiveMenus.adminMenu(pendingCount, activeCount, highlightOption);
-    return InteractiveMenus.superAdminMenu(pendingCount, activeCount, highlightOption);
+    const hasPendingPayments = this.paymentService?.payments?.size > 0 && 
+      Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+    const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values || [])
+      .some(s => s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+    const isProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+    const pendingRoles = this.userRegistry?.getPendingRequests?.()?.length || 0;
+    const pendingDocs = this.doctorRouter?.persistence?.getPendingDoctors()?.length || 0;
+
+    if (!this.isSuperAdminPhone(phoneNumber)) return InteractiveMenus.adminMenu(pendingCount, activeCount, isProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDocs);
+    return InteractiveMenus.superAdminMenu(pendingCount, activeCount, isProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDocs);
   }
 
   canViewConsultationContact(adminPhone, consultation) {
@@ -2957,7 +3035,7 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isAdmin) {
-      return { nextState: FlowStates.ADMIN_MENU, response: `❌ Admin access required.\n\n${this.getAdminMenuText(phoneNumber)}` };
+      return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${this.getWelcomeMenu(phoneNumber)}` };
     }
     const pending = this.consultationManager.getPendingForAdmin();
     let text = `📋 *Pending Consultations*\n\n`;
@@ -2983,7 +3061,7 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isAdmin) {
-      return { nextState: FlowStates.ADMIN_MENU, response: `❌ Admin access required.\n\n${this.getAdminMenuText(phoneNumber)}` };
+      return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${this.getWelcomeMenu(phoneNumber)}` };
     }
     const active = Array.from(this.consultationManager.consultations.values())
       .filter(c => c.status === 'active');
