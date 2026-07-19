@@ -1462,17 +1462,25 @@ async handlePaymentStatusCheck(phoneNumber, session) {
   }
 
 isProfileComplete(session) {
-     const p = session.patientProfile;
-     const c = p?.confirmedConsents || {};
-     if (!p) return false;
-     // Medical reports are collected via uploads after profile completion
-     return !!(p.name && p.age && p.gender && p.address && p.state &&
-       p.cancerType && p.treatingHospital && p.treatmentStatus &&
-       p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
-       c.teleconsultation && c.dataSharing && c.dpdp);
-   }
+      const p = session.patientProfile;
+      const c = p?.confirmedConsents || {};
+      if (!p) return false;
+      return !!(p.name && p.age && p.gender && p.address && p.state &&
+        p.cancerType && p.treatingHospital && p.treatmentStatus &&
+        p.emergencyContactName && p.emergencyContactNumber && p.emergencyContactRelation &&
+        c.teleconsultation && c.dataSharing && c.dpdp);
+    }
 
-   isDoctorProfileComplete(chatId) {
+    getProfileStepNumber(step, isCaregiver = false) {
+      if (isCaregiver) {
+        const steps = ['caregiver_info', 'patient_info', 'caregiver_relationship', 'caregiver_reason', 'name', 'age', 'gender', 'address', 'pincode', 'state', 'diagnosis_date', 'oncologist_name', 'treating_hospital', 'treatment_status'];
+        return steps.indexOf(step) + 1;
+      }
+      const steps = ['name', 'age', 'gender', 'address', 'pincode', 'state', 'diagnosis_date', 'oncologist_name', 'treating_hospital', 'treatment_status', 'medical_reports', 'emergency_contact_name', 'emergency_contact_number', 'emergency_contact_relation'];
+      return steps.indexOf(step) + 1 || 1;
+    }
+
+    isDoctorProfileComplete(chatId) {
      const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
      const doctor = doctors.find(d => d.telegramId === String(chatId) || String(d.phoneNumber).replace('+', '') === String(chatId));
      if (!doctor) return false;
@@ -1527,11 +1535,10 @@ isProfileComplete(session) {
     };
   }
 
-  handleProfileInput(phoneNumber, message, session) {
+handleProfileInput(phoneNumber, message, session) {
     const step = session.profileStep;
     const trimmed = message.trim();
 
-    // Allow cancel at any profile step
     if (trimmed.toLowerCase() === 'cancel' || trimmed === '0') {
       const result = this.consultationManager.resetSession(phoneNumber);
       const doctorNote = result.doctorId ? `\nDoctor ${result.doctorId} has been released.` : '';
@@ -1548,33 +1555,38 @@ isProfileComplete(session) {
     const profile = session.patientProfile || {};
     let nextStep = null;
     let nextPrompt = '';
+    
+    const isCaregiverSession = session?.isCaregiver || false;
+    const totalSteps = isCaregiverSession ? 14 : 12;
+    const currentStepNum = this.getProfileStepNumber(step, isCaregiverSession);
+    const stepPrefix = `[Step ${currentStepNum} of ${totalSteps}]`;
 
     switch (step) {
       case 'doctor_name':
         profile.name = trimmed;
         nextStep = 'doctor_specialty';
-        nextPrompt = 'Enter your specialty (e.g., lung, breast, general):';
+        nextPrompt = `${stepPrefix} Enter your specialty (e.g., lung, breast, general):`;
         break;
       case 'doctor_specialty':
         const specialties = trimmed.toLowerCase().split(',').map(s => s.trim());
         profile.specialty = specialties;
         nextStep = 'doctor_cancer_types';
-        nextPrompt = 'Enter cancer types you treat (comma-separated, e.g., lung,breast,general):';
+        nextPrompt = `${stepPrefix} Enter cancer types you treat (comma-separated, e.g., lung,breast,general):`;
         break;
       case 'doctor_cancer_types':
         profile.cancerTypes = trimmed.toLowerCase().split(',').map(c => c.trim());
         nextStep = 'doctor_hospital';
-        nextPrompt = '🏥 Enter your hospital/clinic name (mandatory):';
+        nextPrompt = `${stepPrefix} Enter your hospital/clinic name (mandatory):`;
         break;
       case 'doctor_hospital':
         profile.doctorHospital = trimmed;
         nextStep = 'doctor_city';
-        nextPrompt = '📍 Enter your city (mandatory):';
+        nextPrompt = `${stepPrefix} Enter your city (mandatory):`;
         break;
       case 'doctor_city':
         profile.doctorCity = trimmed;
         nextStep = 'doctor_qualifications';
-        nextPrompt = '🎓 Enter your qualifications (comma-separated, e.g., MBBS, MD Oncology):';
+        nextPrompt = `${stepPrefix} Enter your qualifications (comma-separated, e.g., MBBS, MD Oncology):`;
         break;
       case 'doctor_qualifications':
         profile.doctorQualifications = trimmed.split(',').map(q => q.trim()).filter(q => q);
@@ -1595,127 +1607,113 @@ isProfileComplete(session) {
         this.consultationManager.doctorRouter?.persistence?.addDoctor(doctor);
         return {
           nextState: FlowStates.DOCTOR_MENU,
-          response: `✅ Doctor profile created.
-
-Use option 1 to view your assigned patients.`
+          response: `✅ Doctor profile created.\n\nUse option 1 to view your assigned patients.`
         };
       case 'caregiver_info':
-        profile.caregiverName = trimmed;
+        profile.caregiverName = sanitizeMarkdown(trimmed);
         nextStep = 'patient_info';
-        nextPrompt = 'Please provide the patient\'s full name:';
+        nextPrompt = `${stepPrefix} Please provide the patient's full name:`;
         break;
       case 'patient_info':
-        profile.patientName = trimmed;
+        profile.patientName = sanitizeMarkdown(trimmed);
         nextStep = 'caregiver_relationship';
-        nextPrompt = 'What is your relationship to the patient?\n(e.g., spouse, child, friend, guardian):';
+        nextPrompt = `${stepPrefix} What is your relationship to the patient?\n(e.g., spouse, child, friend, guardian):`;
         break;
       case 'caregiver_relationship':
-        profile.caregiverRelationship = trimmed;
+        profile.caregiverRelationship = sanitizeMarkdown(trimmed);
         nextStep = 'caregiver_reason';
-        nextPrompt = 'Why are you acting on behalf of the patient?\n(e.g., mobility issues, language barrier, assistance):';
+        nextPrompt = `${stepPrefix} Why are you acting on behalf of the patient?\n(e.g., mobility issues, language barrier, assistance):`;
         break;
       case 'caregiver_reason':
-        profile.caregiverReason = trimmed;
+        profile.caregiverReason = sanitizeMarkdown(trimmed);
         nextStep = 'name';
-        nextPrompt = 'Please enter your (caregiver) full name:';
+        nextPrompt = `${stepPrefix} Please enter your (caregiver) full name:`;
         break;
       case 'name':
-        profile.name = trimmed;
+        profile.name = sanitizeMarkdown(trimmed);
         nextStep = 'age';
-        nextPrompt = 'Please enter your age:';
+        nextPrompt = `${stepPrefix} Please enter your age:`;
         break;
       case 'age':
         if (!trimmed.match(/^\d+$/) || parseInt(trimmed) < 1 || parseInt(trimmed) > 120) {
-          return { nextState: FlowStates.PROFILE, response: '❌ Invalid age. Please enter a valid number (e.g., 45):', data: {} };
+          return { nextState: FlowStates.PROFILE, response: `❌ Invalid age. Please enter a valid number (e.g., 45):\n\n${nextPrompt}`, data: {} };
         }
         profile.age = trimmed;
         nextStep = 'gender';
-        nextPrompt = 'Please enter your gender (M/F/Other):';
+        nextPrompt = `${stepPrefix} Please enter your gender (M/F/Other):`;
         break;
       case 'gender':
         if (!['m', 'f', 'other', 'male', 'female'].includes(trimmed.toLowerCase())) {
-          return { nextState: FlowStates.PROFILE, response: '❌ Invalid gender. Please enter M, F, or Other:', data: {} };
+          return { nextState: FlowStates.PROFILE, response: `❌ Invalid gender. Please enter M, F, or Other:\n\n${nextPrompt}`, data: {} };
         }
         profile.gender = trimmed;
         nextStep = 'address';
-        nextPrompt = '🏠 Please enter your full address (mandatory):';
+        nextPrompt = `${stepPrefix} 🏠 Please enter your full address (mandatory):`;
         break;
       case 'address':
-        profile.address = trimmed;
+        profile.address = sanitizeMarkdown(trimmed);
         nextStep = 'pincode';
-        nextPrompt = '📮 Please enter your 6-digit pin code (mandatory):';
+        nextPrompt = `${stepPrefix} 📮 Please enter your 6-digit pin code (mandatory):`;
         break;
       case 'pincode':
         if (!trimmed.match(/^\d{6}$/)) {
-          return { nextState: FlowStates.PROFILE, response: '❌ Invalid pincode. Enter 6-digit pincode:', data: {} };
+          return { nextState: FlowStates.PROFILE, response: `❌ Invalid pincode. Enter 6-digit pincode:\n\n${nextPrompt}`, data: {} };
         }
         profile.pinCode = trimmed;
         nextStep = 'state';
-        nextPrompt = '📍 Please enter your state (mandatory):';
+        nextPrompt = `${stepPrefix} 📍 Please enter your state (mandatory):`;
         break;
-      case 'state':
-        profile.state = trimmed;
-        nextStep = 'cancer_type';
-        nextPrompt = InteractiveMenus.cancerTypes;
+case 'state':
+        profile.state = sanitizeMarkdown(trimmed);
+        nextStep = 'diagnosis_date';
+        nextPrompt = `${stepPrefix} 📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip`;
         break;
       case 'diagnosis_date':
         profile.diagnosisDate = trimmed === '0' ? null : trimmed;
         nextStep = 'oncologist_name';
-        nextPrompt = '👨⚕️ Enter your primary oncologist name:\n\n0. Skip';
-        break;
-      case 'cancer_type':
-        const cancerMap = { '1': 'lung', '2': 'breast', '3': 'prostate', '4': 'liver', '5': 'pancreatic', '6': 'ovarian', '7': 'blood', '8': 'general' };
-        if (!cancerMap[trimmed]) {
-          return { nextState: FlowStates.PROFILE, response: InteractiveMenus.cancerTypes, data: {} };
-        }
-        profile.cancerType = cancerMap[trimmed];
-        nextStep = 'diagnosis_date';
-        nextPrompt = '📅 Enter diagnosis date (DD/MM/YYYY):\n\n0. Skip';
+        nextPrompt = `${stepPrefix} 👨⚕️ Enter your primary oncologist name:\n\n0. Skip`;
         break;
       case 'oncologist_name':
-        profile.oncologistName = trimmed === '0' ? null : trimmed;
+        profile.oncologistName = trimmed === '0' ? null : sanitizeMarkdown(trimmed);
         nextStep = 'treating_hospital';
-        nextPrompt = '🏥 Please enter the treating hospital name (mandatory):';
+        nextPrompt = `${stepPrefix} 🏥 Please enter the treating hospital name (mandatory):`;
         break;
       case 'treating_hospital':
-        profile.treatingHospital = trimmed;
+        profile.treatingHospital = sanitizeMarkdown(trimmed);
         nextStep = 'treatment_status';
-        nextPrompt = `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;
+        nextPrompt = `${stepPrefix} 📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`;
         break;
       case 'treatment_status':
         if (!['1', '2', '3', '4'].includes(trimmed)) {
-          return { nextState: FlowStates.PROFILE, response: `📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`, data: {} };
+          return { nextState: FlowStates.PROFILE, response: `${stepPrefix} 📊 *Treatment Status*\n\n1️⃣ Newly Diagnosed\n2️⃣ Under Treatment\n3️⃣ Post Treatment\n4️⃣ Relapsed\n\nReply with number`, data: {} };
         }
         const statusMap = { '1': 'newly_diagnosed', '2': 'under_treatment', '3': 'post_treatment', '4': 'relapsed' };
         profile.treatmentStatus = statusMap[trimmed];
         nextStep = 'medical_reports';
-        nextPrompt = '📎 Please upload at least one medical report (mandatory - biopsy, imaging, discharge summary):';
+        nextPrompt = `${stepPrefix} 📎 Please upload at least one medical report (mandatory - biopsy, imaging, discharge summary):`;
         break;
       case 'medical_reports':
         nextStep = 'emergency_contact_name';
-        nextPrompt = '📞 Please enter emergency contact name (mandatory):';
+        nextPrompt = `${stepPrefix} 📞 Please enter emergency contact name (mandatory):`;
         break;
       case 'emergency_contact_name':
-        profile.emergencyContactName = trimmed;
+        profile.emergencyContactName = sanitizeMarkdown(trimmed);
         nextStep = 'emergency_contact_number';
-        nextPrompt = '📱 Please enter emergency contact number (mandatory):';
+        nextPrompt = `${stepPrefix} 📱 Please enter emergency contact number (mandatory):`;
         break;
       case 'emergency_contact_number':
         profile.emergencyContactNumber = trimmed;
         nextStep = 'emergency_contact_relation';
-        nextPrompt = '👪 Please enter your relationship to the patient (mandatory):';
+        nextPrompt = `${stepPrefix} 👪 Please enter your relationship to the patient (mandatory):`;
         break;
       case 'emergency_contact_relation':
-        profile.emergencyContactRelation = trimmed;
+        profile.emergencyContactRelation = sanitizeMarkdown(trimmed);
         // Go straight to 'completed', which routes to the real consents
         // screen (FlowStates.PROFILE_CONSENTS / handleProfileConsentsSelection).
-        // A prior version stopped at an intermediate 'consents' step that
-        // showed the same consent menu but discarded whatever the user
-        // replied with, wasting a turn before the real prompt.
         nextStep = 'completed';
         nextPrompt = '';
         break;
-      default:
+default:
         return { nextState: FlowStates.WELCOME, response: this.getGreeting(phoneNumber) };
     }
 
