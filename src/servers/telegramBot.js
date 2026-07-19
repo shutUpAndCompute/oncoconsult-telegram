@@ -313,7 +313,7 @@ class TelegramAdapter {
             effectiveRole === 'super_admin');
         }
         if (currentState === FlowStates.PROFILE_VIEW) {
-          return telegramKeyboards.buildProfileMenu();
+          return telegramKeyboards.buildProfileView();
         }
         if (currentState === FlowStates.PROFILE) {
           return telegramKeyboards.buildProfileEdit();
@@ -436,97 +436,68 @@ class TelegramAdapter {
       const selection = data;
       const currentState = session?.flowState || FlowStates.WELCOME;
       
-      // Handle callback data payloads (new inline keyboard style)
-      const callbackPayloads = {
-        'consultation': () => { nextState = FlowStates.CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildConsultationMenu(); },
-        'profile': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildProfileView(); },
-        'switch_role': () => { nextState = FlowStates.PERSONA_SELECT; responseText = '', replyMarkup = telegramKeyboards.buildPersonaSelect('patient', []); },
-        'pending_requests': () => { nextState = FlowStates.ADMIN_ROLE_APPROVALS; responseText = '', replyMarkup = telegramKeyboards.buildPendingRequests(); },
-        'active_consultations': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
-        'role_approvals': () => { nextState = FlowStates.ADMIN_ROLE_APPROVALS; responseText = '', replyMarkup = telegramKeyboards.buildAdminRoleApprovals(); },
-        'doctor_management': () => { nextState = FlowStates.ADMIN_DOCTOR_MANAGEMENT; responseText = '', replyMarkup = telegramKeyboards.buildAdminDoctorManagement(); },
-        'view_patients': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
-        'verify_payment': () => { nextState = FlowStates.ADMIN_VERIFY_PAYMENT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminVerifyPaymentInput(); },
-        'verify_discount': () => { nextState = FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminVerifyDiscountInput(); },
-        'message_patient': () => { nextState = FlowStates.ADMIN_MESSAGE_PATIENT_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminMessagePatientInput(); },
-        'close_consultation': () => { nextState = FlowStates.ADMIN_CLOSE_CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildCloseConsultationPrompt(); },
-        'set_fee': () => { nextState = FlowStates.ADMIN_SET_FEE_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminSetFeeInput(); },
-        'view_all_patients': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildSuperAdminMenu(); },
-        'add_admin': () => { nextState = FlowStates.ADMIN_ADD_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminAddAdminInput(); },
-        'remove_admin': () => { nextState = FlowStates.ADMIN_REMOVE_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildAdminRemoveAdminInput(); },
-        'admin_menu': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
-        'super_admin_menu': () => { nextState = FlowStates.SUPER_ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildSuperAdminMenu(); },
-        'doctor_menu': () => { nextState = FlowStates.DOCTOR_MENU; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMenu(); },
-        'main_menu': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
-        'cancel': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
-        'patient': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('patient', false); },
-        'caregiver': () => { nextState = FlowStates.CAREGIVER_MENU; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('caregiver', false); },
-        'doctor': () => { nextState = FlowStates.DOCTOR_MENU; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMenu(); },
-        'admin': () => { nextState = FlowStates.ADMIN_MENU; responseText = '', replyMarkup = telegramKeyboards.buildAdminMenu(); },
-        'support': () => { nextState = FlowStates.SUPPORT_MENU; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu('support', false); },
-        'start_consultation': () => { nextState = FlowStates.CONSULTATION; responseText = '', replyMarkup = telegramKeyboards.buildConsultationMenu(); },
-        'payment_status': () => { nextState = FlowStates.BILLING; responseText = '', replyMarkup = telegramKeyboards.buildBillingMenu(); },
-        'withdraw': () => { nextState = FlowStates.CONSULTATION_WITHDRAW; responseText = '', replyMarkup = telegramKeyboards.buildWithdrawalConfirm(); },
-        'message_admin': () => { nextState = FlowStates.DOCTOR_MSG_ADMIN_INPUT; responseText = '', replyMarkup = telegramKeyboards.buildDoctorMsgAdminInput(); },
-        'edit_profile': () => { nextState = FlowStates.PROFILE_EDIT; responseText = '', replyMarkup = telegramKeyboards.buildProfileEdit(); },
-        'view_profile': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildProfileView(); },
-        'apply_role': () => { nextState = FlowStates.ROLE_APPLICATION; responseText = '', replyMarkup = telegramKeyboards.buildRoleApplication(); },
-        'my_roles': () => { nextState = FlowStates.PROFILE_VIEW; responseText = '', replyMarkup = telegramKeyboards.buildMyRoles(); },
-        'remove_role': () => { nextState = FlowStates.PROFILE_REMOVE_ROLE; responseText = '', replyMarkup = telegramKeyboards.buildProfileRemoveRole(); },
-        'skip_upload': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
-        'skip_documents': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
-        'go_to_menu': () => { nextState = FlowStates.WELCOME; responseText = '', replyMarkup = telegramKeyboards.buildMainMenu(); },
-        'continue_edit': () => { nextState = FlowStates.ADMIN_PROFILE_EDIT; responseText = '', replyMarkup = telegramKeyboards.buildAdminProfileEdit(); }
+      // 1. Map the callback payload to the legacy text input
+      let simulatedInput = data;
+      const payloadMap = {
+        [FlowStates.WELCOME]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
+        [FlowStates.CAREGIVER_MENU]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
+        [FlowStates.DOCTOR_MENU]: { 'doctor_status': '1', 'my_patients': '2', 'edit_profile': '3', 'message_admin': '4' },
+        [FlowStates.SUPPORT_MENU]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
+        [FlowStates.ADMIN_MENU]: { 'pending_requests': '1', 'doctor_management': '2', 'active_consultations': '3', 'role_approvals': '4', 'verify_payment': '5', 'verify_discount': '6', 'message_patient': '7', 'view_all_patients': '8', 'close_consultation': '9', 'set_fee': '10' },
+        [FlowStates.SUPER_ADMIN_MENU]: { 'view_all_patients': '1', 'add_admin': '2', 'remove_admin': '3', 'admin_menu': '4' },
+        [FlowStates.PROFILE_VIEW]: { 'view_profile': '1', 'edit_profile': '2', 'apply_role': '3', 'my_roles': '4', 'remove_role': '5', 'main_menu': '0' },
+        [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '0' },
+        [FlowStates.CONSULTATION_WITHDRAW]: { 'withdraw_confirm': '1', 'withdraw_cancel': '0' },
+        [FlowStates.ADMIN_ROLE_APPROVALS]: { 'view_role_apps': '1', 'approve_doctor': '2', 'approve_caregiver': '3', 'approve_support': '4', 'admin_menu': '0' },
+        [FlowStates.ADMIN_DOCTOR_MANAGEMENT]: { 'view_doctors': '1', 'invite_doctor': '2', 'register_doctor': '3', 'assign_doctor': '4', 'remove_doctor': '5', 'reject_doctor': '6', 'message_doctor': '7', 'reassign_doctor': '8', 'admin_menu': '0' },
+        [FlowStates.CANCER_TYPE]: { 'cancer_lung': '1', 'cancer_breast': '2', 'cancer_prostate': '3', 'cancer_liver': '4', 'cancer_pancreatic': '5', 'cancer_ovarian': '6', 'cancer_blood': '7', 'cancer_general': '8', 'cancel': '0' },
+        [FlowStates.ADMIN_CLOSE_CONSULTATION]: { 'close_confirm': '1', 'close_cancel': '0' },
+        [FlowStates.ADMIN_PROFILE_EDIT]: { 'edit_name': '1', 'edit_phone': '2', 'cancel': '0' },
+        [FlowStates.PROFILE_CONSENTS]: { 'consent_tele': '1', 'consent_data': '2', 'consent_dpdp': '3' }
       };
-      
-      if (callbackPayloads[selection]) {
-        callbackPayloads[selection]();
-      } else if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
-        if (selection === '0' || selection.toLowerCase() === 'cancel') {
-          if (currentState === FlowStates.ROLE_SELECT) {
-            nextState = FlowStates.WELCOME;
-            responseText = conversationFlow.getWelcomeMenu(String(chatId));
-            replyMarkup = telegramKeyboards.buildMainMenu(effectiveRole, effectiveRole !== 'patient', true, effectiveRole === 'admin', effectiveRole === 'super_admin');
-          } else {
-            const result = conversationFlow.handleCancel(String(chatId));
-            nextState = result.nextState;
-            responseText = result.response;
-            replyMarkup = getKeyboard();
-          }
-        } else if (selection === '1') {
-          if (currentState === FlowStates.WELCOME) {
-            nextState = FlowStates.CONSULTATION;
-            responseText = conversationFlow.getMessageOptions(FlowStates.CONSULTATION, 'patient');
-            replyMarkup = telegramKeyboards.buildConsultationMenu(true);
-          } else {
-            await handleFlow(selection);
-          }
-        } else if (selection === '2') {
-          if (currentState === FlowStates.WELCOME) {
-            nextState = FlowStates.PROFILE_VIEW;
-            responseText = conversationFlow.getMessageOptions(FlowStates.PROFILE_VIEW, 'patient');
-            replyMarkup = telegramKeyboards.buildProfileView();
-          } else {
-            await handleFlow(selection);
-          }
-        } else if (selection === '3' && currentState === FlowStates.WELCOME) {
-          const { getAvailableRoles } = require('../models/persona');
-          if (getAvailableRoles(String(chatId)).length > 1) {
-            nextState = FlowStates.PERSONA_SELECT;
-            responseText = conversationFlow.getMessageOptions(FlowStates.PERSONA_SELECT, 'patient', getAvailableRoles(String(chatId)));
-            replyMarkup = telegramKeyboards.buildPersonaSelect('patient', getAvailableRoles(String(chatId)));
-          }
-        } else if (currentState !== FlowStates.WELCOME) {
-          await handleFlow(selection);
-        }
-      } else {
-        await handleFlow(selection);
-        replyMarkup = getKeyboard();
+
+      if (payloadMap[currentState] && payloadMap[currentState][data]) {
+        simulatedInput = payloadMap[currentState][data];
+      } else if (data === 'cancel' || data === 'main_menu' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents') {
+        simulatedInput = '0';
       }
-      
+
+      // 2. Feed it directly into the existing controller
+      await handleFlow(simulatedInput);
+
+      // 3. Edit the message with the proper text returned by the controller
       if (nextState && responseText) {
-        consultationManager.updateSession(String(chatId), { flowState: nextState });
+        // Expand getKeyboard to cover more states if needed, or rely on the fact that conversationFlow 
+        // generated responseText which we will display (and we fall back to missing keyboards if not mapped).
+        replyMarkup = getKeyboard(); 
         
+        // If getKeyboard returns null, but we have some known simple keyboards:
+        if (!replyMarkup) {
+          switch (nextState) {
+            case FlowStates.CONSULTATION: replyMarkup = telegramKeyboards.buildConsultationMenu(); break;
+            case FlowStates.BILLING: replyMarkup = telegramKeyboards.buildBillingMenu(); break;
+            case FlowStates.ADMIN_ROLE_APPROVALS: replyMarkup = telegramKeyboards.buildAdminRoleApprovals(); break;
+            case FlowStates.ADMIN_DOCTOR_MANAGEMENT: replyMarkup = telegramKeyboards.buildAdminDoctorManagement(); break;
+            case FlowStates.CANCER_TYPE: replyMarkup = telegramKeyboards.buildCancerTypeMenu(); break;
+            case FlowStates.CONSULTATION_WITHDRAW: replyMarkup = telegramKeyboards.buildWithdrawalConfirm(); break;
+            case FlowStates.REPORT_UPLOAD: replyMarkup = telegramKeyboards.buildReportUpload(); break;
+            case FlowStates.ROLE_APPLICATION: replyMarkup = telegramKeyboards.buildRoleApplication(); break;
+            case FlowStates.PROFILE_REMOVE_ROLE: replyMarkup = telegramKeyboards.buildProfileRemoveRole(); break;
+            case FlowStates.DISCOUNT_CATEGORY: replyMarkup = telegramKeyboards.buildDiscountCategories(); break;
+            case FlowStates.DISCOUNT_DOCUMENTS: replyMarkup = telegramKeyboards.buildProfileDiscountDocuments(); break;
+            case FlowStates.PROFILE_CONSENTS: replyMarkup = telegramKeyboards.buildConsentsMenu(); break;
+            case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyPaymentInput(); break;
+            case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyDiscountInput(); break;
+            case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: replyMarkup = telegramKeyboards.buildAdminMessagePatientInput(); break;
+            case FlowStates.ADMIN_SET_FEE_INPUT: replyMarkup = telegramKeyboards.buildAdminSetFeeInput(); break;
+            case FlowStates.DOCTOR_MSG_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildDoctorMsgAdminInput(); break;
+            case FlowStates.ADMIN_ADD_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildAdminAddAdminInput(); break;
+            case FlowStates.ADMIN_REMOVE_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildAdminRemoveAdminInput(); break;
+            case FlowStates.ADMIN_CLOSE_CONSULTATION: replyMarkup = telegramKeyboards.buildCloseConsultationPrompt(); break;
+            case FlowStates.ADMIN_PROFILE_EDIT: replyMarkup = telegramKeyboards.buildAdminProfileEdit(); break;
+          }
+        }
+
         try {
           const options = {
             chat_id: chatId,
@@ -534,6 +505,7 @@ class TelegramAdapter {
             parse_mode: 'Markdown'
           };
           if (replyMarkup) options.reply_markup = replyMarkup.reply_markup;
+          
           await this.bot.editMessageText(responseText, options);
         } catch (err) {
           if (!err.message.includes('MESSAGE_NOT_MODIFIED')) {

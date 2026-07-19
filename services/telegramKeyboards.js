@@ -262,6 +262,27 @@ const buildAdminRoleApprovals = (pending = 0) => ({
   ]}
 });
 
+const buildBillingMenu = () => ({
+  reply_markup: { inline_keyboard: [
+    [{ text: '1️⃣ Check Payment Status', callback_data: 'payment_status' }],
+    [{ text: '0️⃣ Main Menu', callback_data: 'main_menu' }]
+  ]}
+});
+
+const buildAdminDoctorManagement = () => ({
+  reply_markup: { inline_keyboard: [
+    [{ text: '1️⃣ View Doctors', callback_data: 'view_doctors' }],
+    [{ text: '2️⃣ Invite Doctor', callback_data: 'invite_doctor' }],
+    [{ text: '3️⃣ Register Doctor', callback_data: 'register_doctor' }],
+    [{ text: '4️⃣ Assign Doctor', callback_data: 'assign_doctor' }],
+    [{ text: '5️⃣ Remove Doctor', callback_data: 'remove_doctor' }],
+    [{ text: '6️⃣ Reject Doctor', callback_data: 'reject_doctor' }],
+    [{ text: '7️⃣ Message Doctor', callback_data: 'message_doctor' }],
+    [{ text: '8️⃣ Reassign Doctor', callback_data: 'reassign_doctor' }],
+    [{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]
+  ]}
+});
+
 const buildDoctorMenu = (name = 'Doctor', hasActive = false, pendingActions = 0) => ({
   reply_markup: { inline_keyboard: [
     [{ text: hasActive ? '🟢 1️⃣ Status' : '1️⃣ Status', callback_data: 'doctor_status' }],
@@ -324,5 +345,7 @@ module.exports = {
   buildReportUpload,
   buildProfileDiscountDocuments,
   buildAdminProfileCompleteOptions,
-  buildAdminRoleApprovals
+  buildAdminRoleApprovals,
+  buildAdminDoctorManagement,
+  buildBillingMenu
 };
