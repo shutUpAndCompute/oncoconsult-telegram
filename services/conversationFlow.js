@@ -317,21 +317,9 @@ Enter your 10-digit mobile number to continue:
 
 Or type SKIP to skip verification`,
 
-  profileMenu: `👤 *Profile & Roles*
-
-1️⃣ View Profile
-2️⃣ Edit Profile
-3️⃣ Apply for Role
-4️⃣ My Roles
-5️⃣ Remove Role
-
-0️⃣ Back to Profile
-
-Reply with number`,
-
-  profileView: (profile, isCaregiver) => {
-    let text = `📋 *Your Profile*\n\n`;
-    text += `*Name:* ${profile.name || 'Not set'}\n`;
+   profileView: (profile, isCaregiver) => {
+     let text = `📋 *Your Profile*\n\n`;
+     text += `*Name:* ${profile.name || 'Not set'}\n`;
     text += `*Age:* ${profile.age || 'Not set'}\n`;
     text += `*Gender:* ${profile.gender || 'Not set'}\n`;
     text += `*Address:* ${profile.address || 'Not set'}\n`;
@@ -471,11 +459,13 @@ closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to 
 
     profileMenu: (highlightMissing = {}) => `👤 *Profile & Roles*
 
-${!highlightMissing.name ? '🔴 ' : ''}1️⃣ Edit Name
-${!highlightMissing.phoneNumber ? '🔴 ' : ''}2️⃣ Edit Phone Number
-3️⃣ View Profile
-4️⃣ Role Application
-0️⃣ Switch Role
+1️⃣ View Profile
+${!highlightMissing.name ? '🔴 ' : ''}2️⃣ Edit Profile
+3️⃣ Apply for Role
+4️⃣ My Roles
+5️⃣ Remove Role
+
+0️⃣ Back to Profile
 
 Reply with number`,
 };
@@ -499,7 +489,7 @@ getMessageOptions(state, persona = 'patient') {
       case FlowStates.CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.BILLING: return InteractiveMenus.billing;
       case FlowStates.REPORT_UPLOAD: return '📎 Send your diagnostic report (image/PDF)';
-      case FlowStates.PROFILE_VIEW: return InteractiveMenus.profileMenu;
+      case FlowStates.PROFILE_VIEW: return InteractiveMenus.profileMenu({});
       case FlowStates.PROFILE_EDIT: return InteractiveMenus.profileEdit;
       case FlowStates.ROLE_APPLICATION: return InteractiveMenus.roleApplication;
       case FlowStates.CONSULTATION_WITHDRAW: return InteractiveMenus.withdrawalConfirm;
@@ -879,7 +869,7 @@ Example: 9876543210
   handleCaregiverMenuSelection(selection, phoneNumber, session) {
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
-      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const currentRole = session?.selectedPersona || 'caregiver';
@@ -899,7 +889,7 @@ Example: 9876543210
       '1': () => this.getActiveConsultationsForSupport(phoneNumber),
       '2': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '3': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
-      '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const currentRole = session?.selectedPersona || 'support';
@@ -1706,13 +1696,13 @@ async handleConsultationRequest(phoneNumber, session) {
     if (handler) {
       return handler();
     }
-    return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+    return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})};
   }
 
   handleRemoveRole(message, phoneNumber, session) {
     const role = message.trim().toLowerCase();
     if (role === '0' || role === 'cancel') {
-      return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+      return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})};
     }
     if (!['doctor', 'caregiver', 'support'].includes(role)) {
       return { nextState: FlowStates.PROFILE_REMOVE_ROLE, response: `❌ Invalid role. Use: doctor/caregiver/support\n\n0. Back to Menu` };
@@ -1722,10 +1712,10 @@ async handleConsultationRequest(phoneNumber, session) {
       this.userRegistry.revokeRole(phoneNumber, role);
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: `✅ Role '${role}' removed.\n\n${InteractiveMenus.profileMenu}`
+        response: `✅ Role '${role}' removed.\n\n${InteractiveMenus.profileMenu({})}}`
       };
     }
-    return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+    return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({}) };
   }
 
   handleSwitchRole(phoneNumber, session) {
@@ -1937,7 +1927,7 @@ case 'support': {
       }
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: InteractiveMenus.profileMenu
+        response: InteractiveMenus.profileMenu({})
       };
     }
     
@@ -1977,7 +1967,7 @@ case 'support': {
         }
         return {
           nextState: FlowStates.PROFILE_VIEW,
-          response: InteractiveMenus.profileMenu
+          response: InteractiveMenus.profileMenu({})
         };
       }
       const name = selection;
@@ -2004,7 +1994,7 @@ case 'support': {
       
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: `✅ Name updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
+        response: `✅ Name updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu({})}}`
       };
     }
     
@@ -2021,7 +2011,7 @@ case 'support': {
         }
         return {
           nextState: FlowStates.PROFILE_VIEW,
-          response: InteractiveMenus.profileMenu
+          response: InteractiveMenus.profileMenu({})
         };
       }
       const phone = selection.replace(/\D/g, '');
@@ -2042,7 +2032,7 @@ case 'support': {
       
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: `✅ Phone number updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
+        response: `✅ Phone number updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu({})}}`
       };
     }
     
@@ -2074,7 +2064,7 @@ case 'support': {
 
     return {
       nextState: FlowStates.PROFILE_VIEW,
-      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu}`
+      response: `✅ Admin profile updated!\n\n${InteractiveMenus.adminProfileView(admin || {})}\n\n${InteractiveMenus.profileMenu({})}`
     };
   }
 
@@ -2082,7 +2072,7 @@ case 'support': {
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '5') {
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: InteractiveMenus.profileMenu
+        response: InteractiveMenus.profileMenu({})
       };
     }
 
@@ -2142,14 +2132,14 @@ case 'support': {
 
     const role = roleMap[selection];
     if (!role) {
-      return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu };
+      return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})};
     }
 
     this.userRegistry?.requestRole(phoneNumber, role);
 
     return {
       nextState: FlowStates.PROFILE_VIEW,
-      response: `✅ Role request for *${role}* submitted. Admin will review and approve.\n\n${InteractiveMenus.profileMenu}`
+      response: `✅ Role request for *${role}* submitted. Admin will review and approve.\n\n${InteractiveMenus.profileMenu({})}`
     };
   }
 
@@ -3179,7 +3169,7 @@ Example: cons_1234567890
     
     const flowMap = {
       '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete) }),
-      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
       '0': () => ({ nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) })
     };
 
@@ -3392,7 +3382,7 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
     const role = this.isSuperAdminPhone(phoneNumber) ? 'Super Admin' : 'Admin';
     const flowMap = {
       '1': () => ({ nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) }),
-      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu }),
+      '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
       '3': () => ({ nextState: FlowStates.WELCOME, response: `👋 *Session Ended*\n\nYou can start fresh anytime. Use /start to begin.` })
     };
 
