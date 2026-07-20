@@ -1,0 +1,145 @@
+
+> oncoconsult-telegram@1.0.0 test
+> node --test test/*.test.js
+
+TAP version 13
+# /home/rajeev/oncoconsult-telegram/services/conversationFlow.js:573
+# function sanitizeMarkdown(text) {
+# ^
+# SyntaxError: Identifier 'sanitizeMarkdown' has already been declared
+#     at wrapSafe (node:internal/modules/cjs/loader:1378:20)
+#     at Module._compile (node:internal/modules/cjs/loader:1428:41)
+#     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+#     at Module.load (node:internal/modules/cjs/loader:1288:32)
+#     at Module._load (node:internal/modules/cjs/loader:1104:12)
+#     at Module.require (node:internal/modules/cjs/loader:1311:19)
+#     at require (node:internal/modules/helpers:179:18)
+#     at Object.<anonymous> (/home/rajeev/oncoconsult-telegram/test/comprehensive_audit.test.js:3:60)
+#     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+#     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+# Node.js v20.18.1
+# Subtest: /home/rajeev/oncoconsult-telegram/test/comprehensive_audit.test.js
+not ok 1 - /home/rajeev/oncoconsult-telegram/test/comprehensive_audit.test.js
+  ---
+  duration_ms: 192.62634
+  location: '/home/rajeev/oncoconsult-telegram/test/comprehensive_audit.test.js:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# /home/rajeev/oncoconsult-telegram/services/conversationFlow.js:573
+# function sanitizeMarkdown(text) {
+# ^
+# SyntaxError: Identifier 'sanitizeMarkdown' has already been declared
+#     at wrapSafe (node:internal/modules/cjs/loader:1378:20)
+#     at Module._compile (node:internal/modules/cjs/loader:1428:41)
+#     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+#     at Module.load (node:internal/modules/cjs/loader:1288:32)
+#     at Module._load (node:internal/modules/cjs/loader:1104:12)
+#     at Module.require (node:internal/modules/cjs/loader:1311:19)
+#     at require (node:internal/modules/helpers:179:18)
+#     at Object.<anonymous> (/home/rajeev/oncoconsult-telegram/test/navigation.test.js:3:60)
+#     at Module._compile (node:internal/modules/cjs/loader:1469:14)
+#     at Module._extensions..js (node:internal/modules/cjs/loader:1548:10)
+# Node.js v20.18.1
+# Subtest: /home/rajeev/oncoconsult-telegram/test/navigation.test.js
+not ok 2 - /home/rajeev/oncoconsult-telegram/test/navigation.test.js
+  ---
+  duration_ms: 186.859817
+  location: '/home/rajeev/oncoconsult-telegram/test/navigation.test.js:1:1'
+  failureType: 'testCodeFailure'
+  exitCode: 1
+  signal: ~
+  error: 'test failed'
+  code: 'ERR_TEST_FAILURE'
+  ...
+# Failed to parse admins.json, starting empty: ENOENT: no such file or directory, open 'data/admins.json'
+# Failed to parse doctors.json, starting empty: ENOENT: no such file or directory, open 'data/doctors.json'
+# Failed to parse pending_doctors.json, starting empty: ENOENT: no such file or directory, open 'data/pending_doctors.json'
+# Failed to parse sessions, starting empty: ENOENT: no such file or directory, open 'data/sessions.json'
+# Failed to parse consultations, starting empty: ENOENT: no such file or directory, open 'data/consultations.json'
+# Failed to parse payments.json, starting empty: ENOENT: no such file or directory, open 'data/payments.json'
+# Failed to parse users.json, starting empty: ENOENT: no such file or directory, open 'data/users.json'
+# Subtest: Data Persistence Audit
+    # Subtest: Session persistence: updateSession saves to file
+    ok 1 - Session persistence: updateSession saves to file
+      ---
+      duration_ms: 3.190396
+      ...
+    # Subtest: Admin profile persistence: addAdmin saves to file
+    ok 2 - Admin profile persistence: addAdmin saves to file
+      ---
+      duration_ms: 1.207081
+      ...
+    # Subtest: Admin profile completion check: requires name AND phoneNumber
+    ok 3 - Admin profile completion check: requires name AND phoneNumber
+      ---
+      duration_ms: 0.99581
+      ...
+    # Subtest: Session reset preserves profile and media
+    ok 4 - Session reset preserves profile and media
+      ---
+      duration_ms: 2.888162
+      ...
+    # Subtest: Payment transaction persistence
+    ok 5 - Payment transaction persistence
+      ---
+      duration_ms: 0.893919
+      ...
+    # Subtest: Consultation creation persistence
+    ok 6 - Consultation creation persistence
+      ---
+      duration_ms: 2.105565
+      ...
+    # Subtest: Admin lookup by telegramId works after save/load
+    ok 7 - Admin lookup by telegramId works after save/load
+      ---
+      duration_ms: 1.079809
+      ...
+    # Subtest: Session data survives process boundary simulation
+    ok 8 - Session data survives process boundary simulation
+      ---
+      duration_ms: 1.453506
+      ...
+    # Subtest: Admin record phoneNumber is chat ID initially
+    ok 9 - Admin record phoneNumber is chat ID initially
+      ---
+      duration_ms: 0.746983
+      ...
+    # Subtest: Multiple updates to same session persist correctly
+    ok 10 - Multiple updates to same session persist correctly
+      ---
+      duration_ms: 3.583972
+      ...
+    1..10
+ok 3 - Data Persistence Audit
+  ---
+  duration_ms: 28.872611
+  type: 'suite'
+  ...
+# Subtest: normalizePhone removes non-digits and +91 prefix
+ok 4 - normalizePhone removes non-digits and +91 prefix
+  ---
+  duration_ms: 3.012876
+  ...
+# Subtest: normalizePhone handles null/empty
+ok 5 - normalizePhone handles null/empty
+  ---
+  duration_ms: 0.258786
+  ...
+# Subtest: normalizePhoneStrict removes + and spaces
+ok 6 - normalizePhoneStrict removes + and spaces
+  ---
+  duration_ms: 0.408899
+  ...
+1..6
+# tests 15
+# suites 1
+# pass 13
+# fail 2
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 295.069899

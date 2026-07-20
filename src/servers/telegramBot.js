@@ -114,6 +114,15 @@ class TelegramAdapter {
     this.bot = null;
   }
 
+  cleanTextForKeyboard(text, hasKeyboard) {
+    if (!hasKeyboard || !text) return text;
+    let cleaned = text
+      .replace(/[\n\r]*.*?\d️⃣.*$/gm, '') // Remove emoji bullet points
+      .replace(/[\n\r]*Reply with.*$/igm, '') // Remove "Reply with number" prompts
+      .trim();
+    return cleaned || 'Please select an option:';
+  }
+
   getRoleLabel(type) {
     const labels = {
       [PersonaTypes.SUPER_ADMIN]: 'Super Admin',
@@ -504,9 +513,14 @@ class TelegramAdapter {
             message_id: query.message.message_id,
             parse_mode: 'Markdown'
           };
-          if (replyMarkup) options.reply_markup = replyMarkup.reply_markup;
           
-          await this.bot.editMessageText(responseText, options);
+          let displayResponse = responseText;
+          if (replyMarkup) {
+            options.reply_markup = replyMarkup.reply_markup;
+            displayResponse = this.cleanTextForKeyboard(responseText, true);
+          }
+          
+          await this.bot.editMessageText(displayResponse, options);
         } catch (err) {
           if (!err.message.includes('MESSAGE_NOT_MODIFIED')) {
             console.error('Failed to edit message:', err.message);
@@ -520,13 +534,13 @@ class TelegramAdapter {
       const persona = new UserPersona(String(chatId));
       const session = consultationManager.getSession(String(chatId));
       const effectiveRole = this.getEffectiveRole(persona, session);
-      const roleLabel = this.getRoleLabel(effectiveRole);
 
       if (!session.phoneNumber && !session.mobileSkipped && !persona.isAdmin()) {
         consultationManager.updateSession(String(chatId), { flowState: FlowStates.MOBILE_COLLECTION });
-        await this.bot.sendMessage(chatId, InteractiveMenus.mobileCollection, { 
+        const keyboard = telegramKeyboards.buildMobileCollection();
+        await this.bot.sendMessage(chatId, keyboard.text || '📱 Please enter your mobile number:', { 
           parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildMobileCollection().reply_markup
+          reply_markup: keyboard.reply_markup
         });
         return;
       }
@@ -543,20 +557,23 @@ class TelegramAdapter {
         const pendingCount = consultationManager.getPendingForAdmin().length;
         const activeCount = Array.from(consultationManager.consultations.values())
           .filter(c => c.status === 'active').length;
-        const missingFields = adminRegistry.getIncompleteProfileFields(String(chatId));
-        const menuText = adminProfileComplete 
-          ? (isSuperAdmin ? InteractiveMenus.superAdminMenu(pendingCount, activeCount) : InteractiveMenus.adminMenu(pendingCount, activeCount))
-          : InteractiveMenus.adminMenuIncomplete(isSuperAdmin, missingFields);
+        const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
+          s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+        const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
+        const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        
         const keyboard = telegramKeyboards.buildAdminMenu(
           pendingCount, activeCount, adminProfileComplete,
-          Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-          Array.from(consultationManager.sessions?.values || []).some(s => 
-            s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
-          userRegistry.getPendingRequests?.()?.length || 0,
-          (doctorRouter?.persistence?.getPendingDoctors?.() || []).length
+          hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
         );
+        
+        const header = isSuperAdmin 
+          ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
+          : `🛠️ *Admin Panel*\n\nPending: ${pendingCount} | Active: ${activeCount}`;
+          
         consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
-        await this.bot.sendMessage(chatId, `${menuText}\n\nPending: ${pendingCount} | Active: ${activeCount}`, { 
+        await this.bot.sendMessage(chatId, header, { 
           parse_mode: 'Markdown',
           reply_markup: keyboard.reply_markup
         });
@@ -564,9 +581,10 @@ class TelegramAdapter {
         if (session?.flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         }
-        await this.bot.sendMessage(chatId, InteractiveMenus.supportMenu, { 
+        const keyboard = telegramKeyboards.buildMainMenu('support', false, true);
+        await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { 
           parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildMainMenu('support', false, true).reply_markup
+          reply_markup: keyboard.reply_markup
         });
       } else if (effectiveRole === PersonaTypes.DOCTOR) {
         const doctors = doctorPersistence.getDoctors();
@@ -578,22 +596,23 @@ class TelegramAdapter {
         if (session?.flowState !== FlowStates.DOCTOR_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
         }
-        await this.bot.sendMessage(chatId, InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive, pendingActions), { 
+        const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
+        await this.bot.sendMessage(chatId, keyboard.text || `👨⚕️ *Doctor Menu*\n\nHi ${doctor?.name || 'Doctor'}`, { 
           parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions).reply_markup
+          reply_markup: keyboard.reply_markup
         });
       } else if (session?.flowState === FlowStates.CAREGIVER_MENU) {
-        await this.bot.sendMessage(chatId, InteractiveMenus.caregiverMenu(session?.patientName), { 
+        const keyboard = telegramKeyboards.buildMainMenu('caregiver', false, true);
+        await this.bot.sendMessage(chatId, `📲 *Caregiver Menu*\n\nActing on behalf of: ${session?.patientName || 'Patient'}`, { 
           parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildMainMenu('caregiver', false, true).reply_markup
+          reply_markup: keyboard.reply_markup
         });
       } else {
-        const welcomeText = conversationFlow.getWelcomeMenu(String(chatId));
-        await this.bot.sendMessage(chatId, welcomeText, { 
+        const hasOtherRoles = persona.availableRoles?.length > 1;
+        const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, true, false, false);
+        await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { 
           parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildMainMenu('patient', 
-            persona.availableRoles?.length > 1, 
-            true, false, false).reply_markup
+          reply_markup: keyboard.reply_markup
         });
       }
     });
@@ -1159,7 +1178,11 @@ if (!inPersonaSelect && (effectiveRole === PersonaTypes.ADMIN || effectiveRole =
           }
         }
         
-        await this.bot.sendMessage(chatId, flowResult.response, { 
+        const displayResponse = replyMarkup 
+          ? this.cleanTextForKeyboard(flowResult.response, true) 
+          : flowResult.response;
+        
+        await this.bot.sendMessage(chatId, displayResponse, { 
           parse_mode: 'Markdown',
           reply_markup: replyMarkup?.reply_markup
         });
