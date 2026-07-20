@@ -312,7 +312,7 @@ class TelegramAdapter {
       let replyMarkup = null;
       
       const getKeyboard = () => {
-        const currentState = session?.flowState || FlowStates.WELCOME;
+        const currentState = nextState;
         
         if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
           return telegramKeyboards.buildMainMenu(effectiveRole, 
@@ -328,7 +328,7 @@ class TelegramAdapter {
           return telegramKeyboards.buildProfileEdit();
         }
         if (currentState === FlowStates.CAREGIVER_MENU) {
-          return telegramKeyboards.buildMainMenu('caregiver', false, true);
+          return telegramKeyboards.buildCaregiverMenu(true, true);
         }
         if (currentState === FlowStates.DOCTOR_MENU) {
           const doctors = doctorPersistence.getDoctors();
@@ -340,7 +340,7 @@ class TelegramAdapter {
           return telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
         }
         if (currentState === FlowStates.SUPPORT_MENU) {
-          return telegramKeyboards.buildMainMenu('support', false, true);
+          return telegramKeyboards.buildSupportMenu(true);
         }
         if (currentState === FlowStates.ADMIN_MENU) {
           const pendingCount = consultationManager.getPendingForAdmin().length;
@@ -448,14 +448,41 @@ class TelegramAdapter {
       // 1. Map the callback payload to the legacy text input
       let simulatedInput = data;
       const payloadMap = {
-        [FlowStates.WELCOME]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
+        [FlowStates.WELCOME]: { 'consultation': '1', 'profile': '2', 'switch_role': '3' },
         [FlowStates.CAREGIVER_MENU]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
-        [FlowStates.DOCTOR_MENU]: { 'doctor_status': '1', 'my_patients': '2', 'edit_profile': '3', 'message_admin': '4' },
-        [FlowStates.SUPPORT_MENU]: { 'consultation': '1', 'profile': '2', 'switch_role': '0' },
-        [FlowStates.ADMIN_MENU]: { 'pending_requests': '1', 'doctor_management': '2', 'active_consultations': '3', 'role_approvals': '4', 'verify_payment': '5', 'verify_discount': '6', 'message_patient': '7', 'view_all_patients': '8', 'close_consultation': '9', 'set_fee': '10' },
-        [FlowStates.SUPER_ADMIN_MENU]: { 'view_all_patients': '1', 'add_admin': '2', 'remove_admin': '3', 'admin_menu': '4' },
+        [FlowStates.DOCTOR_MENU]: { 'doctor_status': '1', 'my_patients': '2', 'edit_profile': '3', 'message_admin': '4', 'switch_role': '0' },
+        [FlowStates.SUPPORT_MENU]: { 'active_consultations': '1', 'message_doctor': '2', 'message_patient': '3', 'profile': '4', 'switch_role': '0' },
+        [FlowStates.ADMIN_MENU]: { 
+          'pending_requests': '1', 
+          'active_consultations': '2', 
+          'role_approvals': '3', 
+          'doctor_management': '4', 
+          'profile': '5', 
+          'view_patients': '6', 
+          'verify_payment': '7', 
+          'verify_discount': '8', 
+          'message_patient': '9', 
+          'close_consultation': '10', 
+          'set_fee': '13',
+          'switch_role': '0' 
+        },
+        [FlowStates.SUPER_ADMIN_MENU]: { 
+          'pending_requests': '1', 
+          'active_consultations': '2', 
+          'role_approvals': '3', 
+          'doctor_management': '4', 
+          'profile': '5', 
+          'view_all_patients': '6', 
+          'verify_payment': '7', 
+          'verify_discount': '8', 
+          'message_patient': '9', 
+          'close_consultation': '10', 
+          'add_admin': '11',
+          'remove_admin': '12',
+          'switch_role': '0' 
+        },
         [FlowStates.PROFILE_VIEW]: { 'view_profile': '1', 'edit_profile': '2', 'apply_role': '3', 'my_roles': '4', 'remove_role': '5', 'main_menu': '0' },
-        [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '0' },
+        [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '4' },
         [FlowStates.CONSULTATION_WITHDRAW]: { 'withdraw_confirm': '1', 'withdraw_cancel': '0' },
         [FlowStates.ADMIN_ROLE_APPROVALS]: { 'view_role_apps': '1', 'approve_doctor': '2', 'approve_caregiver': '3', 'approve_support': '4', 'admin_menu': '0' },
         [FlowStates.ADMIN_DOCTOR_MANAGEMENT]: { 'view_doctors': '1', 'invite_doctor': '2', 'register_doctor': '3', 'assign_doctor': '4', 'remove_doctor': '5', 'reject_doctor': '6', 'message_doctor': '7', 'reassign_doctor': '8', 'admin_menu': '0' },
@@ -467,12 +494,17 @@ class TelegramAdapter {
 
       if (payloadMap[currentState] && payloadMap[currentState][data]) {
         simulatedInput = payloadMap[currentState][data];
-      } else if (data === 'cancel' || data === 'main_menu' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents') {
+      } else if (data === 'cancel' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents') {
         simulatedInput = '0';
       }
 
       // 2. Feed it directly into the existing controller
       await handleFlow(simulatedInput);
+
+      // 2.5 Update session state to ensure navigation works!
+      if (nextState) {
+        consultationManager.updateSession(String(chatId), { flowState: nextState });
+      }
 
       // 3. Edit the message with the proper text returned by the controller
       if (nextState && responseText) {
@@ -522,8 +554,11 @@ class TelegramAdapter {
           
           await this.bot.editMessageText(displayResponse, options);
         } catch (err) {
-          if (!err.message.includes('MESSAGE_NOT_MODIFIED')) {
+          if (err.message.includes('MESSAGE_NOT_MODIFIED') || err.message.includes('message is not modified')) {
+            await this.bot.answerCallbackQuery(query.id, { text: '' });
+          } else {
             console.error('Failed to edit message:', err.message);
+            await this.bot.answerCallbackQuery(query.id, { text: '' });
           }
         }
       }
@@ -1148,17 +1183,10 @@ if (!inAdminDomain) {
                   reply_markup: keyboard.reply_markup
                 }
               );
-            }
-          } 
-                  parse_mode: 'Markdown',
-                  reply_markup: telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', false, 0).reply_markup
-                }
-              );
-            }
-            return;
+}
           }
-
-      if (/^(status|9)$/i.test(text.trim())) {
+          
+          if (/^(status|9)$/i.test(text.trim())) {
         const roleLabel = this.getRoleLabel(effectiveRole);
         await this.bot.sendMessage(chatId, 
           `Your current role: *${roleLabel}*`,

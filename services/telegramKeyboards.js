@@ -20,6 +20,32 @@ const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComple
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
+const buildCaregiverMenu = (hasOtherRoles = false, profileComplete = true) => {
+  const buttons = [];
+  if (!profileComplete) {
+    buttons.push([{ text: '🔴 1️⃣ My Consultations', callback_data: 'consultation' }]);
+  } else {
+    buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
+  }
+  buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
+  if (hasOtherRoles) {
+    buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
+  }
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
+const buildSupportMenu = (hasOtherRoles = false) => {
+  const buttons = [];
+  buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'active_consultations' }]);
+  buttons.push([{ text: '2️⃣ Doctor Chat', callback_data: 'message_doctor' }]);
+  buttons.push([{ text: '3️⃣ Patient Chat', callback_data: 'message_patient' }]);
+  buttons.push([{ text: '4️⃣ Profile', callback_data: 'profile' }]);
+  if (hasOtherRoles) {
+    buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
+  }
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
 const buildPersonaSelect = (currentPersona, approvedRoles = []) => {
   const buttons = [];
   const roleLabels = {
@@ -294,6 +320,8 @@ const buildDoctorMenu = (name = 'Doctor', hasActive = false, pendingActions = 0)
 
 module.exports = {
   buildMainMenu,
+  buildCaregiverMenu,
+  buildSupportMenu,
   buildPersonaSelect,
   buildAdminMenu,
   buildSuperAdminMenu,

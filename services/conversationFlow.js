@@ -1808,7 +1808,7 @@ async handleConsultationRequest(phoneNumber, session) {
 
   checkIdle(phoneNumber) {
     const session = this.consultationManager.getSession(phoneNumber);
-    if (!session || session.flowState === FlowStates.WELCOME) return null;
+    if (!session || !session.doctorId) return null;
     
     if (this.consultationManager.isIdle(phoneNumber, 30)) {
       const result = this.consultationManager.resetSession(phoneNumber);
