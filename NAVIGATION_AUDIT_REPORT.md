@@ -685,8 +685,9 @@ Same as Admin menu, plus:
 ### Test Results
 
 ```
-# tests 30
-# suites 1
-# pass 30
+# tests 85
+# pass 85
 # fail 0
 ```
+
+All inline keyboard UX tests pass. Callback query handling verified.
