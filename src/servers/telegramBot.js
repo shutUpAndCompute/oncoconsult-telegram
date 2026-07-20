@@ -315,9 +315,10 @@ class TelegramAdapter {
         const currentState = nextState;
         
         if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
+          const profileComplete = conversationFlow.isProfileComplete(session);
           return telegramKeyboards.buildMainMenu(effectiveRole, 
             effectiveRole !== 'patient', 
-            true, 
+            profileComplete, 
             effectiveRole === 'admin', 
             effectiveRole === 'super_admin');
         }
@@ -328,7 +329,8 @@ class TelegramAdapter {
           return telegramKeyboards.buildProfileEdit();
         }
         if (currentState === FlowStates.CAREGIVER_MENU) {
-          return telegramKeyboards.buildCaregiverMenu(true, true);
+          const profileComplete = conversationFlow.isProfileComplete(session);
+          return telegramKeyboards.buildCaregiverMenu(persona.availableRoles?.length > 1, profileComplete);
         }
         if (currentState === FlowStates.DOCTOR_MENU) {
           const doctors = doctorPersistence.getDoctors();
@@ -489,12 +491,13 @@ class TelegramAdapter {
         [FlowStates.CANCER_TYPE]: { 'cancer_lung': '1', 'cancer_breast': '2', 'cancer_prostate': '3', 'cancer_liver': '4', 'cancer_pancreatic': '5', 'cancer_ovarian': '6', 'cancer_blood': '7', 'cancer_general': '8', 'cancel': '0' },
         [FlowStates.ADMIN_CLOSE_CONSULTATION]: { 'close_confirm': '1', 'close_cancel': '0' },
         [FlowStates.ADMIN_PROFILE_EDIT]: { 'edit_name': '1', 'edit_phone': '2', 'cancel': '0' },
-        [FlowStates.PROFILE_CONSENTS]: { 'consent_tele': '1', 'consent_data': '2', 'consent_dpdp': '3' }
+        [FlowStates.PROFILE_CONSENTS]: { 'consent_tele': '1', 'consent_data': '2', 'consent_dpdp': '3' },
+        [FlowStates.PROFILE_DISCOUNT_CATEGORY]: { 'discount_economic': '1', 'discount_profession': '2', 'discount_social': '3', 'discount_none': '4' }
       };
 
       if (payloadMap[currentState] && payloadMap[currentState][data]) {
         simulatedInput = payloadMap[currentState][data];
-      } else if (data === 'cancel' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents') {
+      } else if (data === 'cancel' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents' || data === 'discount_back') {
         simulatedInput = '0';
       }
 
@@ -524,8 +527,11 @@ class TelegramAdapter {
             case FlowStates.REPORT_UPLOAD: replyMarkup = telegramKeyboards.buildReportUpload(); break;
             case FlowStates.ROLE_APPLICATION: replyMarkup = telegramKeyboards.buildRoleApplication(); break;
             case FlowStates.PROFILE_REMOVE_ROLE: replyMarkup = telegramKeyboards.buildProfileRemoveRole(); break;
-            case FlowStates.DISCOUNT_CATEGORY: replyMarkup = telegramKeyboards.buildDiscountCategories(); break;
-            case FlowStates.DISCOUNT_DOCUMENTS: replyMarkup = telegramKeyboards.buildProfileDiscountDocuments(); break;
+            case FlowStates.PROFILE_DISCOUNT_CATEGORY: replyMarkup = telegramKeyboards.buildDiscountPrimary(); break;
+            case FlowStates.PROFILE_DISCOUNT_ECONOMIC: replyMarkup = telegramKeyboards.buildDiscountEconomic(); break;
+            case FlowStates.PROFILE_DISCOUNT_PROFESSION: replyMarkup = telegramKeyboards.buildDiscountProfession(); break;
+            case FlowStates.PROFILE_DISCOUNT_SOCIAL: replyMarkup = telegramKeyboards.buildDiscountSocial(); break;
+            case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: replyMarkup = telegramKeyboards.buildProfileDiscountDocuments(); break;
             case FlowStates.PROFILE_CONSENTS: replyMarkup = telegramKeyboards.buildConsentsMenu(); break;
             case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyPaymentInput(); break;
             case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyDiscountInput(); break;
@@ -598,10 +604,15 @@ class TelegramAdapter {
         const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
         const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
         
-        const keyboard = telegramKeyboards.buildAdminMenu(
-          pendingCount, activeCount, adminProfileComplete,
-          hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
-        );
+        const keyboard = isSuperAdmin
+          ? telegramKeyboards.buildSuperAdminMenu(
+              pendingCount, activeCount, adminProfileComplete,
+              hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
+            )
+          : telegramKeyboards.buildAdminMenu(
+              pendingCount, activeCount, adminProfileComplete,
+              hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
+            );
         
         const header = isSuperAdmin 
           ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
@@ -616,7 +627,8 @@ class TelegramAdapter {
         if (session?.flowState !== FlowStates.SUPPORT_MENU) {
           consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
         }
-        const keyboard = telegramKeyboards.buildMainMenu('support', false, true);
+        const hasOtherRoles = persona.availableRoles?.length > 1;
+        const keyboard = telegramKeyboards.buildSupportMenu(hasOtherRoles);
         await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { 
           parse_mode: 'Markdown',
           reply_markup: keyboard.reply_markup
@@ -637,14 +649,17 @@ class TelegramAdapter {
           reply_markup: keyboard.reply_markup
         });
       } else if (session?.flowState === FlowStates.CAREGIVER_MENU) {
-        const keyboard = telegramKeyboards.buildMainMenu('caregiver', false, true);
+        const hasOtherRoles = persona.availableRoles?.length > 1;
+        const profileComplete = conversationFlow.isProfileComplete(session);
+        const keyboard = telegramKeyboards.buildCaregiverMenu(hasOtherRoles, profileComplete);
         await this.bot.sendMessage(chatId, `📲 *Caregiver Menu*\n\nActing on behalf of: ${session?.patientName || 'Patient'}`, { 
           parse_mode: 'Markdown',
           reply_markup: keyboard.reply_markup
         });
       } else {
         const hasOtherRoles = persona.availableRoles?.length > 1;
-        const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, true, false, false);
+        const profileComplete = conversationFlow.isProfileComplete(session);
+        const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, profileComplete, false, false);
         await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { 
           parse_mode: 'Markdown',
           reply_markup: keyboard.reply_markup
@@ -1223,10 +1238,18 @@ if (!inAdminDomain) {
         const currentState = flowResult.nextState;
         if (ADMIN_DOMAIN_STATES.has(currentState) || SHARED_DOMAIN_STATES.has(currentState)) {
           if (currentState === FlowStates.ADMIN_MENU || currentState === FlowStates.SUPER_ADMIN_MENU) {
-            const isSuperAdmin = effectiveRole === 'super_admin' || effectiveRole === 'admin';
-            replyMarkup = isSuperAdmin 
-              ? telegramKeyboards.buildSuperAdminMenu()
-              : telegramKeyboards.buildAdminMenu();
+            const pendingCount = consultationManager.getPendingForAdmin().length;
+            const activeCount = Array.from(consultationManager.consultations.values())
+              .filter(c => c.status === 'active').length;
+            const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
+            const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+            const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
+              s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+            const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
+            const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+            replyMarkup = currentState === FlowStates.SUPER_ADMIN_MENU
+              ? telegramKeyboards.buildSuperAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors)
+              : telegramKeyboards.buildAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
           } else if (currentState === FlowStates.DOCTOR_MENU) {
             const doctors = doctorPersistence.getDoctors();
             const doctor = doctors.find(d => d.telegramId === String(chatId) ||
@@ -1236,13 +1259,13 @@ if (!inAdminDomain) {
             const pendingActions = doctor ? consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
             replyMarkup = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
           } else if (currentState === FlowStates.SUPPORT_MENU) {
-            replyMarkup = telegramKeyboards.buildMainMenu('support', false, true);
+            replyMarkup = telegramKeyboards.buildSupportMenu(persona.availableRoles?.length > 1);
           } else if (currentState === FlowStates.PERSONA_SELECT) {
             replyMarkup = telegramKeyboards.buildPersonaSelect(effectiveRole, persona.availableRoles);
           } else if (currentState === FlowStates.PROFILE_VIEW) {
             replyMarkup = telegramKeyboards.buildProfileView();
           } else if (currentState === FlowStates.CAREGIVER_MENU) {
-            replyMarkup = telegramKeyboards.buildMainMenu('caregiver', false, true);
+            replyMarkup = telegramKeyboards.buildCaregiverMenu(persona.availableRoles?.length > 1, true);
           }
         }
         

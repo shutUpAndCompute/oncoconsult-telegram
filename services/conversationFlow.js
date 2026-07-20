@@ -28,6 +28,9 @@ const FlowStates = {
   CAREGIVER_MENU: 'caregiver_menu',
  PROFILE: 'profile',
    PROFILE_DISCOUNT_CATEGORY: 'profile_discount_category',
+   PROFILE_DISCOUNT_ECONOMIC: 'profile_discount_economic',
+   PROFILE_DISCOUNT_PROFESSION: 'profile_discount_profession',
+   PROFILE_DISCOUNT_SOCIAL: 'profile_discount_social',
    PROFILE_DISCOUNT_DOCUMENTS: 'profile_discount_documents',
    PROFILE_CONSENTS: 'profile_consents',
    CANCER_TYPE: 'cancer_type',
@@ -81,8 +84,8 @@ DOCTOR_MENU: 'doctor_menu',
 const InteractiveMenus = {
   main: (persona = 'patient', hasOtherRoles = false, profileComplete = true) => `🩺 *Oncology Consultation*
 
-${!profileComplete ? '🔴 ' : ''}1️⃣ My Consultations
-2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}
+1️⃣ My Consultations
+${!profileComplete ? '🔴 ' : ''}2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}
 
 Reply with number`,
   personaSelect: (currentPersona, approvedRoles = []) => {
@@ -527,7 +530,7 @@ Complete profile after selection.`,
 
   consultation: (profileComplete = false) => `📋 *My Consultations*\n\n${!profileComplete ? '⚠️ ' : ''}Start a new consultation or manage existing ones.
 
-${!profileComplete ? '🔴 ' : ''}1️⃣ Start New Consultation
+1️⃣ Start New Consultation
 ${!profileComplete ? '⚠️ ' : ''}2️⃣ Check Payment Status
 3️⃣ Withdraw Consultation
 4️⃣ Back to Menu
@@ -549,7 +552,10 @@ closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to 
      return `👤 *${roleLabel} Profile Required*\n\nYour ${roleDesc} profile is incomplete.${missingList}\n\n✅ 5️⃣ Profile & Roles\n\n0️⃣ Switch Role\n\nReply with number`;
    },
 
-   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Defence / Ex-servicemen\n6️⃣ Paramilitary\n7️⃣ Police\n8️⃣ Government Employee\n9️⃣ Senior Citizen / Retiree\n1️⃣1️⃣ Widow / Single Woman\n1️⃣2️⃣ PwD (UDID)\n1️⃣3️⃣ SC/ST\n1️⃣4️⃣ Minority Community\n1️⃣5️⃣ Rural/Tribal Resident\n1️⃣6️⃣ Healthcare Worker\n1️⃣7️⃣ Teacher / Anganwadi\n1️⃣8️⃣ Journalist\n1️⃣9️⃣ No Discount (Full Fee)\n\nReply with number (mandatory document upload required for any selection except 19)`,
+   discountCategories: `🏛️ *Discount Category Selection*\n\n1️⃣ Economic & Schemes\n2️⃣ Profession & Service\n3️⃣ Social & Demographic\n4️⃣ No Discount (Full Fee)\n\nReply with number`,
+   discountEconomic: `🏛️ *Economic & Schemes*\n\n1️⃣ BPL / EWS\n2️⃣ Ayushman Bharat (PM-JAY)\n3️⃣ e-Shram (Unorganized Sector)\n4️⃣ Farmer\n5️⃣ Rural/Tribal Resident\n\n0️⃣ Back`,
+   discountProfession: `💼 *Profession & Service*\n\n1️⃣ Defence / Ex-servicemen\n2️⃣ Paramilitary\n3️⃣ Police\n4️⃣ Government Employee\n5️⃣ Healthcare Worker\n6️⃣ Teacher / Anganwadi\n7️⃣ Journalist\n\n0️⃣ Back`,
+   discountSocial: `👥 *Social & Demographic*\n\n1️⃣ Senior Citizen / Retiree\n2️⃣ Widow / Single Woman\n3️⃣ PwD (UDID)\n4️⃣ SC/ST\n5️⃣ Minority Community\n\n0️⃣ Back`,
 
    consentsMenu: `📋 *Mandatory Consents*\n\nThese consents are REQUIRED for consultation:\n\n1. ✅ Teleconsultation Consent (required)\n2. ✅ Data Sharing Consent (required)\n3. ✅ DPDP Act Compliance (required)\n\nType 1, 2, 3 to confirm each\nType 'CANCEL' to exit without consenting`,
 
@@ -616,6 +622,9 @@ getMessageOptions(state, persona = 'patient', session = null) {
       case FlowStates.ADMIN_PROFILE_EDIT_PHONE: return '✏️ *Edit Phone Number*\n\nEnter your phone number:\n\n0. Cancel';
       case FlowStates.PROFILE_REMOVE_ROLE: return InteractiveMenus.profileRemoveRole;
       case FlowStates.PROFILE_DISCOUNT_CATEGORY: return InteractiveMenus.discountCategories;
+      case FlowStates.PROFILE_DISCOUNT_ECONOMIC: return InteractiveMenus.discountEconomic;
+      case FlowStates.PROFILE_DISCOUNT_PROFESSION: return InteractiveMenus.discountProfession;
+      case FlowStates.PROFILE_DISCOUNT_SOCIAL: return InteractiveMenus.discountSocial;
       case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: return '📎 Please upload eligibility documents for your selected discount category (ration card, Ayushman card, etc.):\n\n0. Skip';
       case FlowStates.DOCTOR_SELECT: return InteractiveMenus.doctorSelect([]);
       case FlowStates.SUPPORT_MENU: return InteractiveMenus.supportMenu;
@@ -744,6 +753,10 @@ return this.handleAdminSetFeeInput(message, phoneNumber, session);
         return this.handleRemoveRole(message, phoneNumber, session);
 
       case FlowStates.PROFILE_DISCOUNT_CATEGORY:
+        return this.handleDiscountCategoryPrimarySelection(selection, phoneNumber, session);
+      case FlowStates.PROFILE_DISCOUNT_ECONOMIC:
+      case FlowStates.PROFILE_DISCOUNT_PROFESSION:
+      case FlowStates.PROFILE_DISCOUNT_SOCIAL:
         return this.handleDiscountCategorySelection(selection, phoneNumber, session);
 
       case FlowStates.PROFILE_DISCOUNT_DOCUMENTS:
@@ -764,7 +777,7 @@ Send /menu to go back.`
         };
 
       case FlowStates.COMPLETED:
-        return this.handleConsultationCompleted(selection, phoneNumber);
+        return this.handleConsultationCompleted(selection, phoneNumber, session);
 
       case FlowStates.ADMIN_BOOTSTRAP_SECRET:
         return this.handleAdminBootstrapSecret(message, phoneNumber);
@@ -3231,21 +3244,45 @@ Example: cons_1234567890
   // Opt-in fee-discount eligibility flow, reached from the Billing menu.
   // Separate from the mandatory profile walkthrough since eligibility
   // sharing is opt-in per the platform terms (non-consent = full fee).
+  handleDiscountCategoryPrimarySelection(selection, phoneNumber, session) {
+    const trimmed = String(selection).trim();
+    const map = {
+      '1': { state: FlowStates.PROFILE_DISCOUNT_ECONOMIC, text: InteractiveMenus.discountEconomic },
+      '2': { state: FlowStates.PROFILE_DISCOUNT_PROFESSION, text: InteractiveMenus.discountProfession },
+      '3': { state: FlowStates.PROFILE_DISCOUNT_SOCIAL, text: InteractiveMenus.discountSocial },
+      '4': 'none'
+    };
+    
+    if (map[trimmed] === 'none') {
+      return this.handleDiscountCategorySelection('none', phoneNumber, session);
+    }
+    
+    const target = map[trimmed];
+    if (!target) {
+      return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: `❌ Invalid selection.\n\n${InteractiveMenus.discountCategories}` };
+    }
+    
+    return { nextState: target.state, response: target.text };
+  }
+
   handleDiscountCategorySelection(selection, phoneNumber, session) {
     const trimmed = String(selection).trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.BILLING, response: InteractiveMenus.billing };
+      return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
     }
+    
+    // Accept 'none' explicitly from primary handler, otherwise look up in map
     const categoryMap = {
-      '1': 'bpl_ews', '2': 'ayushman_bharat', '3': 'eshram', '4': 'farmer',
-      '5': 'defence', '6': 'paramilitary', '7': 'police', '8': 'government_employee',
-      '9': 'freedom_fighter_dependent', '10': 'senior_citizen', '11': 'widow_single_woman',
-      '12': 'pwd_udid', '13': 'sc_st', '14': 'minority_community', '15': 'rural_tribal',
-      '16': 'healthcare_worker', '17': 'teacher_anganwadi', '18': 'journalist', '19': 'none'
+      'discount_1': 'bpl_ews', 'discount_2': 'ayushman_bharat', 'discount_3': 'eshram', 'discount_4': 'farmer', 'discount_15': 'rural_tribal',
+      'discount_5': 'defence', 'discount_6': 'paramilitary', 'discount_7': 'police', 'discount_8': 'government_employee',
+      'discount_16': 'healthcare_worker', 'discount_17': 'teacher_anganwadi', 'discount_18': 'journalist',
+      'discount_9': 'senior_citizen', 'discount_11': 'widow_single_woman', 'discount_12': 'pwd_udid',
+      'discount_13': 'sc_st', 'discount_14': 'minority_community'
     };
-    const category = categoryMap[trimmed];
+    
+    const category = trimmed === 'none' ? 'none' : categoryMap[trimmed];
     if (!category) {
-      return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: `❌ Invalid selection.\n\n${InteractiveMenus.discountCategories}` };
+      return { nextState: session?.flowState || FlowStates.PROFILE_DISCOUNT_CATEGORY, response: `❌ Invalid selection.` };
     }
 
     // Eligibility describes the PATIENT being treated and billed, not
@@ -3295,7 +3332,7 @@ Example: cons_1234567890
     const doctors = this.doctorRouter?.getAvailableDoctors?.(effectiveSession?.cancerType) || [];
     const doctorIndex = parseInt(selection) - 1;
 
-    if (doctorIndex < 0 || doctorIndex >= doctors.length) {
+    if (isNaN(doctorIndex) || doctorIndex < 0 || doctorIndex >= doctors.length) {
       return {
         nextState: FlowStates.DOCTOR_SELECT,
         response: `❌ Invalid selection. Please choose a valid doctor:\n\n${InteractiveMenus.doctorSelect(doctors)}`

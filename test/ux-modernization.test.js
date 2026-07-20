@@ -149,7 +149,10 @@ test('Payload Size Limits: All Keyboard Builders Must Be Under 64 Bytes', () => 
     { name: 'buildRoleApplication', fn: () => telegramKeyboards.buildRoleApplication() },
     { name: 'buildMyRoles', fn: () => telegramKeyboards.buildMyRoles(['doctor'], {}) },
     { name: 'buildProfileRemoveRole', fn: () => telegramKeyboards.buildProfileRemoveRole() },
-    { name: 'buildDiscountCategories', fn: () => telegramKeyboards.buildDiscountCategories() },
+    { name: 'buildDiscountPrimary', fn: () => telegramKeyboards.buildDiscountPrimary() },
+    { name: 'buildDiscountEconomic', fn: () => telegramKeyboards.buildDiscountEconomic() },
+    { name: 'buildDiscountProfession', fn: () => telegramKeyboards.buildDiscountProfession() },
+    { name: 'buildDiscountSocial', fn: () => telegramKeyboards.buildDiscountSocial() },
     { name: 'buildConsentsMenu', fn: () => telegramKeyboards.buildConsentsMenu() },
     { name: 'buildDoctorSelect', fn: () => telegramKeyboards.buildDoctorSelect([]) },
     { name: 'buildConsultationCompleted', fn: () => telegramKeyboards.buildConsultationCompleted() },
@@ -287,3 +290,122 @@ test('Payload Size: Callback Data Must Be Under 64 Bytes', () => {
     assert.ok(payload.length <= 64, `Payload "${payload}" exceeds 64 bytes (${payload.length} chars)`);
   }
 });
+
+test('Dual-Support Contract: Missing Button Audit', async (t) => {
+    const InteractiveMenus = require('../services/conversationFlow').InteractiveMenus;
+    
+    await t.test('should have 4 options plus cancel in Role Application keyboard', () => {
+      const kb = telegramKeyboards.buildRoleApplication().reply_markup.inline_keyboard;
+      assert.strictEqual(kb.length, 4);
+      const text = InteractiveMenus.roleApplication;
+      assert.match(text, /1️⃣ Doctor/);
+      assert.match(text, /4️⃣ Cancel/);
+    });
+
+    await t.test('should have 4 options in Admin Profile Edit keyboard', () => {
+      const kb = telegramKeyboards.buildAdminProfileEdit().reply_markup.inline_keyboard;
+      assert.strictEqual(kb.length, 4);
+      const text = InteractiveMenus.adminProfileEdit;
+      assert.match(text, /1️⃣ Edit Name/);
+      assert.match(text, /3️⃣ View Profile/);
+    });
+
+    await t.test('should match Consultation Completed text', () => {
+      const kb = telegramKeyboards.buildConsultationCompleted().reply_markup.inline_keyboard;
+      assert.strictEqual(kb.length, 3);
+      assert.strictEqual(kb[0][0].callback_data, 'consultation');
+      assert.strictEqual(kb[1][0].callback_data, 'view_profile');
+      assert.strictEqual(kb[2][0].callback_data, 'main_menu');
+    });
+
+    await t.test('should include Back to Menu in Doctor Selection', () => {
+      const kb = telegramKeyboards.buildDoctorSelect([{id: '123', name: 'Test'}]).reply_markup.inline_keyboard;
+      assert.strictEqual(kb.length, 2);
+      assert.strictEqual(kb[1][0].callback_data, 'main_menu');
+    });
+
+    await t.test('should match Role Selection text', () => {
+      const kb = telegramKeyboards.buildRoleSelect().reply_markup.inline_keyboard;
+      assert.strictEqual(kb.length, 4);
+      const text = InteractiveMenus.roleSelect;
+      assert.match(text, /1️⃣ Patient/);
+      assert.match(text, /3️⃣ Doctor/);
+    });
+
+    await t.test('should have properly structured Discount Sub-Menus', () => {
+      const kbPrimary = telegramKeyboards.buildDiscountPrimary().reply_markup.inline_keyboard;
+      assert.strictEqual(kbPrimary.length, 4);
+      assert.match(InteractiveMenus.discountCategories, /Economic \& Schemes/);
+
+      const kbEconomic = telegramKeyboards.buildDiscountEconomic().reply_markup.inline_keyboard;
+      assert.strictEqual(kbEconomic.length, 6);
+      assert.match(InteractiveMenus.discountEconomic, /Ayushman Bharat/);
+
+      const kbProfession = telegramKeyboards.buildDiscountProfession().reply_markup.inline_keyboard;
+      assert.strictEqual(kbProfession.length, 8);
+      assert.match(InteractiveMenus.discountProfession, /Paramilitary/);
+
+      const kbSocial = telegramKeyboards.buildDiscountSocial().reply_markup.inline_keyboard;
+      assert.strictEqual(kbSocial.length, 6);
+      assert.match(InteractiveMenus.discountSocial, /Minority Community/);
+    });
+  });
+
+  test('UX Modernization: Red-Dot Breadcrumb Indicator Logic', async (t) => {
+    await t.test('MainMenu: profileComplete=false highlights Profile & Roles', () => {
+      const kb = telegramKeyboards.buildMainMenu('patient', false, false).reply_markup.inline_keyboard;
+      // Index 1 should be Profile & Roles with red dot
+      assert.match(kb[1][0].text, /🔴.*Profile & Roles/);
+      assert.doesNotMatch(kb[0][0].text, /🔴.*My Consultations/);
+    });
+
+    await t.test('MainMenu: profileComplete=true does not highlight', () => {
+      const kb = telegramKeyboards.buildMainMenu('patient', false, true).reply_markup.inline_keyboard;
+      assert.doesNotMatch(kb[1][0].text, /🔴/);
+      assert.doesNotMatch(kb[0][0].text, /🔴/);
+    });
+  });
+
+  test('UX Modernization: Discount Sub-Menu Navigation', async (t) => {
+    const chatId = 'test_discount_nav_user';
+    
+    await t.test('Transitions to Economic sub-menu on 1', async () => {
+      setupWelcomeSession(chatId);
+      consultationManager.updateSession(chatId, { flowState: FlowStates.PROFILE_DISCOUNT_CATEGORY });
+      
+      const result = await conversationFlow.createFlowHandler(chatId, '1');
+      assert.strictEqual(result.nextState, FlowStates.PROFILE_DISCOUNT_ECONOMIC);
+      assert.match(result.response, /Economic & Schemes/);
+    });
+
+    await t.test('Transitions to Profession sub-menu on 2', async () => {
+      consultationManager.updateSession(chatId, { flowState: FlowStates.PROFILE_DISCOUNT_CATEGORY });
+      
+      const result = await conversationFlow.createFlowHandler(chatId, '2');
+      assert.strictEqual(result.nextState, FlowStates.PROFILE_DISCOUNT_PROFESSION);
+      assert.match(result.response, /Profession & Service/);
+    });
+
+    await t.test('Selects actual discount (e.g. discount_1 BPL) from Economic sub-menu', async () => {
+      consultationManager.updateSession(chatId, { flowState: FlowStates.PROFILE_DISCOUNT_ECONOMIC });
+      
+      const result = await conversationFlow.createFlowHandler(chatId, 'discount_1');
+      assert.strictEqual(result.nextState, FlowStates.PROFILE_DISCOUNT_DOCUMENTS);
+      assert.match(result.response, /upload eligibility documents/i);
+      
+      const session = consultationManager.getSession(chatId);
+      assert.strictEqual(session.patientProfile.discountCategory, 'bpl_ews');
+      assert.strictEqual(session.patientProfile.discountVerificationStatus, 'pending');
+    });
+
+    await t.test('Primary Menu - Option 4 (No Discount) skips document upload', async () => {
+      consultationManager.updateSession(chatId, { flowState: FlowStates.PROFILE_DISCOUNT_CATEGORY });
+      
+      const result = await conversationFlow.createFlowHandler(chatId, '4');
+      assert.strictEqual(result.nextState, FlowStates.BILLING);
+      
+      const session = consultationManager.getSession(chatId);
+      assert.strictEqual(session.patientProfile.discountCategory, 'none');
+      assert.strictEqual(session.patientProfile.discountVerificationStatus, 'not_applied');
+    });
+  });

@@ -1,0 +1,67 @@
+--- test/ux-modernization.test.js
++++ test/ux-modernization.test.js
+@@ -340,4 +340,68 @@
+       expect(stateAfterReset).toBe('welcome');
+     });
+   });
++
++  describe('Dual-Support Contract: Missing Button Audit', () => {
++    const InteractiveMenus = require('../services/conversationFlow').InteractiveMenus;
++    
++    it('should have 4 options plus cancel in Role Application keyboard', () => {
++      const kb = telegramKeyboards.buildRoleApplication().reply_markup.inline_keyboard;
++      expect(kb.length).toBe(4);
++      const text = InteractiveMenus.roleApplication;
++      expect(text).toMatch(/1️⃣ Doctor/);
++      expect(text).toMatch(/4️⃣ Cancel/);
++    });
++
++    it('should have 4 options in Admin Profile Edit keyboard', () => {
++      const kb = telegramKeyboards.buildAdminProfileEdit().reply_markup.inline_keyboard;
++      expect(kb.length).toBe(4);
++      const text = InteractiveMenus.adminProfileEdit;
++      expect(text).toMatch(/1️⃣ Edit Name/);
++      expect(text).toMatch(/3️⃣ View Profile/);
++    });
++
++    it('should match Consultation Completed text', () => {
++      const kb = telegramKeyboards.buildConsultationCompleted().reply_markup.inline_keyboard;
++      expect(kb.length).toBe(3);
++      expect(kb[0][0].callback_data).toBe('consultation');
++      expect(kb[1][0].callback_data).toBe('view_profile');
++      expect(kb[2][0].callback_data).toBe('main_menu');
++    });
++
++    it('should include Back to Menu in Doctor Selection', () => {
++      const kb = telegramKeyboards.buildDoctorSelect([{id: '123', name: 'Test'}]).reply_markup.inline_keyboard;
++      expect(kb.length).toBe(2);
++      expect(kb[1][0].callback_data).toBe('main_menu');
++    });
++
++    it('should match Role Selection text', () => {
++      const kb = telegramKeyboards.buildRoleSelect().reply_markup.inline_keyboard;
++      expect(kb.length).toBe(4);
++      const text = InteractiveMenus.roleSelect;
++      expect(text).toMatch(/1️⃣ Patient/);
++      expect(text).toMatch(/3️⃣ Doctor/);
++    });
++
++    it('should have properly structured Discount Sub-Menus', () => {
++      const kbPrimary = telegramKeyboards.buildDiscountPrimary().reply_markup.inline_keyboard;
++      expect(kbPrimary.length).toBe(4);
++      expect(InteractiveMenus.discountCategories).toMatch(/Economic & Schemes/);
++
++      const kbEconomic = telegramKeyboards.buildDiscountEconomic().reply_markup.inline_keyboard;
++      expect(kbEconomic.length).toBe(6);
++      expect(InteractiveMenus.discountEconomic).toMatch(/Ayushman Bharat/);
++
++      const kbProfession = telegramKeyboards.buildDiscountProfession().reply_markup.inline_keyboard;
++      expect(kbProfession.length).toBe(8);
++      expect(InteractiveMenus.discountProfession).toMatch(/Paramilitary/);
++
++      const kbSocial = telegramKeyboards.buildDiscountSocial().reply_markup.inline_keyboard;
++      expect(kbSocial.length).toBe(6);
++      expect(InteractiveMenus.discountSocial).toMatch(/Minority Community/);
++    });
++  });
+ });

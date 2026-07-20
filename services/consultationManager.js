@@ -227,8 +227,8 @@ class ConsultationManager {
     const consultation = {
       id: consultationId,
       patientPhone: phoneNumber,
-      doctorId,
       ...sessionData,
+      doctorId,
       status: 'active',
       startedAt: new Date(),
       messages: []

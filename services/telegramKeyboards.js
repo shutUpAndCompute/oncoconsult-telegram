@@ -6,12 +6,12 @@ const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComple
   const buttons = [];
   
   if (!profileComplete) {
-    buttons.push([{ text: '🔴 1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '🔴 2️⃣ Profile & Roles', callback_data: 'profile' }]);
   } else {
     buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
   }
-  
-  buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
   
   if (hasOtherRoles) {
     buttons.push([{ text: '3️⃣ Switch Role', callback_data: 'switch_role' }]);
@@ -23,11 +23,12 @@ const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComple
 const buildCaregiverMenu = (hasOtherRoles = false, profileComplete = true) => {
   const buttons = [];
   if (!profileComplete) {
-    buttons.push([{ text: '🔴 1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '🔴 2️⃣ Profile & Roles', callback_data: 'profile' }]);
   } else {
     buttons.push([{ text: '1️⃣ My Consultations', callback_data: 'consultation' }]);
+    buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
   }
-  buttons.push([{ text: '2️⃣ Profile & Roles', callback_data: 'profile' }]);
   if (hasOtherRoles) {
     buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   }
@@ -181,8 +182,7 @@ const buildRoleSelect = () => {
     [{ text: '1️⃣ Patient', callback_data: 'patient' }],
     [{ text: '2️⃣ Caregiver', callback_data: 'caregiver' }],
     [{ text: '3️⃣ Doctor', callback_data: 'doctor' }],
-    [{ text: '4️⃣ Admin', callback_data: 'admin' }],
-    [{ text: '5️⃣ Support', callback_data: 'support' }]
+    [{ text: '0️⃣ Cancel', callback_data: 'cancel' }]
   ];
   return { reply_markup: { inline_keyboard: buttons } };
 };
@@ -191,23 +191,77 @@ const buildCaregiverAuth = () => ({ reply_markup: { inline_keyboard: [[{ text: '
 
 const buildPlatformTerms = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ I Agree', callback_data: 'terms_accept' }, { text: '2️⃣ Decline', callback_data: 'terms_decline' }]] } });
 
-const buildProfileView = (profile = {}) => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ View Profile', callback_data: 'view_profile' }]] } });
+const buildProfileView = (profile = {}) => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ View Profile', callback_data: 'view_profile' }],
+  [{ text: '2️⃣ Edit Profile', callback_data: 'edit_profile' }],
+  [{ text: '3️⃣ Apply for Role', callback_data: 'apply_role' }],
+  [{ text: '4️⃣ My Roles', callback_data: 'my_roles' }],
+  [{ text: '5️⃣ Remove Role', callback_data: 'remove_role' }],
+  [{ text: '0️⃣ Back to Menu', callback_data: 'main_menu' }]
+] } });
 
 const buildProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }, { text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }]] } });
 
-const buildRoleApplication = () => ({ reply_markup: { inline_keyboard: [[{ text: 'Apply for Role', callback_data: 'apply_role' }]] } });
+const buildRoleApplication = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ Doctor', callback_data: 'apply_doctor' }],
+  [{ text: '2️⃣ Caregiver', callback_data: 'apply_caregiver' }],
+  [{ text: '3️⃣ Support', callback_data: 'apply_support' }],
+  [{ text: '4️⃣ Cancel', callback_data: 'cancel' }]
+] } });
 
 const buildMyRoles = (roles = [], profile = {}) => ({ reply_markup: { inline_keyboard: roles.map(r => [{ text: r, callback_data: `role_${r}` }]) } });
 
 const buildProfileRemoveRole = () => ({ reply_markup: { inline_keyboard: [[{ text: 'doctor', callback_data: 'remove_doctor' }, { text: 'caregiver', callback_data: 'remove_caregiver' }, { text: 'support', callback_data: 'remove_support' }, { text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
 
-const buildDiscountCategories = () => ({ reply_markup: { inline_keyboard: [[{ text: 'Aadhaar', callback_data: 'discount_aadhaar' }, { text: 'Ayushman', callback_data: 'discount_ayushman' }]] } });
+const buildDiscountPrimary = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ Economic & Schemes', callback_data: 'discount_economic' }],
+  [{ text: '2️⃣ Profession & Service', callback_data: 'discount_profession' }],
+  [{ text: '3️⃣ Social & Demographic', callback_data: 'discount_social' }],
+  [{ text: '4️⃣ No Discount (Full Fee)', callback_data: 'discount_none' }]
+] } });
+
+const buildDiscountEconomic = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ BPL / EWS', callback_data: 'discount_1' }],
+  [{ text: '2️⃣ Ayushman Bharat (PM-JAY)', callback_data: 'discount_2' }],
+  [{ text: '3️⃣ e-Shram (Unorganized Sector)', callback_data: 'discount_3' }],
+  [{ text: '4️⃣ Farmer', callback_data: 'discount_4' }],
+  [{ text: '5️⃣ Rural/Tribal Resident', callback_data: 'discount_15' }],
+  [{ text: '0️⃣ Back', callback_data: 'discount_back' }]
+] } });
+
+const buildDiscountProfession = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ Defence / Ex-servicemen', callback_data: 'discount_5' }],
+  [{ text: '2️⃣ Paramilitary', callback_data: 'discount_6' }],
+  [{ text: '3️⃣ Police', callback_data: 'discount_7' }],
+  [{ text: '4️⃣ Government Employee', callback_data: 'discount_8' }],
+  [{ text: '5️⃣ Healthcare Worker', callback_data: 'discount_16' }],
+  [{ text: '6️⃣ Teacher / Anganwadi', callback_data: 'discount_17' }],
+  [{ text: '7️⃣ Journalist', callback_data: 'discount_18' }],
+  [{ text: '0️⃣ Back', callback_data: 'discount_back' }]
+] } });
+
+const buildDiscountSocial = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ Senior Citizen / Retiree', callback_data: 'discount_9' }],
+  [{ text: '2️⃣ Widow / Single Woman', callback_data: 'discount_11' }],
+  [{ text: '3️⃣ PwD (UDID)', callback_data: 'discount_12' }],
+  [{ text: '4️⃣ SC/ST', callback_data: 'discount_13' }],
+  [{ text: '5️⃣ Minority Community', callback_data: 'discount_14' }],
+  [{ text: '0️⃣ Back', callback_data: 'discount_back' }]
+] } });
 
 const buildConsentsMenu = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Teleconsultation', callback_data: 'consent_tele' }, { text: '✅ Data Sharing', callback_data: 'consent_data' }, { text: '✅ DPDP', callback_data: 'consent_dpdp' }]] } });
 
-const buildDoctorSelect = (doctors = []) => ({ reply_markup: { inline_keyboard: doctors.map(d => [{ text: d.name || 'Doctor', callback_data: `doctor_${d.id}` }]) } });
+const buildDoctorSelect = (doctors = []) => {
+  const buttons = doctors.map(d => [{ text: d.name || 'Doctor', callback_data: `doctor_${d.id}` }]);
+  buttons.push([{ text: '0️⃣ Back to Menu', callback_data: 'main_menu' }]);
+  return { reply_markup: { inline_keyboard: buttons } };
+};
 
-const buildConsultationCompleted = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ View Details', callback_data: 'consultation_details' }, { text: '2️⃣ Rate Experience', callback_data: 'rate_consultation' }, { text: '0️⃣ Main Menu', callback_data: 'main_menu' }]] } });
+const buildConsultationCompleted = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ My Consultations', callback_data: 'consultation' }],
+  [{ text: '2️⃣ View Profile', callback_data: 'view_profile' }],
+  [{ text: '3️⃣ Main Menu', callback_data: 'main_menu' }]
+] } });
 
 const buildCloseConsultationPrompt = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Close', callback_data: 'close_confirm' }, { text: '❌ No, Keep Open', callback_data: 'close_cancel' }]] } });
 
@@ -215,7 +269,12 @@ const buildMobileCollection = () => ({ reply_markup: { inline_keyboard: [[{ text
 
 const buildCaregiverPatientLink = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]] } });
 
-const buildAdminProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }, { text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }, { text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
+const buildAdminProfileEdit = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }],
+  [{ text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }],
+  [{ text: '3️⃣ View Profile', callback_data: 'view_profile' }],
+  [{ text: '0️⃣ Cancel', callback_data: 'cancel' }]
+] } });
 
 const buildAdminProfileEditName = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
 
@@ -336,7 +395,10 @@ module.exports = {
   buildRoleApplication,
   buildMyRoles,
   buildProfileRemoveRole,
-  buildDiscountCategories,
+  buildDiscountPrimary,
+  buildDiscountEconomic,
+  buildDiscountProfession,
+  buildDiscountSocial,
   buildConsentsMenu,
   buildDoctorSelect,
   buildConsultationCompleted,

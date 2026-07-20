@@ -12,7 +12,11 @@ class DoctorRouter {
   }
 
   getAvailableDoctors(cancerType) {
-    return this.findAvailableDoctor(cancerType);
+    const doctors = this.getDoctors();
+    return doctors.filter(doc => {
+      if (!(doc.available ?? true)) return false;
+      return !cancerType || doc.cancerTypes.includes(cancerType) || doc.cancerTypes.includes('general');
+    });
   }
 
   getSpecialization(cancerType) {
