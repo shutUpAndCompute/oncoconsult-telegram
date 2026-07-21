@@ -20,8 +20,8 @@ test('Menu text consistency: All back options specify destination', () => {
 });
 
 test('Set Fee menu item exists and is properly integrated', () => {
-  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('1️⃣1️⃣'), 'Admin menu should have option 11 (Set Fee)');
-  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('Set Fee'), 'Option 11 should be "Set Fee"');
+  assert.ok(InteractiveMenus.adminFinancesMenu(false, false).includes('3️⃣'), 'Admin finances menu should have option 3 (Set Fee)');
+  assert.ok(InteractiveMenus.adminFinancesMenu(false, false).includes('Set Fee'), 'Option 3 should be "Set Fee"');
   assert.strictEqual(FlowStates.ADMIN_SET_FEE_INPUT, 'admin_set_fee_input', 'ADMIN_SET_FEE_INPUT state should exist');
   assert.ok(InteractiveMenus.adminSetFeeInput, 'adminSetFeeInput menu text should exist');
   assert.ok(InteractiveMenus.adminSetFeeInput.includes('PHONE AMOUNT'), 'Should show input format');
@@ -187,21 +187,19 @@ test('Super Admin Menu separation: Distinct from Admin Menu', () => {
   
   const superAdminMenu = InteractiveMenus.superAdminMenu(5, 3);
   assert.ok(superAdminMenu.includes('🔐 *Super Admin Panel*'), 'Super Admin menu has correct title');
-  assert.ok(superAdminMenu.includes('Manage Admins'), 'Super Admin menu has Manage Admins option');
-  assert.ok(!superAdminMenu.includes('View Patient Profiles'), 'Super Admin menu has View All Patients');
+  assert.ok(superAdminMenu.includes('System & Roles'), 'Super Admin menu has System & Roles option');
 });
 
-test('Admin Menu does not show Super Admin only options', () => {
+test('Admin Menu structure', () => {
   const adminMenu = InteractiveMenus.adminMenu(0, 0);
   
-  assert.ok(!adminMenu.includes('Manage Admins'), 'Admin menu should not have Manage Admins');
-  assert.ok(adminMenu.includes('View Patient Profiles'), 'Admin menu has View Patient Profiles');
+  assert.ok(adminMenu.includes('🛠️ *Admin Panel*'), 'Admin menu has correct title');
+  assert.ok(adminMenu.includes('System & Roles'), 'Admin menu has System & Roles');
 });
 
-test('Super Admin menu shows pending/active counts', () => {
+test('Super Admin menu shows pending/active counts on Consultations', () => {
   const superAdminMenu = InteractiveMenus.superAdminMenu(10, 5);
-  assert.ok(superAdminMenu.includes('10 pending'), 'Shows pending count');
-  assert.ok(superAdminMenu.includes('5 active'), 'Shows active count');
+  assert.ok(superAdminMenu.includes('🔴 1️⃣ Consultations'), 'Shows indicator for consultations');
 });
 
 test('handleSuperAdminMenuSelection routes correctly', () => {
@@ -256,4 +254,30 @@ test('Adversarial: Domain Guards allow Admin to access Admin Menu', () => {
   const result = flow.enforceDomainGuard({ nextState: FlowStates.ADMIN_MENU, response: 'Admin Dashboard' }, 'admin', '12345');
   assert.strictEqual(result.nextState, FlowStates.ADMIN_MENU, 'Domain Guard should allow Admin');
   assert.strictEqual(result.response, 'Admin Dashboard', 'Domain Guard should preserve response');
+});
+test('Admin profile routing goes to ADMIN_PROFILE_EDIT', () => {
+  const ConsultationManager = require('../services/consultationManager');
+  const DoctorRouter = require('../services/doctorRouter');
+  const paymentService = new (require('../services/paymentService'))();
+  const cm = new ConsultationManager(new DoctorRouter());
+  const flow = new ConversationFlow(cm, new DoctorRouter(), paymentService, null, adminRegistry);
+  const testPhone = '9999999999';
+  
+  adminRegistry.addAdmin(testPhone, 'system', testPhone, 'admin', 'Test Admin');
+  
+  // Test option 'profile'
+  const result = flow.handleAdminMenuSelection('profile', testPhone);
+  assert.strictEqual(result.nextState, FlowStates.ADMIN_PROFILE_EDIT, 'Profile option should route to ADMIN_PROFILE_EDIT');
+  
+  adminRegistry.removeAdmin(testPhone);
+});
+
+test('Support profile routing goes to ADMIN_PROFILE_EDIT', () => {
+  const ConsultationManager = require('../services/consultationManager');
+  const cm = new ConsultationManager(require('../services/doctorRouter'));
+  const flow = new ConversationFlow(cm, null, null, null, null);
+  
+  // Test option '4'
+  const result = flow.handleSupportMenuSelection('4', '12345', {});
+  assert.strictEqual(result.nextState, FlowStates.ADMIN_PROFILE_EDIT, 'Profile option should route to ADMIN_PROFILE_EDIT');
 });

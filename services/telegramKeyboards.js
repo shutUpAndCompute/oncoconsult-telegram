@@ -99,20 +99,47 @@ const buildProfileMenu = (highlightMissing = {}) => {
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
+const buildAdminConsultationsMenu = (pending = 0, active = 0) => {
+  const buttons = [];
+  buttons.push([{ text: pending > 0 ? `🔴 1️⃣ Pending Requests (${pending} pending)` : `1️⃣ Pending Requests (${pending} pending)`, callback_data: 'pending_requests' }]);
+  buttons.push([{ text: active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : `2️⃣ Active Consultations (${active} active)`, callback_data: 'active_consultations' }]);
+  buttons.push([{ text: '3️⃣ View Patient Profiles', callback_data: 'view_patients' }]);
+  buttons.push([{ text: '4️⃣ Message Patient', callback_data: 'message_patient' }]);
+  buttons.push([{ text: '5️⃣ Close Consultation', callback_data: 'close_consultation' }]);
+  buttons.push([{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]);
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
+const buildAdminFinancesMenu = (hasPendingPayments = false, hasPendingDiscounts = false) => {
+  const buttons = [];
+  buttons.push([{ text: hasPendingPayments ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment', callback_data: 'verify_payment' }]);
+  buttons.push([{ text: hasPendingDiscounts ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount', callback_data: 'verify_discount' }]);
+  buttons.push([{ text: '3️⃣ Set Fee', callback_data: 'set_fee' }]);
+  buttons.push([{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]);
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
+const buildAdminSystemMenu = (pendingRoles = 0, pendingDoctors = 0, isSuperAdmin = false) => {
+  const buttons = [];
+  buttons.push([{ text: pendingRoles > 0 ? '🔴 1️⃣ Role Approvals' : '1️⃣ Role Approvals', callback_data: 'role_approvals' }]);
+  buttons.push([{ text: pendingDoctors > 0 ? '🔴 2️⃣ Doctor Management' : '2️⃣ Doctor Management', callback_data: 'doctor_management' }]);
+  if (isSuperAdmin) {
+    buttons.push([{ text: '3️⃣ Manage Admins', callback_data: 'manage_admins' }]);
+  }
+  buttons.push([{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]);
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
 const buildAdminMenu = (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) => {
   const buttons = [];
+  const hasConsultationAction = pending > 0 || active > 0;
+  const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
+  const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
   
-  buttons.push([{ text: pending > 0 ? '🔴 1️⃣ Pending Requests' : '1️⃣ Pending Requests', callback_data: 'pending_requests' }]);
-  buttons.push([{ text: active > 0 ? '🟢 2️⃣ Active Consultations' : '2️⃣ Active Consultations', callback_data: 'active_consultations' }]);
-  buttons.push([{ text: pendingRoles > 0 ? '🔴 3️⃣ Role Approvals' : '3️⃣ Role Approvals', callback_data: 'role_approvals' }]);
-  buttons.push([{ text: pendingDoctors > 0 ? '🔴 4️⃣ Doctor Management' : '4️⃣ Doctor Management', callback_data: 'doctor_management' }]);
-  buttons.push([{ text: !isProfileComplete ? '🔴 5️⃣ Profile' : '5️⃣ Profile', callback_data: 'profile' }]);
-  buttons.push([{ text: '6️⃣ View Patient Profiles', callback_data: 'view_patients' }]);
-  buttons.push([{ text: hasPendingPayments ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment', callback_data: 'verify_payment' }]);
-  buttons.push([{ text: hasPendingDiscounts ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
-  buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
-  buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
-  buttons.push([{ text: '1️⃣1️⃣ Set Fee', callback_data: 'set_fee' }]);
+  buttons.push([{ text: hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
+  buttons.push([{ text: hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
+  buttons.push([{ text: hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
+  buttons.push([{ text: !isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -122,24 +149,20 @@ const buildSuperAdminManageAdminsMenu = () => {
   const buttons = [];
   buttons.push([{ text: '1️⃣ Add Admin', callback_data: 'add_admin' }]);
   buttons.push([{ text: '2️⃣ Remove Admin', callback_data: 'remove_admin' }]);
-  buttons.push([{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'back_to_menu' }]);
+  buttons.push([{ text: '0️⃣ Back to System Menu', callback_data: 'menu_system' }]);
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
 const buildSuperAdminMenu = (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) => {
   const buttons = [];
+  const hasConsultationAction = pending > 0 || active > 0;
+  const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
+  const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
   
-  buttons.push([{ text: pending > 0 ? `🔴 1️⃣ Pending Requests (${pending} pending)` : `1️⃣ Pending Requests (${pending} pending)`, callback_data: 'pending_requests' }]);
-  buttons.push([{ text: active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : `2️⃣ Active Consultations (${active} active)`, callback_data: 'active_consultations' }]);
-  buttons.push([{ text: pendingRoles > 0 ? '🔴 3️⃣ Role Approvals' : '3️⃣ Role Approvals', callback_data: 'role_approvals' }]);
-  buttons.push([{ text: pendingDoctors > 0 ? '🔴 4️⃣ Doctor Management' : '4️⃣ Doctor Management', callback_data: 'doctor_management' }]);
-  buttons.push([{ text: !isProfileComplete ? '🔴 5️⃣ Profile' : '5️⃣ Profile', callback_data: 'profile' }]);
-  buttons.push([{ text: '6️⃣ View All Patients', callback_data: 'view_all_patients' }]);
-  buttons.push([{ text: hasPendingPayments ? '🔴 7️⃣ Verify Payment' : '7️⃣ Verify Payment', callback_data: 'verify_payment' }]);
-  buttons.push([{ text: hasPendingDiscounts ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
-  buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
-  buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
-  buttons.push([{ text: '1️⃣1️⃣ Manage Admins', callback_data: 'manage_admins' }]);
+  buttons.push([{ text: hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
+  buttons.push([{ text: hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
+  buttons.push([{ text: hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
+  buttons.push([{ text: !isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -404,6 +427,9 @@ module.exports = {
   buildAdminProfileEdit,
   buildAdminProfileEditName,
   buildAdminProfileEditPhone,
+  buildAdminConsultationsMenu,
+  buildAdminFinancesMenu,
+  buildAdminSystemMenu,
   buildDoctorProfileEdit,
   buildDoctorMsgAdminInput,
   buildAdminAssignDoctorInput,

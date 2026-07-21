@@ -1,0 +1,8 @@
+digraph FlowGraph {
+  rankdir=LR;
+  node [shape=box];
+  "welcome" -> "platform_terms";
+  "platform_terms" -> "welcome";
+  "platform_terms" -> "role_select";
+  "role_select" -> "welcome";
+}

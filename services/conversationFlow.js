@@ -79,7 +79,11 @@ DOCTOR_MENU: 'doctor_menu',
     ADMIN_ADD_ADMIN_INPUT: 'admin_add_admin_input',
     ADMIN_REMOVE_ADMIN_INPUT: 'admin_remove_admin_input',
     ADMIN_SET_FEE_INPUT: 'admin_set_fee_input',
-    ADMIN_PROFILE_COMPLETE_OPTIONS: 'admin_profile_complete_options'
+    ADMIN_PROFILE_COMPLETE_OPTIONS: 'admin_profile_complete_options',
+    ADMIN_CONSULTATIONS_MENU: 'admin_consultations_menu',
+    ADMIN_FINANCES_MENU: 'admin_finances_menu',
+    ADMIN_SYSTEM_MENU: 'admin_system_menu',
+    DOCTOR_PATIENTS_VIEW: 'doctor_patients_view'
   };
 
 const ADMIN_DOMAIN_STATES = [
@@ -108,19 +112,26 @@ const ADMIN_DOMAIN_STATES = [
   FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
   FlowStates.ADMIN_REMOVE_DOCTOR_INPUT,
   FlowStates.ADMIN_REJECT_DOCTOR_INPUT,
-  FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT
+  FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_CONSULTATIONS_MENU,
+  FlowStates.ADMIN_FINANCES_MENU,
+  FlowStates.ADMIN_SYSTEM_MENU
 ];
 
 const DOCTOR_DOMAIN_STATES = [
   FlowStates.DOCTOR_MENU,
   FlowStates.DOCTOR_PROFILE_EDIT,
-  FlowStates.DOCTOR_MSG_ADMIN_INPUT
+  FlowStates.DOCTOR_MSG_ADMIN_INPUT,
+  FlowStates.DOCTOR_PATIENTS_VIEW
 ];
 
 const SUPPORT_DOMAIN_STATES = [
   FlowStates.SUPPORT_MENU,
   FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
-  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT
+  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT,
+  FlowStates.ADMIN_PROFILE_EDIT,
+  FlowStates.ADMIN_PROFILE_EDIT_NAME,
+  FlowStates.ADMIN_PROFILE_EDIT_PHONE
 ];
 
 const CAREGIVER_DOMAIN_STATES = [
@@ -145,43 +156,55 @@ Reply with number`,
     return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
   },
 
-  adminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
-    // Determine which item should have the indicator (last actionable item in workflow)
-    // Priority cascades to the LAST item needing action:
+  adminMenu: (pending = 0, active = 0) => {
+    const hasConsultationAction = pending > 0 || active > 0;
     return `🛠️ *Admin Panel*
 
-${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests
-${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations
-${pendingRoles > 0 ? '🔴 ' : ''}3️⃣ Role Approvals
-${pendingDocs > 0 ? '🔴 ' : ''}4️⃣ Doctor Management
-${!isProfileComplete ? '🔴 ' : ''}5️⃣ Profile
-6️⃣ View Patient Profiles
-${hasPendingPayments ? '🔴 ' : ''}7️⃣ Verify Payment
-${hasPendingDiscounts ? '🔴 ' : ''}8️⃣ Verify Discount
-9️⃣ Message Patient
-🔟 Close Consultation
-1️⃣1️⃣ Set Fee
+${hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
+2️⃣ Finances
+3️⃣ System & Roles
+4️⃣ My Profile
 
 0️⃣ Switch Role`;
   },
-  superAdminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
+  superAdminMenu: (pending = 0, active = 0, isProfileComplete = true) => {
+    const hasConsultationAction = pending > 0 || active > 0;
     return `🔐 *Super Admin Panel*
 
-You have full system access.
-
-${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
-${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations (${active} active)
-${pendingRoles > 0 ? '🔴 ' : ''}3️⃣ Role Approvals
-${pendingDocs > 0 ? '🔴 ' : ''}4️⃣ Doctor Management
-${!isProfileComplete ? '🔴 ' : ''}5️⃣ Profile
-6️⃣ View All Patients
-${hasPendingPayments ? '🔴 ' : ''}7️⃣ Verify Payment
-${hasPendingDiscounts ? '🔴 ' : ''}8️⃣ Verify Discount
-9️⃣ Message Patient
-🔟 Close Consultation
-1️⃣1️⃣ Manage Admins
+${hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
+2️⃣ Finances
+3️⃣ System & Roles
+${!isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
 
 0️⃣ Switch Role`;
+  },
+  adminConsultationsMenu: (pending = 0, active = 0) => {
+    return `🩺 *Consultations Menu*
+
+${pending > 0 ? `🔴 1️⃣ Pending Requests (${pending} pending)` : '1️⃣ Pending Requests'}
+${active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : '2️⃣ Active Consultations'}
+3️⃣ View Patient Profiles
+4️⃣ Message Patient
+5️⃣ Close Consultation
+
+0️⃣ Back to Admin Menu`;
+  },
+  adminFinancesMenu: (hasPendingPayments = false, hasPendingDiscounts = false) => {
+    return `💰 *Finances Menu*
+
+${hasPendingPayments ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment'}
+${hasPendingDiscounts ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount'}
+3️⃣ Set Fee
+
+0️⃣ Back to Admin Menu`;
+  },
+  adminSystemMenu: (pendingRoles = 0, pendingDoctors = 0, isSuperAdmin = false) => {
+    return `⚙️ *System & Roles Menu*
+
+${pendingRoles > 0 ? `🔴 1️⃣ Role Approvals (${pendingRoles} pending)` : '1️⃣ Role Approvals'}
+${pendingDoctors > 0 ? `🔴 2️⃣ Doctor Management (${pendingDoctors} pending)` : '2️⃣ Doctor Management'}
+${isSuperAdmin ? '3️⃣ Manage Admins\n' : ''}
+0️⃣ Back to Admin Menu`;
   },
   adminRoleApprovals: (pendingCounts = { doctor: 0, caregiver: 0, support: 0 }) => {
     return `🔐 *Role Approvals*
@@ -653,7 +676,19 @@ getMessageOptions(state, persona = 'patient', session = null) {
         
       case FlowStates.ADMIN_MENU:
         return this.handleAdminMenuSelection(selection, phoneNumber);
-        
+
+      case FlowStates.SUPER_ADMIN_MENU:
+        return this.handleSuperAdminMenuSelection(selection, phoneNumber, session);
+
+      case FlowStates.ADMIN_CONSULTATIONS_MENU:
+        return this.handleAdminConsultationsMenuSelection(selection, phoneNumber);
+
+      case FlowStates.ADMIN_FINANCES_MENU:
+        return this.handleAdminFinancesMenuSelection(selection, phoneNumber);
+
+      case FlowStates.ADMIN_SYSTEM_MENU:
+        return this.handleAdminSystemMenuSelection(selection, phoneNumber);
+
       case FlowStates.ROLE_SELECT:
         return this.handleRoleSelection(selection, phoneNumber);
       
@@ -774,7 +809,10 @@ return this.handleAdminSetFeeInput(message, phoneNumber, session);
 case FlowStates.DOCTOR_SELECT:
         return this.handleDoctorSelection(selection, phoneNumber, session);
 
-case FlowStates.REPORT_UPLOAD:
+case FlowStates.REPORT_UPLOAD: {
+        if (selection === '0' || selection.toLowerCase() === 'cancel') {
+          return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+        }
         return {
           nextState: FlowStates.REPORT_UPLOAD,
           response: `📎 Please upload a medical report (image or PDF).
@@ -782,8 +820,9 @@ case FlowStates.REPORT_UPLOAD:
 ⚠️ Max file size: ${MAX_FILE_SIZE_MB}MB per file
 ⚠️ DICOM files should be converted to PDF/image first
 
-Send /menu to go back.`
+Send /menu or 0 to go back.`
         };
+      }
 
       case FlowStates.COMPLETED:
         return this.handleConsultationCompleted(selection, phoneNumber, session);
@@ -1016,7 +1055,7 @@ Example: 9876543210
       '1': () => this.getActiveConsultationsForSupport(phoneNumber),
       '2': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
       '3': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
-      '4': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
+      '4': () => ({ nextState: FlowStates.ADMIN_PROFILE_EDIT, response: InteractiveMenus.adminProfileEdit }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const currentRole = session?.selectedPersona || 'support';
@@ -1464,7 +1503,10 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       });
     }
 
-    return this.enforceDomainGuard(flowResult, effectiveRole, phoneNumber);
+    const postActionSession = this.consultationManager.getSession(phoneNumber);
+    const postActionRole = this.getCurrentEffectiveRole(phoneNumber, postActionSession);
+
+    return this.enforceDomainGuard(flowResult, postActionRole, phoneNumber);
   }
 
   enforceDomainGuard(flowResult, effectiveRole, phoneNumber) {
@@ -1473,7 +1515,14 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
     
     if (ADMIN_DOMAIN_STATES.includes(nextState)) {
-      if (effectiveRole !== 'admin' && effectiveRole !== 'super_admin') {
+      // ADMIN_PROFILE_EDIT states are shared with support for their own profile
+      const isSharedWithSupport = [
+        FlowStates.ADMIN_PROFILE_EDIT, FlowStates.ADMIN_PROFILE_EDIT_NAME, FlowStates.ADMIN_PROFILE_EDIT_PHONE
+      ].includes(nextState);
+      const allowedRoles = isSharedWithSupport
+        ? ['admin', 'super_admin', 'support']
+        : ['admin', 'super_admin'];
+      if (!allowedRoles.includes(effectiveRole)) {
         return {
           nextState: FlowStates.WELCOME,
           response: `⛔ *Unauthorized Access*\n\nYou do not have permission to access Admin menus.\n\n${this.getWelcomeMenu(phoneNumber)}`
@@ -1496,7 +1545,14 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     }
     
     if (SUPPORT_DOMAIN_STATES.includes(nextState)) {
-      if (effectiveRole !== 'support') {
+      // ADMIN_PROFILE_EDIT states are shared with admins, so allow them through too
+      const sharedWithAdmin = [
+        FlowStates.ADMIN_PROFILE_EDIT, FlowStates.ADMIN_PROFILE_EDIT_NAME, FlowStates.ADMIN_PROFILE_EDIT_PHONE
+      ].includes(nextState);
+      const supportAllowedRoles = sharedWithAdmin
+        ? ['support', 'admin', 'super_admin']
+        : ['support'];
+      if (!supportAllowedRoles.includes(effectiveRole)) {
         return {
           nextState: FlowStates.WELCOME,
           response: `⛔ *Unauthorized Access*\n\nYou must switch to Support mode to access this area.\n\n${this.getWelcomeMenu(phoneNumber)}`
@@ -1987,15 +2043,17 @@ async handleConsultationRequest(phoneNumber, session) {
         const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
         return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(doctor?.name || 'Doctor', hasActive, pendingActions) };
       }
-case 'admin':
-       case 'super_admin':
+      case 'admin':
+      case 'super_admin': {
          const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+         const targetState = role === 'super_admin' ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
          return {
-           nextState: FlowStates.ADMIN_MENU,
+           nextState: targetState,
            response: adminProfileComplete
-             ? this.getAdminMenuText(phoneNumber)
+             ? (role === 'super_admin' ? InteractiveMenus.superAdminMenu(0,0,true,false,false,0,0) : this.getAdminMenuText(phoneNumber))
              : InteractiveMenus.adminMenuIncomplete(this.isSuperAdminPhone(phoneNumber))
          };
+      }
 case 'support': {
          const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
          return {
@@ -2102,8 +2160,8 @@ case 'support': {
     const session = this.consultationManager?.getSession(phoneNumber);
     const effectiveRole = this.getCurrentEffectiveRole(phoneNumber, session);
 
-    // Admin/Super Admin profile edit
-    if (effectiveRole === 'admin' || effectiveRole === 'super_admin') {
+    // Admin/Super Admin/Support profile edit - all use the same admin profile form
+    if (effectiveRole === 'admin' || effectiveRole === 'super_admin' || effectiveRole === 'support') {
       return {
         nextState: FlowStates.ADMIN_PROFILE_EDIT,
         response: InteractiveMenus.adminProfileEdit
@@ -2280,7 +2338,8 @@ case 'support': {
   }
 
   handleProfileEditInput(phoneNumber, message, session) {
-    if (message.trim().toLowerCase() === 'menu' || message.trim() === '5') {
+    const trimmed = message.trim();
+    if (trimmed.toLowerCase() === 'menu' || trimmed === '5' || trimmed === '0' || trimmed.toLowerCase() === 'cancel') {
       return {
         nextState: FlowStates.PROFILE_VIEW,
         response: InteractiveMenus.profileMenu({})
@@ -2365,48 +2424,30 @@ case 'support': {
     const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
     
     // Block all admin actions except profile editing and switch role when profile incomplete
-    if (!adminProfileComplete && !['5', '0'].includes(selection)) {
+    if (!adminProfileComplete && !['profile', '0'].includes(selection)) {
       return {
         nextState: FlowStates.ADMIN_MENU,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.adminMenuIncomplete(this.isSuperAdminPhone(phoneNumber))}`
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via My Profile.\n\n${InteractiveMenus.adminMenuIncomplete(this.isSuperAdminPhone(phoneNumber))}`
       };
     }
     
     const flowMap = {
-      '1': () => this.getPendingRequests(phoneNumber),
-      '2': () => this.getActiveConsultations(phoneNumber),
-      '3': () => {
-        const pendingApps = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
-        return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) };
+      'menu_consultations': () => {
+        const pendingCount = this.consultationManager?.getPendingForAdmin(phoneNumber)?.length || 0;
+        const activeCount = Array.from(this.consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length;
+        return { nextState: FlowStates.ADMIN_CONSULTATIONS_MENU, response: InteractiveMenus.adminConsultationsMenu(pendingCount, activeCount) };
       },
-      '4': () => {
+      'menu_finances': () => {
+        const hasPendingPayments = false; // TODO: Implement pending payments logic
+        const hasPendingDiscounts = false; // TODO: Implement pending discounts logic
+        return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts) };
+      },
+      'menu_system': () => {
+        const pendingRoles = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
         const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-        return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
+        return { nextState: FlowStates.ADMIN_SYSTEM_MENU, response: InteractiveMenus.adminSystemMenu(pendingRoles, pendingDoctors, this.isSuperAdminPhone(phoneNumber)) };
       },
-      '5': () => {
-        const missingFields = this.adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
-        const highlightMissing = {
-          name: !missingFields.includes('name') && !missingFields.includes('Name'),
-          phoneNumber: !missingFields.includes('phoneNumber') && !missingFields.includes('Phone Number')
-        };
-        return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu(highlightMissing) };
-      },
-      '6': () => this.handleViewAllPatients(phoneNumber),
-      '7': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
-      '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
-      '9': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
-      '10': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
-      '11': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*
-
-Enter phone number for new admin:
-
-0. Back to Admin Menu` }) : null,
-      '12': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*
-
-Enter admin phone to remove:
-
-0. Back to Admin Menu` }) : null,
-      '13': () => ({ nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: InteractiveMenus.adminSetFeeInput }),
+      'profile': () => ({ nextState: FlowStates.ADMIN_PROFILE_EDIT, response: InteractiveMenus.adminProfileEdit }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const current = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
@@ -2434,10 +2475,10 @@ const handler = flowMap[selection];
       phoneNumber: !missingFields.includes('phoneNumber') && !missingFields.includes('Phone Number')
     };
     
-    if (!isAdminProfileComplete && selection !== '5' && selection !== '0') {
+    if (!isAdminProfileComplete && selection !== 'profile' && selection !== 'switch_role' && selection !== '0' && selection !== '5') {
       return {
         nextState: FlowStates.SUPER_ADMIN_MENU,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via option 5 (Profile & Roles).\n\n${InteractiveMenus.superAdminMenu(0, 0, isAdminProfileComplete)}`
+        response: `⚠️ *Profile Required*\n\nComplete your admin profile first via My Profile.\n\n${InteractiveMenus.superAdminMenu(0, 0, isAdminProfileComplete)}`
       };
     }
     
@@ -2448,17 +2489,22 @@ const handler = flowMap[selection];
     const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
     
     const flowMap = {
-      '1': () => this.getPendingRequests(phoneNumber),
-      '2': () => this.getActiveConsultations(phoneNumber),
-      '3': () => ({ nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) }),
-      '4': () => ({ nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) }),
-      '5': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu(highlightMissing) }),
-      '6': () => this.handleViewAllPatients(phoneNumber),
-      '7': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
-      '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
-      '9': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
-      '10': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
-      '11': () => ({ nextState: FlowStates.SUPER_ADMIN_MANAGE_ADMINS, response: InteractiveMenus.superAdminManageAdmins }),
+      'menu_consultations': () => {
+        const pendingCount = this.consultationManager?.getPendingForAdmin(phoneNumber)?.length || 0;
+        const activeCount = Array.from(this.consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length;
+        return { nextState: FlowStates.ADMIN_CONSULTATIONS_MENU, response: InteractiveMenus.adminConsultationsMenu(pendingCount, activeCount) };
+      },
+      'menu_finances': () => {
+        const hasPendingPayments = false; // TODO: Implement pending payments logic
+        const hasPendingDiscounts = false; // TODO: Implement pending discounts logic
+        return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts) };
+      },
+      'menu_system': () => {
+        const pendingRoles = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        return { nextState: FlowStates.ADMIN_SYSTEM_MENU, response: InteractiveMenus.adminSystemMenu(pendingRoles, pendingDoctors, this.isSuperAdminPhone(phoneNumber)) };
+      },
+      'profile': () => ({ nextState: FlowStates.ADMIN_PROFILE_EDIT, response: InteractiveMenus.adminProfileEdit }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const currentRole = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
@@ -2469,6 +2515,65 @@ const handler = flowMap[selection];
     const handler = flowMap[selection];
     if (handler) return handler();
     return { nextState: FlowStates.SUPER_ADMIN_MENU, response: InteractiveMenus.superAdminMenu(pendingCount, activeCount, isAdminProfileComplete, false, false, pendingApps, pendingDoctors) };
+  }
+
+  handleAdminConsultationsMenuSelection(selection, phoneNumber) {
+    const flowMap = {
+      '1': () => this.getPendingRequests(phoneNumber),
+      '2': () => this.getActiveConsultations(phoneNumber),
+      '3': () => this.handleViewAllPatients(phoneNumber),
+      '4': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
+      '5': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
+      '0': () => {
+        const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+        const homeState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        const homeMenu = isSuperAdmin ? InteractiveMenus.superAdminMenu(0, 0, true) : this.getAdminMenuText(phoneNumber);
+        return { nextState: homeState, response: homeMenu };
+      }
+    };
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.ADMIN_CONSULTATIONS_MENU, response: InteractiveMenus.adminConsultationsMenu(0, 0) };
+  }
+
+  handleAdminFinancesMenuSelection(selection, phoneNumber) {
+    const flowMap = {
+      '1': () => ({ nextState: FlowStates.ADMIN_VERIFY_PAYMENT_INPUT, response: InteractiveMenus.adminVerifyPaymentInput }),
+      '2': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
+      '3': () => ({ nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: InteractiveMenus.adminSetFeeInput }),
+      '0': () => {
+        const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+        const homeState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        const homeMenu = isSuperAdmin ? InteractiveMenus.superAdminMenu(0, 0, true) : this.getAdminMenuText(phoneNumber);
+        return { nextState: homeState, response: homeMenu };
+      }
+    };
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(false, false) };
+  }
+
+  handleAdminSystemMenuSelection(selection, phoneNumber) {
+    const flowMap = {
+      '1': () => {
+        const pendingApps = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
+        return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) };
+      },
+      '2': () => {
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
+      },
+      '3': () => this.isSuperAdminPhone(phoneNumber) ? ({ nextState: FlowStates.SUPER_ADMIN_MANAGE_ADMINS, response: InteractiveMenus.superAdminManageAdmins }) : null,
+      '0': () => {
+        const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+        const homeState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        const homeMenu = isSuperAdmin ? InteractiveMenus.superAdminMenu(0, 0, true) : this.getAdminMenuText(phoneNumber);
+        return { nextState: homeState, response: homeMenu };
+      }
+    };
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.ADMIN_SYSTEM_MENU, response: InteractiveMenus.adminSystemMenu(0, 0, this.isSuperAdminPhone(phoneNumber)) };
   }
 
   handleSuperAdminManageAdminsSelection(selection, phoneNumber, session) {

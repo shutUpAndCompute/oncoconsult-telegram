@@ -1,0 +1,12 @@
+[
+  {
+    "id": "admin_1784636121147",
+    "phoneNumber": "999999991",
+    "telegramId": "999999991",
+    "name": "Fuzzer Admin",
+    "role": "super_admin",
+    "addedBy": "system",
+    "addedAt": "2026-07-21T12:15:21.147Z",
+    "active": true
+  }
+]

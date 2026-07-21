@@ -1,0 +1,23 @@
+digraph patient_flow {
+  rankdir=LR;
+  node [shape=box style=filled fontname="Helvetica" fontsize=10];
+  "welcome" [label="welcome" fillcolor="#00c888"];
+  "consultation" [label="consultation" fillcolor="#806488"];
+  "profile_view" [label="profile view" fillcolor="#806488"];
+  "report_upload" [label="report upload" fillcolor="#ff0088"];
+  "profile_edit" [label="profile edit" fillcolor="#ff0088"];
+  "role_application" [label="role application" fillcolor="#ff0088"];
+  "profile_remove_role" [label="profile remove role" fillcolor="#ff0088"];
+  "welcome" -> "consultation";
+  "welcome" -> "profile_view";
+  "consultation" -> "report_upload";
+  "consultation" -> "welcome";
+  "profile_view" -> "welcome";
+  "profile_view" -> "profile_edit";
+  "profile_view" -> "role_application";
+  "profile_view" -> "profile_remove_role";
+  "report_upload" -> "welcome";
+  "profile_edit" -> "profile_view";
+  "role_application" -> "profile_view";
+  "profile_remove_role" -> "profile_view";
+}
