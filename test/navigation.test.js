@@ -20,8 +20,8 @@ test('Menu text consistency: All back options specify destination', () => {
 });
 
 test('Set Fee menu item exists and is properly integrated', () => {
-  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('13'), 'Admin menu should have option 13 (Set Fee)');
-  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('Set Fee'), 'Option 13 should be "Set Fee"');
+  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('1️⃣1️⃣'), 'Admin menu should have option 11 (Set Fee)');
+  assert.ok(InteractiveMenus.adminMenu(0, 0).includes('Set Fee'), 'Option 11 should be "Set Fee"');
   assert.strictEqual(FlowStates.ADMIN_SET_FEE_INPUT, 'admin_set_fee_input', 'ADMIN_SET_FEE_INPUT state should exist');
   assert.ok(InteractiveMenus.adminSetFeeInput, 'adminSetFeeInput menu text should exist');
   assert.ok(InteractiveMenus.adminSetFeeInput.includes('PHONE AMOUNT'), 'Should show input format');
@@ -225,4 +225,37 @@ test('handleSuperAdminMenuSelection routes correctly', () => {
   assert.strictEqual(resultInvalid.nextState, 'super_admin_menu', 'Invalid option should stay at SUPER_ADMIN_MENU');
   
   adminRegistry.removeAdmin(testPhone);
+});
+
+test('Adversarial: Domain Guards block patient from accessing Doctor Menu', () => {
+  const ConsultationManager = require('../services/consultationManager');
+  const cm = new ConsultationManager(require('../services/doctorRouter'));
+  const flow = new ConversationFlow(cm, null, null, null, null);
+  
+  // Patient persona trying to jump into Doctor Menu
+  const result = flow.enforceDomainGuard({ nextState: FlowStates.DOCTOR_MENU, response: 'Secret Doctor Menu' }, 'patient', '12345');
+  assert.strictEqual(result.nextState, FlowStates.WELCOME, 'Domain Guard should boot patient back to WELCOME');
+  assert.ok(result.response.includes('Unauthorized Access'), 'Domain Guard should issue Unauthorized Access error');
+});
+
+test('Adversarial: Domain Guards block doctor from accessing Admin Menu', () => {
+  const ConsultationManager = require('../services/consultationManager');
+  const cm = new ConsultationManager(require('../services/doctorRouter'));
+  const flow = new ConversationFlow(cm, null, null, null, null);
+  
+  // Doctor persona trying to jump into Admin Menu
+  const result = flow.enforceDomainGuard({ nextState: FlowStates.ADMIN_MENU, response: 'Secret Admin Menu' }, 'doctor', '12345');
+  assert.strictEqual(result.nextState, FlowStates.WELCOME, 'Domain Guard should boot unauthorized role to WELCOME');
+  assert.ok(result.response.includes('Unauthorized Access'), 'Domain Guard should issue Unauthorized Access error');
+});
+
+test('Adversarial: Domain Guards allow Admin to access Admin Menu', () => {
+  const ConsultationManager = require('../services/consultationManager');
+  const cm = new ConsultationManager(require('../services/doctorRouter'));
+  const flow = new ConversationFlow(cm, null, null, null, null);
+  
+  // Admin accessing Admin Menu
+  const result = flow.enforceDomainGuard({ nextState: FlowStates.ADMIN_MENU, response: 'Admin Dashboard' }, 'admin', '12345');
+  assert.strictEqual(result.nextState, FlowStates.ADMIN_MENU, 'Domain Guard should allow Admin');
+  assert.strictEqual(result.response, 'Admin Dashboard', 'Domain Guard should preserve response');
 });

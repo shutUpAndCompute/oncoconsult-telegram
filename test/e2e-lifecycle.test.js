@@ -29,8 +29,21 @@ describe('End-to-End (E2E) Lifecycle Simulator', () => {
     consultationManager.sessions.clear();
     consultationManager.consultations.clear();
     
+    // Clear registries to prevent test pollution
+    fs.writeFileSync('data/users.json', JSON.stringify({}));
+    fs.writeFileSync('data/doctors.json', JSON.stringify([]));
+    fs.writeFileSync('data/admins.json', JSON.stringify([]));
+    
+    // Refresh internal caches if possible, or just instantiate anew (but singletons won't reload).
+    // Fortunately for users and doctors they reload from disk on write if we simulate it, but we can also just clear internal structures.
+    userRegistry.users = {};
+    doctorRouter.persistence.doctors = [];
+    
     // Seed an admin to act as the approver
     adminRegistry.addAdmin(ADMIN_CHAT, 'system', ADMIN_CHAT, 'super_admin', 'E2E Admin');
+    
+    // Clean up duplicates if addAdmin appended to our empty array
+    // (We rely on addAdmin updating the in-memory array)
   });
 
   afterEach(() => {

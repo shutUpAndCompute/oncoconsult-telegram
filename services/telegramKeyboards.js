@@ -114,9 +114,17 @@ const buildAdminMenu = (pending = 0, active = 0, isProfileComplete = true, hasPe
   buttons.push([{ text: hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
   buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
   buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
-  buttons.push([{ text: '13️⃣ Set Fee', callback_data: 'set_fee' }]);
+  buttons.push([{ text: '1️⃣1️⃣ Set Fee', callback_data: 'set_fee' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
+  return { reply_markup: { inline_keyboard: buttons } };
+};
+
+const buildSuperAdminManageAdminsMenu = () => {
+  const buttons = [];
+  buttons.push([{ text: '1️⃣ Add Admin', callback_data: 'add_admin' }]);
+  buttons.push([{ text: '2️⃣ Remove Admin', callback_data: 'remove_admin' }]);
+  buttons.push([{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'back_to_menu' }]);
   return { reply_markup: { inline_keyboard: buttons } };
 };
 
@@ -143,8 +151,7 @@ const buildSuperAdminMenu = (pending = 0, active = 0, isProfileComplete = true, 
   buttons.push([{ text: hasPendingDiscounts && showIndicator(8) ? '🔴 8️⃣ Verify Discount' : '8️⃣ Verify Discount', callback_data: 'verify_discount' }]);
   buttons.push([{ text: '9️⃣ Message Patient', callback_data: 'message_patient' }]);
   buttons.push([{ text: '🔟 Close Consultation', callback_data: 'close_consultation' }]);
-  buttons.push([{ text: '1️⃣1 Add Admin', callback_data: 'add_admin' }]);
-  buttons.push([{ text: '1️⃣2 Remove Admin', callback_data: 'remove_admin' }]);
+  buttons.push([{ text: '1️⃣1️⃣ Manage Admins', callback_data: 'manage_admins' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -384,6 +391,7 @@ module.exports = {
   buildPersonaSelect,
   buildAdminMenu,
   buildSuperAdminMenu,
+  buildSuperAdminManageAdminsMenu,
   buildCancerTypeMenu,
   buildConsultationMenu,
   buildDoctorMenu,

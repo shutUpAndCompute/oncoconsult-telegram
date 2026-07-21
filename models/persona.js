@@ -134,15 +134,6 @@ class UserPersona {
       return PersonaTypes.SUPPORT;
     }
 
-    const userRegistry = getUserRegistry();
-    const user = userRegistry.getUser(phoneNumber) || userRegistry.getUserByPhone(phoneNumber);
-    if (user) {
-      if (user.approvedRoles.includes('doctor')) return PersonaTypes.DOCTOR;
-      if (user.approvedRoles.includes('admin')) return PersonaTypes.ADMIN;
-      if (user.approvedRoles.includes('support')) return PersonaTypes.SUPPORT;
-      if (user.approvedRoles.includes('caregiver')) return PersonaTypes.CAREGIVER;
-    }
-
     const adminRegistry = getAdminRegistry();
     const registryAdmin = adminRegistry.getAdmins().find(
       a => normalizePhone(a.phoneNumber) === normalized ||
@@ -154,6 +145,15 @@ class UserPersona {
       return registryAdmin.role === 'super_admin'
         ? PersonaTypes.SUPER_ADMIN
         : PersonaTypes.ADMIN;
+    }
+
+    const userRegistry = getUserRegistry();
+    const user = userRegistry.getUser(phoneNumber) || userRegistry.getUserByPhone(phoneNumber);
+    if (user) {
+      if (user.approvedRoles.includes('admin')) return PersonaTypes.ADMIN;
+      if (user.approvedRoles.includes('support')) return PersonaTypes.SUPPORT;
+      if (user.approvedRoles.includes('doctor')) return PersonaTypes.DOCTOR;
+      if (user.approvedRoles.includes('caregiver')) return PersonaTypes.CAREGIVER;
     }
 
     const doctorPersistence = getDoctorPersistence();

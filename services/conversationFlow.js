@@ -75,11 +75,58 @@ DOCTOR_MENU: 'doctor_menu',
    PERSONA_SELECT: 'persona_select',
    ADMIN_MENU: 'admin_menu',
    SUPER_ADMIN_MENU: 'super_admin_menu',
+   SUPER_ADMIN_MANAGE_ADMINS: 'super_admin_manage_admins',
     ADMIN_ADD_ADMIN_INPUT: 'admin_add_admin_input',
     ADMIN_REMOVE_ADMIN_INPUT: 'admin_remove_admin_input',
     ADMIN_SET_FEE_INPUT: 'admin_set_fee_input',
     ADMIN_PROFILE_COMPLETE_OPTIONS: 'admin_profile_complete_options'
   };
+
+const ADMIN_DOMAIN_STATES = [
+  FlowStates.ADMIN_MENU,
+  FlowStates.SUPER_ADMIN_MENU,
+  FlowStates.SUPER_ADMIN_MANAGE_ADMINS,
+  FlowStates.ADMIN_ROLE_APPROVALS,
+  FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+  FlowStates.ADMIN_VERIFY_PAYMENT_INPUT,
+  FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT,
+  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT,
+  FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
+  FlowStates.ADMIN_CLOSE_CONSULTATION,
+  FlowStates.ADMIN_ADD_ADMIN_INPUT,
+  FlowStates.ADMIN_REMOVE_ADMIN_INPUT,
+  FlowStates.ADMIN_SET_FEE_INPUT,
+  FlowStates.ADMIN_PROFILE_EDIT,
+  FlowStates.ADMIN_PROFILE_EDIT_NAME,
+  FlowStates.ADMIN_PROFILE_EDIT_PHONE,
+  FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+  FlowStates.ADMIN_INVITE_DOCTOR_INPUT,
+  FlowStates.ADMIN_REGISTER_DOCTOR_INPUT,
+  FlowStates.ADMIN_APPROVE_DOCTOR_INPUT,
+  FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT,
+  FlowStates.ADMIN_APPROVE_SUPPORT_INPUT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_REMOVE_DOCTOR_INPUT,
+  FlowStates.ADMIN_REJECT_DOCTOR_INPUT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT
+];
+
+const DOCTOR_DOMAIN_STATES = [
+  FlowStates.DOCTOR_MENU,
+  FlowStates.DOCTOR_PROFILE_EDIT,
+  FlowStates.DOCTOR_MSG_ADMIN_INPUT
+];
+
+const SUPPORT_DOMAIN_STATES = [
+  FlowStates.SUPPORT_MENU,
+  FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
+  FlowStates.ADMIN_MESSAGE_PATIENT_INPUT
+];
+
+const CAREGIVER_DOMAIN_STATES = [
+  FlowStates.CAREGIVER_MENU,
+  FlowStates.CAREGIVER_PATIENT_LINK
+];
 
 const InteractiveMenus = {
   main: (persona = 'patient', hasOtherRoles = false, profileComplete = true) => `🩺 *Oncology Consultation*
@@ -124,7 +171,7 @@ ${hasPendingPayments && showIndicator(7) ? '🔴 ' : ''}7️⃣ Verify Payment
 ${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
-13️⃣ Set Fee
+1️⃣1️⃣ Set Fee
 
 0️⃣ Switch Role`;
   },
@@ -631,6 +678,7 @@ getMessageOptions(state, persona = 'patient', session = null) {
       case FlowStates.PROFILE_CONSENTS: return InteractiveMenus.consentsMenu;
       case FlowStates.MOBILE_COLLECTION: return InteractiveMenus.mobileCollection;
       case FlowStates.PERSONA_SELECT: return InteractiveMenus.personaSelect(persona);
+      case FlowStates.SUPER_ADMIN_MANAGE_ADMINS: return InteractiveMenus.superAdminManageAdmins;
       default: return InteractiveMenus.main(persona);
     }
   }
@@ -1360,6 +1408,7 @@ async handlePaymentStatusCheck(phoneNumber, session) {
 
   async createFlowHandler(phoneNumber, message) {
     const session = this.consultationManager.getSession(phoneNumber);
+    const effectiveRole = this.getCurrentEffectiveRole(phoneNumber, session);
     // A caregiver acting on behalf of a linked patient never fills out their
     // own patientProfile (the patient already has one) - checking session
     // directly would permanently lock them out of Consultation/Billing
@@ -1454,6 +1503,55 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       });
     }
 
+    return this.enforceDomainGuard(flowResult, effectiveRole, phoneNumber);
+  }
+
+  enforceDomainGuard(flowResult, effectiveRole, phoneNumber) {
+    if (!flowResult || !flowResult.nextState) return flowResult;
+    const nextState = flowResult.nextState;
+    const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+    
+    if (ADMIN_DOMAIN_STATES.includes(nextState)) {
+      if (effectiveRole !== 'admin' && effectiveRole !== 'super_admin') {
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `⛔ *Unauthorized Access*\n\nYou do not have permission to access Admin menus.\n\n${this.getWelcomeMenu(phoneNumber)}`
+        };
+      }
+    }
+    
+    if (DOCTOR_DOMAIN_STATES.includes(nextState)) {
+      if (effectiveRole !== 'doctor') {
+        const homeMenu = isSuperAdmin ? InteractiveMenus.superAdminMenu(0, 0) : this.getAdminMenuText(phoneNumber);
+        const homeState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+        const fallbackState = (effectiveRole === 'admin' || effectiveRole === 'super_admin') ? homeState : FlowStates.WELCOME;
+        const fallbackMenu = (effectiveRole === 'admin' || effectiveRole === 'super_admin') ? homeMenu : this.getWelcomeMenu(phoneNumber);
+        
+        return {
+          nextState: fallbackState,
+          response: `⛔ *Unauthorized Access*\n\nYou must switch to Doctor mode to access this area.\n\n${fallbackMenu}`
+        };
+      }
+    }
+    
+    if (SUPPORT_DOMAIN_STATES.includes(nextState)) {
+      if (effectiveRole !== 'support') {
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `⛔ *Unauthorized Access*\n\nYou must switch to Support mode to access this area.\n\n${this.getWelcomeMenu(phoneNumber)}`
+        };
+      }
+    }
+    
+    if (CAREGIVER_DOMAIN_STATES.includes(nextState)) {
+      if (effectiveRole !== 'caregiver') {
+        return {
+          nextState: FlowStates.WELCOME,
+          response: `⛔ *Unauthorized Access*\n\nYou must switch to Caregiver mode to access this area.\n\n${this.getWelcomeMenu(phoneNumber)}`
+        };
+      }
+    }
+    
     return flowResult;
   }
 
@@ -2399,16 +2497,7 @@ const handler = flowMap[selection];
       '8': () => ({ nextState: FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT, response: InteractiveMenus.adminVerifyDiscountInput }),
       '9': () => ({ nextState: FlowStates.ADMIN_MESSAGE_PATIENT_INPUT, response: InteractiveMenus.adminMessagePatientInput }),
       '10': () => ({ nextState: FlowStates.ADMIN_CLOSE_CONSULTATION, response: InteractiveMenus.closeConsultationPrompt }),
-      '11': () => ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*
-
-Enter phone number for new admin:
-
-0. Back to Admin Menu` }),
-      '12': () => ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*
-
-Enter admin phone to remove:
-
-0. Back to Admin Menu` }),
+      '11': () => ({ nextState: FlowStates.SUPER_ADMIN_MANAGE_ADMINS, response: InteractiveMenus.superAdminManageAdmins }),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
         const currentRole = this.isSuperAdminPhone(phoneNumber) ? 'super_admin' : 'admin';
@@ -2418,7 +2507,26 @@ Enter admin phone to remove:
     
     const handler = flowMap[selection];
     if (handler) return handler();
-    return { nextState: FlowStates.SUPER_ADMIN_MENU, response: InteractiveMenus.superAdminMenu(pendingCount, activeCount) };
+    return { nextState: FlowStates.SUPER_ADMIN_MENU, response: InteractiveMenus.superAdminMenu(pendingCount, activeCount, isAdminProfileComplete, false, false, pendingApps, pendingDoctors) };
+  }
+
+  handleSuperAdminManageAdminsSelection(selection, phoneNumber, session) {
+    const flowMap = {
+      '1': () => ({ nextState: FlowStates.ADMIN_ADD_ADMIN_INPUT, response: `🔐 *Add Admin*\n\nEnter phone number for new admin:\n\n0. Back to Menu` }),
+      '2': () => ({ nextState: FlowStates.ADMIN_REMOVE_ADMIN_INPUT, response: `🗑️ *Remove Admin*\n\nEnter admin phone to remove:\n\n0. Back to Menu` }),
+      '0': () => {
+        const isAdminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const pendingCount = this.consultationManager?.getPendingForAdmin(phoneNumber)?.length || 0;
+        const activeCount = Array.from(this.consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length;
+        const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        return { nextState: FlowStates.SUPER_ADMIN_MENU, response: InteractiveMenus.superAdminMenu(pendingCount, activeCount, isAdminProfileComplete, false, false, pendingApps, pendingDoctors) };
+      }
+    };
+    
+    const handler = flowMap[selection];
+    if (handler) return handler();
+    return { nextState: FlowStates.SUPER_ADMIN_MANAGE_ADMINS, response: InteractiveMenus.superAdminManageAdmins };
   }
 
   handleAdminDoctorManagementSelection(selection, phoneNumber, session) {
