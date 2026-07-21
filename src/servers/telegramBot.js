@@ -465,7 +465,7 @@ class TelegramAdapter {
           'verify_discount': '8', 
           'message_patient': '9', 
           'close_consultation': '10', 
-          'set_fee': '13',
+          'set_fee': '11',
           'switch_role': '0' 
         },
         [FlowStates.SUPER_ADMIN_MENU]: { 
@@ -479,10 +479,10 @@ class TelegramAdapter {
           'verify_discount': '8', 
           'message_patient': '9', 
           'close_consultation': '10', 
-          'add_admin': '11',
-          'remove_admin': '12',
+          'manage_admins': '11',
           'switch_role': '0' 
         },
+        [FlowStates.SUPER_ADMIN_MANAGE_ADMINS]: { 'add_admin': '1', 'remove_admin': '2', 'back_to_menu': '0' },
         [FlowStates.PROFILE_VIEW]: { 'view_profile': '1', 'edit_profile': '2', 'apply_role': '3', 'my_roles': '4', 'remove_role': '5', 'main_menu': '0' },
         [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '4' },
         [FlowStates.CONSULTATION_WITHDRAW]: { 'withdraw_confirm': '1', 'withdraw_cancel': '0' },
@@ -542,6 +542,7 @@ class TelegramAdapter {
             case FlowStates.ADMIN_REMOVE_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildAdminRemoveAdminInput(); break;
             case FlowStates.ADMIN_CLOSE_CONSULTATION: replyMarkup = telegramKeyboards.buildCloseConsultationPrompt(); break;
             case FlowStates.ADMIN_PROFILE_EDIT: replyMarkup = telegramKeyboards.buildAdminProfileEdit(); break;
+            case FlowStates.SUPER_ADMIN_MANAGE_ADMINS: replyMarkup = telegramKeyboards.buildSuperAdminManageAdminsMenu(); break;
           }
         }
 
