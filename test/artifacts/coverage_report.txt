@@ -1,5 +1,5 @@
-Global State Coverage Report
-Generated: 2026-07-21T12:15:20.162Z
+Global State Coverage Report (Expanded)
+Generated: 2026-07-21T14:19:21.061Z
 Total FlowStates : 64
-Covered          : 37 (57.8%)
-Uncovered        : caregiver_auth, caregiver_consent_ack, caregiver_patient_link, caregiver_menu, profile, profile_discount_category, profile_discount_economic, profile_discount_profession, profile_discount_social, profile_discount_documents, profile_consents, cancer_type, report_upload, billing, payment_pending, doctor_select, consultation_withdraw, completed, admin_fallback, admin_bootstrap_secret, admin_message_doctor_input, admin_message_patient_input, mobile_collection, admin_add_admin_input, admin_remove_admin_input, admin_profile_complete_options, doctor_patients_view
+Covered          : 64 (100.0%)
+Uncovered        : 

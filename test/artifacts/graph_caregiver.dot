@@ -1,0 +1,31 @@
+digraph caregiver_flow {
+  rankdir=LR;
+  node [shape=box style=filled fontname="Helvetica" fontsize=10];
+  "caregiver_menu" [label="caregiver menu" fillcolor="#00c888"];
+  "welcome" [label="welcome" fillcolor="#558588"];
+  "persona_select" [label="persona select" fillcolor="#558588"];
+  "consultation" [label="consultation" fillcolor="#558588"];
+  "profile_view" [label="profile view" fillcolor="#558588"];
+  "platform_terms" [label="platform terms" fillcolor="#aa4388"];
+  "profile_edit" [label="profile edit" fillcolor="#aa4388"];
+  "role_application" [label="role application" fillcolor="#aa4388"];
+  "profile_remove_role" [label="profile remove role" fillcolor="#aa4388"];
+  "role_select" [label="role select" fillcolor="#ff0088"];
+  "caregiver_menu" -> "welcome";
+  "caregiver_menu" -> "persona_select";
+  "caregiver_menu" -> "consultation";
+  "caregiver_menu" -> "profile_view";
+  "welcome" -> "platform_terms";
+  "persona_select" -> "welcome";
+  "consultation" -> "welcome";
+  "profile_view" -> "welcome";
+  "profile_view" -> "profile_edit";
+  "profile_view" -> "role_application";
+  "profile_view" -> "profile_remove_role";
+  "platform_terms" -> "welcome";
+  "platform_terms" -> "role_select";
+  "profile_edit" -> "profile_view";
+  "role_application" -> "profile_view";
+  "profile_remove_role" -> "profile_view";
+  "role_select" -> "welcome";
+}
