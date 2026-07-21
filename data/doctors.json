@@ -100,5 +100,137 @@
     "city": "Kerala",
     "telegramId": null,
     "available": true
+  },
+  {
+    "id": "doc_1784618621798",
+    "name": "Doctor",
+    "telegramId": "doctor456",
+    "email": "",
+    "approvedBy": null,
+    "specialty": "general",
+    "cancerTypes": [
+      "general",
+      "lung",
+      "breast"
+    ],
+    "qualifications": [],
+    "experience": 0,
+    "available": true,
+    "consultationFee": 1500,
+    "followupFee": 800,
+    "languages": [
+      "en"
+    ],
+    "hospital": "",
+    "city": "",
+    "state": "",
+    "rating": 5,
+    "bio": "",
+    "workingHours": {
+      "start": "09:00",
+      "end": "17:00"
+    },
+    "timezone": "Asia/Kolkata",
+    "maxPatientsPerDay": 20,
+    "activeConsultations": 0
+  },
+  {
+    "id": "doc_1784618663034",
+    "name": "Doctor",
+    "telegramId": "doctor456",
+    "email": "",
+    "approvedBy": null,
+    "specialty": "general",
+    "cancerTypes": [
+      "general",
+      "lung",
+      "breast"
+    ],
+    "qualifications": [],
+    "experience": 0,
+    "available": true,
+    "consultationFee": 1500,
+    "followupFee": 800,
+    "languages": [
+      "en"
+    ],
+    "hospital": "",
+    "city": "",
+    "state": "",
+    "rating": 5,
+    "bio": "",
+    "workingHours": {
+      "start": "09:00",
+      "end": "17:00"
+    },
+    "timezone": "Asia/Kolkata",
+    "maxPatientsPerDay": 20,
+    "activeConsultations": 0
+  },
+  {
+    "id": "doc_1784618688838",
+    "name": "Doctor",
+    "telegramId": "doctor456",
+    "email": "",
+    "approvedBy": null,
+    "specialty": "general",
+    "cancerTypes": [
+      "general",
+      "lung",
+      "breast"
+    ],
+    "qualifications": [],
+    "experience": 0,
+    "available": true,
+    "consultationFee": 1500,
+    "followupFee": 800,
+    "languages": [
+      "en"
+    ],
+    "hospital": "",
+    "city": "",
+    "state": "",
+    "rating": 5,
+    "bio": "",
+    "workingHours": {
+      "start": "09:00",
+      "end": "17:00"
+    },
+    "timezone": "Asia/Kolkata",
+    "maxPatientsPerDay": 20,
+    "activeConsultations": 0
+  },
+  {
+    "id": "doc_1784618688974",
+    "name": "Doctor",
+    "telegramId": "doctor456",
+    "email": "",
+    "approvedBy": null,
+    "specialty": "general",
+    "cancerTypes": [
+      "general",
+      "lung",
+      "breast"
+    ],
+    "qualifications": [],
+    "experience": 0,
+    "available": true,
+    "consultationFee": 1500,
+    "followupFee": 800,
+    "languages": [
+      "en"
+    ],
+    "hospital": "",
+    "city": "",
+    "state": "",
+    "rating": 5,
+    "bio": "",
+    "workingHours": {
+      "start": "09:00",
+      "end": "17:00"
+    },
+    "timezone": "Asia/Kolkata",
+    "maxPatientsPerDay": 20,
+    "activeConsultations": 0
   }
 ]

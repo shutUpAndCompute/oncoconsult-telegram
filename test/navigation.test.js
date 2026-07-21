@@ -187,16 +187,14 @@ test('Super Admin Menu separation: Distinct from Admin Menu', () => {
   
   const superAdminMenu = InteractiveMenus.superAdminMenu(5, 3);
   assert.ok(superAdminMenu.includes('🔐 *Super Admin Panel*'), 'Super Admin menu has correct title');
-  assert.ok(superAdminMenu.includes('Add Admin'), 'Super Admin menu has Add Admin option');
-  assert.ok(superAdminMenu.includes('Remove Admin'), 'Super Admin menu has Remove Admin option');
+  assert.ok(superAdminMenu.includes('Manage Admins'), 'Super Admin menu has Manage Admins option');
   assert.ok(!superAdminMenu.includes('View Patient Profiles'), 'Super Admin menu has View All Patients');
 });
 
 test('Admin Menu does not show Super Admin only options', () => {
   const adminMenu = InteractiveMenus.adminMenu(0, 0);
   
-  assert.ok(!adminMenu.includes('Add Admin'), 'Admin menu should not have Add Admin');
-  assert.ok(!adminMenu.includes('Remove Admin'), 'Admin menu should not have Remove Admin');
+  assert.ok(!adminMenu.includes('Manage Admins'), 'Admin menu should not have Manage Admins');
   assert.ok(adminMenu.includes('View Patient Profiles'), 'Admin menu has View Patient Profiles');
 });
 

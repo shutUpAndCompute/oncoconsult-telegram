@@ -148,27 +148,16 @@ Reply with number`,
   adminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
     // Determine which item should have the indicator (last actionable item in workflow)
     // Priority cascades to the LAST item needing action:
-    // 8 (Verify Discount) > 7 (Verify Payment) > 5 (Profile) > 1 (Pending Requests) > 3 (Roles) > 4 (Doctors)
-    let indicatorOption = 0;
-    if (hasPendingDiscounts) indicatorOption = 8;
-    else if (hasPendingPayments) indicatorOption = 7;
-    else if (!isProfileComplete) indicatorOption = 5;
-    else if (pending > 0) indicatorOption = 1;
-    else if (pendingRoles > 0) indicatorOption = 3;
-    else if (pendingDocs > 0) indicatorOption = 4;
-    
-    const showIndicator = (opt) => indicatorOption === opt;
-    
     return `🛠️ *Admin Panel*
 
-${pending > 0 && showIndicator(1) ? '🔴 ' : ''}1️⃣ Pending Requests
+${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests
 ${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations
-${pendingRoles > 0 && showIndicator(3) ? '🔴 ' : ''}3️⃣ Role Approvals
-${pendingDocs > 0 && showIndicator(4) ? '🔴 ' : ''}4️⃣ Doctor Management
-${!isProfileComplete && showIndicator(5) ? '🔴 ' : ''}5️⃣ Profile
+${pendingRoles > 0 ? '🔴 ' : ''}3️⃣ Role Approvals
+${pendingDocs > 0 ? '🔴 ' : ''}4️⃣ Doctor Management
+${!isProfileComplete ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View Patient Profiles
-${hasPendingPayments && showIndicator(7) ? '🔴 ' : ''}7️⃣ Verify Payment
-${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
+${hasPendingPayments ? '🔴 ' : ''}7️⃣ Verify Payment
+${hasPendingDiscounts ? '🔴 ' : ''}8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
 1️⃣1️⃣ Set Fee
@@ -176,75 +165,47 @@ ${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
 0️⃣ Switch Role`;
   },
   superAdminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDocs = 0) => {
-    // Determine which item should have the indicator (last actionable item in workflow)
-    let indicatorOption = 0;
-    if (hasPendingDiscounts) indicatorOption = 8;
-    else if (hasPendingPayments) indicatorOption = 7;
-    else if (!isProfileComplete) indicatorOption = 5;
-    else if (pending > 0) indicatorOption = 1;
-    else if (pendingRoles > 0) indicatorOption = 3;
-    else if (pendingDocs > 0) indicatorOption = 4;
-    
-    const showIndicator = (opt) => indicatorOption === opt;
-    
     return `🔐 *Super Admin Panel*
 
 You have full system access.
 
-${pending > 0 && showIndicator(1) ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
+${pending > 0 ? '🔴 ' : ''}1️⃣ Pending Requests (${pending} pending)
 ${active > 0 ? '🟢 ' : ''}2️⃣ Active Consultations (${active} active)
-${pendingRoles > 0 && showIndicator(3) ? '🔴 ' : ''}3️⃣ Role Approvals
-${pendingDocs > 0 && showIndicator(4) ? '🔴 ' : ''}4️⃣ Doctor Management
-${!isProfileComplete && showIndicator(5) ? '🔴 ' : ''}5️⃣ Profile
+${pendingRoles > 0 ? '🔴 ' : ''}3️⃣ Role Approvals
+${pendingDocs > 0 ? '🔴 ' : ''}4️⃣ Doctor Management
+${!isProfileComplete ? '🔴 ' : ''}5️⃣ Profile
 6️⃣ View All Patients
-${hasPendingPayments && showIndicator(7) ? '🔴 ' : ''}7️⃣ Verify Payment
-${hasPendingDiscounts && showIndicator(8) ? '🔴 ' : ''}8️⃣ Verify Discount
+${hasPendingPayments ? '🔴 ' : ''}7️⃣ Verify Payment
+${hasPendingDiscounts ? '🔴 ' : ''}8️⃣ Verify Discount
 9️⃣ Message Patient
 🔟 Close Consultation
-1️⃣1 Add Admin
-1️⃣2 Remove Admin
+1️⃣1️⃣ Manage Admins
 
 0️⃣ Switch Role`;
   },
-  adminRoleApprovals: (pendingApps = 0, highlightOption = null) => {
-    const showAppsIndicator = pendingApps > 0;
-    const showApproveDoctor = highlightOption === 2;
-    const showApproveCaregiver = highlightOption === 3;
-    const showApproveSupport = highlightOption === 4;
-    
+  adminRoleApprovals: (pendingCounts = { doctor: 0, caregiver: 0, support: 0 }) => {
     return `🔐 *Role Approvals*
 
-${showAppsIndicator ? '🔴 ' : ''}1️⃣ View Role Applications
-${showApproveDoctor ? '🔴 ' : ''}2️⃣ Approve Doctor
-${showApproveCaregiver ? '🔴 ' : ''}3️⃣ Approve Caregiver
-${showApproveSupport ? '🔴 ' : ''}4️⃣ Approve Support
+1️⃣ View Role Applications
+${pendingCounts.doctor > 0 ? `🔴 2️⃣ Approve Doctor (${pendingCounts.doctor} pending)` : '2️⃣ Approve Doctor'}
+${pendingCounts.caregiver > 0 ? `🔴 3️⃣ Approve Caregiver (${pendingCounts.caregiver} pending)` : '3️⃣ Approve Caregiver'}
+${pendingCounts.support > 0 ? `🔴 4️⃣ Approve Support (${pendingCounts.support} pending)` : '4️⃣ Approve Support'}
 
 0️⃣ Back to Admin Menu
 
 Reply with number`;
   },
-  adminDoctorManagement: (pendingDoctors = 0, highlightOption = null) => {
-    const showListDoctors = pendingDoctors > 0 || highlightOption === 1;
-    const showListPending = pendingDoctors > 0;
-    const showAssignDoctor = highlightOption === 3;
-    const showReassignDoctor = highlightOption === 4;
-    const showRemoveDoctor = highlightOption === 5;
-    const showRejectDoctor = highlightOption === 6;
-    const showMessageDoctor = highlightOption === 7;
-    const showRegisterDoctor = highlightOption === 8;
-    const showInviteDoctor = highlightOption === 9;
-    
+  adminDoctorManagement: (pendingDocs = 0) => {
     return `👨⚕️ *Doctor Management*
 
-${showListDoctors ? '🔴 ' : ''}1️⃣ List Doctors
-${showListPending ? '🔴 ' : ''}2️⃣ List Pending Doctors
-${showAssignDoctor ? '🔴 ' : ''}3️⃣ Assign Doctor
-${showReassignDoctor ? '🔴 ' : ''}4️⃣ Reassign Doctor
-${showRemoveDoctor ? '🔴 ' : ''}5️⃣ Remove Doctor
-${showRejectDoctor ? '🔴 ' : ''}6️⃣ Reject Doctor
-${showMessageDoctor ? '🔴 ' : ''}7️⃣ Message Doctor
-${showRegisterDoctor ? '🔴 ' : ''}8️⃣ Register Doctor
-${showInviteDoctor ? '🔴 ' : ''}9️⃣ Invite Doctor
+1️⃣ View Doctors
+2️⃣ Invite Doctor
+${pendingDocs > 0 ? `🔴 3️⃣ Register Doctor (${pendingDocs} pending)` : '3️⃣ Register Doctor'}
+4️⃣ Assign Doctor
+5️⃣ Remove Doctor
+6️⃣ Reject Doctor
+7️⃣ Message Doctor
+8️⃣ Reassign Doctor
 
 0️⃣ Back to Admin Menu
 
