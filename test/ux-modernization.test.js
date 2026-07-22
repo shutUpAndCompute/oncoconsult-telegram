@@ -305,7 +305,7 @@ test('Dual-Support Contract: Missing Button Audit', async (t) => {
     await t.test('should have 4 options in Admin Profile Edit keyboard', () => {
       const kb = telegramKeyboards.buildAdminProfileEdit().reply_markup.inline_keyboard;
       assert.strictEqual(kb.length, 4);
-      const text = InteractiveMenus.adminProfileEdit;
+      const text = InteractiveMenus.adminProfileEdit([]);
       assert.match(text, /1️⃣ Edit Name/);
       assert.match(text, /3️⃣ View Profile/);
     });

@@ -287,12 +287,18 @@ const buildMobileCollection = () => ({ reply_markup: { inline_keyboard: [[{ text
 
 const buildCaregiverPatientLink = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]] } });
 
-const buildAdminProfileEdit = () => ({ reply_markup: { inline_keyboard: [
-  [{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }],
-  [{ text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }],
-  [{ text: '3️⃣ View Profile', callback_data: 'view_profile' }],
-  [{ text: '0️⃣ Cancel', callback_data: 'cancel' }]
-] } });
+const buildAdminProfileEdit = (missingFields = []) => {
+  const missingNames = missingFields.map(f => f.toLowerCase());
+  const hasMissingName = missingNames.includes('name');
+  const hasMissingPhone = missingNames.includes('phone') || missingNames.includes('phonenumber');
+  
+  return { reply_markup: { inline_keyboard: [
+    [{ text: hasMissingName ? '🔴 1️⃣ Edit Name' : '1️⃣ Edit Name', callback_data: 'edit_name' }],
+    [{ text: hasMissingPhone ? '🔴 2️⃣ Edit Phone' : '2️⃣ Edit Phone', callback_data: 'edit_phone' }],
+    [{ text: '3️⃣ View Profile', callback_data: 'view_profile' }],
+    [{ text: '0️⃣ Back to Profile', callback_data: 'cancel' }]
+  ] } };
+};
 
 const buildAdminProfileEditName = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
 
