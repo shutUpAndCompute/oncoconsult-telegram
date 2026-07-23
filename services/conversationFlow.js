@@ -654,15 +654,34 @@ getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null
       case FlowStates.PROFILE_EDIT: return InteractiveMenus.profileEdit;
       case FlowStates.ROLE_APPLICATION: return InteractiveMenus.roleApplication;
       case FlowStates.CONSULTATION_WITHDRAW: return InteractiveMenus.withdrawalConfirm;
-      case FlowStates.ADMIN_MENU: return InteractiveMenus.adminMenu;
+      case FlowStates.ADMIN_MENU: {
+        const pending = this.consultationManager.getPendingActionsForAdmin?.(phoneNumber) || 0;
+        const active = 0;
+        const isProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = false;
+        const pendingRoles = 0;
+        const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+        return InteractiveMenus.adminMenu(pending, active, isProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
+      }
       case FlowStates.ADMIN_CLOSE_CONSULTATION: return InteractiveMenus.closeConsultationPrompt;
-      case FlowStates.ADMIN_ROLE_APPROVALS: return InteractiveMenus.adminRoleApprovals;
+      case FlowStates.ADMIN_ROLE_APPROVALS: {
+        const pendingCounts = {
+          doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+          caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+          support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+        };
+        return InteractiveMenus.adminRoleApprovals(pendingCounts);
+      }
       case FlowStates.ADMIN_INVITE_DOCTOR_INPUT: return InteractiveMenus.adminInviteDoctorInput;
       case FlowStates.ADMIN_REGISTER_DOCTOR_INPUT: return InteractiveMenus.adminRegisterDoctorInput;
       case FlowStates.ADMIN_APPROVE_DOCTOR_INPUT: return InteractiveMenus.adminApproveDoctorInput;
       case FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT: return InteractiveMenus.adminApproveCaregiverInput;
       case FlowStates.ADMIN_APPROVE_SUPPORT_INPUT: return InteractiveMenus.adminApproveSupportInput;
-      case FlowStates.ADMIN_DOCTOR_MANAGEMENT: return InteractiveMenus.adminDoctorManagement;
+      case FlowStates.ADMIN_DOCTOR_MANAGEMENT: {
+        const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+        return InteractiveMenus.adminDoctorManagement(pendingDoctors);
+      }
       case FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT: return InteractiveMenus.adminAssignDoctorInput;
       case FlowStates.ADMIN_REMOVE_DOCTOR_INPUT: return InteractiveMenus.adminRemoveDoctorInput;
       case FlowStates.ADMIN_REJECT_DOCTOR_INPUT: return InteractiveMenus.adminRejectDoctorInput;
@@ -695,6 +714,20 @@ getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null
       case FlowStates.MOBILE_COLLECTION: return InteractiveMenus.mobileCollection;
       case FlowStates.PERSONA_SELECT: return InteractiveMenus.personaSelect(persona);
       case FlowStates.SUPER_ADMIN_MANAGE_ADMINS: return InteractiveMenus.superAdminManageAdmins;
+      case FlowStates.DOCTOR_PATIENTS_VIEW: {
+        const doctorId = this.consultationManager.getSession(phoneNumber)?.doctorId;
+        const consultations = Array.from(this.consultationManager.consultations?.values() || [])
+          .filter(c => c.doctorId === doctorId && c.status === 'active');
+        const patients = consultations.map(c => {
+          const patientSession = this.consultationManager.getSession(c.patientPhone);
+          return {
+            phoneNumber: c.patientPhone,
+            name: patientSession?.patientProfile?.name || 'Unknown',
+            cancerType: patientSession?.cancerType || 'unknown'
+          };
+        });
+        return InteractiveMenus.profileLinkedPatients(patients);
+      }
       default: return InteractiveMenus.main(persona);
     }
   }
@@ -1184,7 +1217,9 @@ Example: 9876543210
     } else if (selection === '3') {
       return this.handleWithdrawalRequest(phoneNumber, session);
     } else if (selection === '4') {
-      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+      const { getAvailableRoles } = require('../models/persona');
+      const currentRole = this.getCurrentEffectiveRole(phoneNumber, session);
+      return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) };
     }
     return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation(true)}` };
   }
@@ -2029,7 +2064,7 @@ async handleConsultationRequest(phoneNumber, session) {
       this.userRegistry.revokeRole(phoneNumber, role);
       return {
         nextState: FlowStates.PROFILE_VIEW,
-        response: `✅ Role '${role}' removed.\n\n${InteractiveMenus.profileMenu({})}}`
+        response: `✅ Role '${role}' removed.\n\n${InteractiveMenus.profileMenu({})}`
       };
     }
     return { nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({}) };
@@ -3651,10 +3686,24 @@ Example: cons_1234567890
   }
 
   handleDoctorPatientsView(selection, phoneNumber, session) {
-    if (selection === '0') {
-      return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(session?.doctorName, !!session?.activeConsultation, session?.pendingActions || 0) };
+    if (selection === '0' || selection === 'cancel') {
+      return { 
+        nextState: FlowStates.DOCTOR_MENU, 
+        response: InteractiveMenus.doctorMenu(session?.doctorName, !!session?.activeConsultation, session?.pendingActions || 0) 
+      };
     }
-    return { nextState: FlowStates.DOCTOR_PATIENTS_VIEW, response: InteractiveMenus.profileLinkedPatients([]) };
+    const doctorId = session?.doctorId;
+    const consultations = Array.from(this.consultationManager.consultations?.values() || [])
+      .filter(c => c.doctorId === doctorId && c.status === 'active');
+    const patients = consultations.map(c => {
+      const patientSession = this.consultationManager.getSession(c.patientPhone);
+      return {
+        phoneNumber: c.patientPhone,
+        name: patientSession?.patientProfile?.name || 'Unknown',
+        cancerType: patientSession?.cancerType || 'unknown'
+      };
+    });
+    return { nextState: FlowStates.DOCTOR_PATIENTS_VIEW, response: InteractiveMenus.profileLinkedPatients(patients) };
   }
 
 

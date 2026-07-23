@@ -313,3 +313,46 @@ test.describe('State Verification', () => {
     });
   });
 });
+
+test.describe('Response Validation', () => {
+  test('All getMessageOptions return strings, not function references', () => {
+    const testStates = Object.values(FlowStates);
+    testStates.forEach(state => {
+      const result = flow.getMessageOptions(state, 'patient', {}, '1234567890');
+      assert.strictEqual(typeof result, 'string', `State ${state} should return string, got ${typeof result}`);
+      assert.ok(!result.includes('[Function'), `State ${state} should not contain [Function]`);
+      assert.ok(result.length > 0, `State ${state} should return non-empty string`);
+    });
+  });
+
+  test('DOCTOR_PATIENTS_VIEW state is properly wired', async () => {
+    assert.strictEqual(FlowStates.DOCTOR_PATIENTS_VIEW, 'doctor_patients_view', 'DOCTOR_PATIENTS_VIEW should be defined');
+    cm.updateSession('doc_test', { doctorId: 'doc_123', selectedPersona: 'doctor', flowState: FlowStates.DOCTOR_PATIENTS_VIEW });
+    const result = await flow.parseMenuSelection('0', FlowStates.DOCTOR_PATIENTS_VIEW, 'doc_test', { selectedPersona: 'doctor' });
+    assert.strictEqual(result.nextState, FlowStates.DOCTOR_MENU, 'Option 0 should return to DOCTOR_MENU');
+    assert.strictEqual(typeof result.response, 'string', 'Response should be a string');
+  });
+
+  test('Consultation menu option 4 returns to persona select', async () => {
+    cm.updateSession('pt_test', { 
+      patientProfile: { name: 'Test', age: 30, gender: 'M', cancerType: 'breast' },
+      confirmedConsents: { teleconsultation: true, dataSharing: true, dpdp: true },
+      selectedPersona: 'patient',
+      flowState: FlowStates.CONSULTATION 
+    });
+    const result = await flow.parseMenuSelection('4', FlowStates.CONSULTATION, 'pt_test', { selectedPersona: 'patient' });
+    assert.strictEqual(result.nextState, FlowStates.PERSONA_SELECT, 'Option 4 should go to PERSONA_SELECT');
+    assert.strictEqual(typeof result.response, 'string', 'Response should be a string');
+  });
+
+  test('Profile remove role handler works correctly', () => {
+    const testPhone = 'user_remove_role';
+    const testSession = { selectedPersona: 'patient', flowState: FlowStates.PROFILE_VIEW };
+    ur.createUser(testPhone);
+    ur.approveRole(testPhone, 'doctor');
+    const result = flow.handleRemoveRole('doctor', testPhone, testSession);
+    assert.strictEqual(result.nextState, FlowStates.PROFILE_VIEW, 'Should return to PROFILE_VIEW');
+    assert.strictEqual(typeof result.response, 'string', 'Response should be a string');
+    assert.ok(!result.response.includes('}'), 'Response should not contain syntax error braces');
+  });
+});
