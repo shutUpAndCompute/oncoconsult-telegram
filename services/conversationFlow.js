@@ -745,6 +745,9 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.DOCTOR_MENU:
         return this.handleDoctorMenuSelection(selection, phoneNumber, session);
 
+      case FlowStates.DOCTOR_PATIENTS_VIEW:
+        return this.handleDoctorPatientsView(selection, phoneNumber, session);
+
       case FlowStates.CANCER_TYPE:
         return this.handleCancerTypeSelection(selection, phoneNumber);
         
@@ -3642,9 +3645,16 @@ Example: cons_1234567890
     });
 
     return {
-      nextState: FlowStates.DOCTOR_MENU,
+      nextState: FlowStates.DOCTOR_PATIENTS_VIEW,
       response: InteractiveMenus.profileLinkedPatients(patients)
     };
+  }
+
+  handleDoctorPatientsView(selection, phoneNumber, session) {
+    if (selection === '0') {
+      return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(session?.doctorName, !!session?.activeConsultation, session?.pendingActions || 0) };
+    }
+    return { nextState: FlowStates.DOCTOR_PATIENTS_VIEW, response: InteractiveMenus.profileLinkedPatients([]) };
   }
 
 
