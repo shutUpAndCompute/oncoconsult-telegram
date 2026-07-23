@@ -1,5 +1,5 @@
 Global State Coverage Report (Expanded)
-Generated: 2026-07-21T14:19:21.061Z
-Total FlowStates : 64
-Covered          : 64 (100.0%)
-Uncovered        : 
+Generated: 2026-07-23T18:10:21.291Z
+Total FlowStates : 68
+Covered          : 64 (94.1%)
+Uncovered        : admin_assign_doctor_select, admin_assign_doctor_pick, admin_reassign_doctor_select, admin_reassign_doctor_pick

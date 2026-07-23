@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { normalizePhone } = require('../utils/phone');
 
 let singletonInstance = null;
 
@@ -47,18 +48,13 @@ class UserRegistry {
   }
 
   getUserByPhone(phoneNumber) {
-    const normalized = this.normalizePhone(phoneNumber);
+    const normalized = normalizePhone(phoneNumber);
     for (const [chatId, user] of Object.entries(this.users)) {
-      if (this.normalizePhone(user.phoneNumber) === normalized) {
+      if (normalizePhone(user.phoneNumber) === normalized) {
         return { chatId, ...user };
       }
     }
     return null;
-  }
-
-  normalizePhone(phone) {
-    if (!phone) return '';
-    return String(phone).replace(/\D/g, '').replace(/^91/, '');
   }
 
   createUser(chatId, phoneNumber) {

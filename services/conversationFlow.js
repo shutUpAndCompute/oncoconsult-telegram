@@ -18,6 +18,11 @@ const sanitizeMarkdown = (text) => {
 // File size limit for medical reports (Telegram bot limit)
 const MAX_FILE_SIZE_MB = 20;
 
+// Seeded/registered doctor names sometimes already include a "Dr." prefix
+// (see data/doctors.json) and sometimes don't - strip it before display so
+// "Dr. " is added exactly once regardless of how the name was stored.
+const formatDoctorName = (name) => String(name || '').replace(/^Dr\.?\s*/i, '');
+
 const FlowStates = {
   PLATFORM_TERMS: 'platform_terms',
   WELCOME: 'welcome',
@@ -53,10 +58,14 @@ const FlowStates = {
    ADMIN_APPROVE_SUPPORT_INPUT: 'admin_approve_support_input',
   ADMIN_DOCTOR_MANAGEMENT: 'admin_doctor_management',
   ADMIN_ASSIGN_DOCTOR_INPUT: 'admin_assign_doctor_input',
+  ADMIN_ASSIGN_DOCTOR_SELECT: 'admin_assign_doctor_select',
+  ADMIN_ASSIGN_DOCTOR_PICK: 'admin_assign_doctor_pick',
   ADMIN_REMOVE_DOCTOR_INPUT: 'admin_remove_doctor_input',
   ADMIN_REJECT_DOCTOR_INPUT: 'admin_reject_doctor_input',
   ADMIN_MESSAGE_DOCTOR_INPUT: 'admin_message_doctor_input',
   ADMIN_REASSIGN_DOCTOR_INPUT: 'admin_reassign_doctor_input',
+  ADMIN_REASSIGN_DOCTOR_SELECT: 'admin_reassign_doctor_select',
+  ADMIN_REASSIGN_DOCTOR_PICK: 'admin_reassign_doctor_pick',
   ADMIN_MESSAGE_PATIENT_INPUT: 'admin_message_patient_input',
   ADMIN_VERIFY_PAYMENT_INPUT: 'admin_verify_payment_input',
   ADMIN_VERIFY_DISCOUNT_INPUT: 'admin_verify_discount_input',
@@ -110,9 +119,13 @@ const ADMIN_DOMAIN_STATES = [
   FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT,
   FlowStates.ADMIN_APPROVE_SUPPORT_INPUT,
   FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_PICK,
   FlowStates.ADMIN_REMOVE_DOCTOR_INPUT,
   FlowStates.ADMIN_REJECT_DOCTOR_INPUT,
   FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_PICK,
   FlowStates.ADMIN_CONSULTATIONS_MENU,
   FlowStates.ADMIN_FINANCES_MENU,
   FlowStates.ADMIN_SYSTEM_MENU
@@ -287,6 +300,54 @@ Format: CONSULTATION_ID DOCTOR_ID
 Example: cons_1234567890 doc_9876543210
 
 0️⃣ Back to Doctor Management`,
+  adminAssignDoctorSelect: (pending = []) => {
+    let text = `🔗 *Assign Doctor — Select Consultation*\n\n`;
+    if (pending.length === 0) {
+      text += `_No consultations waiting for a doctor._\n`;
+    } else {
+      pending.forEach((c, i) => {
+        text += `${i + 1}. ${c.id} — ${c.patientProfile?.name || c.patientPhone}${c.cancerType ? ` (${c.cancerType})` : ''}\n`;
+      });
+    }
+    text += `\n0️⃣ Back to Doctor Management`;
+    return text;
+  },
+  adminAssignDoctorPick: (consultation, doctors = []) => {
+    let text = `👨⚕️ *Assign a Doctor to ${consultation.id}*\n\nPatient: ${consultation.patientProfile?.name || consultation.patientPhone}\n\n`;
+    if (doctors.length === 0) {
+      text += `_No doctors registered._\n`;
+    } else {
+      doctors.forEach((d, i) => {
+        text += `${i + 1}. Dr. ${formatDoctorName(d.name)} (${d.specialty})\n`;
+      });
+    }
+    text += `\n0️⃣ Back to Doctor Management`;
+    return text;
+  },
+  adminReassignDoctorSelect: (assigned = []) => {
+    let text = `🔁 *Reassign Doctor — Select Consultation*\n\n`;
+    if (assigned.length === 0) {
+      text += `_No consultations currently have a doctor assigned._\n`;
+    } else {
+      assigned.forEach((c, i) => {
+        text += `${i + 1}. ${c.id} — ${c.patientProfile?.name || c.patientPhone} (currently: Dr. ${formatDoctorName(c.doctorName)})\n`;
+      });
+    }
+    text += `\n0️⃣ Back to Doctor Management`;
+    return text;
+  },
+  adminReassignDoctorPick: (consultation, doctors = []) => {
+    let text = `👨⚕️ *Reassign ${consultation.id}*\n\nCurrently: Dr. ${formatDoctorName(consultation.doctorName)}\n\nNew doctor:\n\n`;
+    if (doctors.length === 0) {
+      text += `_No other doctors available._\n`;
+    } else {
+      doctors.forEach((d, i) => {
+        text += `${i + 1}. Dr. ${formatDoctorName(d.name)} (${d.specialty})\n`;
+      });
+    }
+    text += `\n0️⃣ Back to Doctor Management`;
+    return text;
+  },
   adminRemoveDoctorInput: `🗑️ *Remove Doctor*
 
 Enter doctor ID:
@@ -606,7 +667,7 @@ Complete profile after selection.`,
 
   cancerTypes: `🔍 *Select Cancer Type*\n\n1️⃣ Lung Cancer\n2️⃣ Breast Cancer\n3️⃣ Prostate Cancer\n4️⃣ Liver Cancer\n5️⃣ Pancreatic\n6️⃣ Ovarian\n7️⃣ Blood Cancer\n8️⃣ Other/General\n\n0️⃣ Cancel\n\nReply with number`,
 
-  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Back to Menu\n3️⃣ Apply for Fee Discount\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
+  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Check Payment Status\n3️⃣ Apply for Fee Discount\n0️⃣ Main Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
   caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nTo qualify for any discounts, the patient MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, full-fee consultation applies.\n\nOur administrators will review eligibility and determine discounts at their discretion.\n\n1. ✅ I acknowledge and provide consent for discount eligibility\n2. ❌ No consent (proceed without discount eligibility)`,
 
@@ -686,15 +747,20 @@ class ConversationFlow {
 getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null) {
     const hasPendingPayment = phoneNumber && this.paymentService?.payments?.size > 0 && 
       Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-    const profileComplete = session?.profileComplete !== false;
-    const hasOtherRoles = session?.hasOtherRoles || false;
-    
+    // session.profileComplete/hasOtherRoles are never written anywhere in
+    // the app - the real completeness check is the isProfileComplete()
+    // method (a separate code path) - so these always evaluated to
+    // true/false respectively. Left as plain constants rather than removed
+    // outright since callers below still expect the parameters.
+    const profileComplete = true;
+    const hasOtherRoles = false;
+
     switch (state) {
       case FlowStates.WELCOME: return InteractiveMenus.main(persona, hasOtherRoles, profileComplete, hasPendingPayment);
       case FlowStates.ROLE_SELECT: return InteractiveMenus.roleSelect;
       case FlowStates.CAREGIVER_AUTH: return InteractiveMenus.caregiverAuth;
       case FlowStates.CAREGIVER_CONSENT_ACK: return InteractiveMenus.caregiverConsentAck;
-      case FlowStates.CONSULTATION: return InteractiveMenus.consultation(session?.profileComplete !== false, hasPendingPayment);
+      case FlowStates.CONSULTATION: return InteractiveMenus.consultation(profileComplete, hasPendingPayment);
       case FlowStates.CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.BILLING: return InteractiveMenus.billing;
       case FlowStates.REPORT_UPLOAD: return '📎 Send your diagnostic report (image/PDF)';
@@ -823,6 +889,9 @@ getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null
       case FlowStates.SUPER_ADMIN_MENU:
         return this.handleSuperAdminMenuSelection(selection, phoneNumber, session);
 
+      case FlowStates.SUPER_ADMIN_MANAGE_ADMINS:
+        return this.handleSuperAdminManageAdminsSelection(selection, phoneNumber, session);
+
       case FlowStates.ADMIN_CONSULTATIONS_MENU:
         return this.handleAdminConsultationsMenuSelection(selection, phoneNumber);
 
@@ -904,6 +973,12 @@ case FlowStates.CAREGIVER_AUTH:
       case FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT:
         return this.handleAdminAssignDoctorInput(message, phoneNumber, session);
 
+      case FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT:
+        return this.handleAdminAssignDoctorSelectConsultation(selection, phoneNumber, session);
+
+      case FlowStates.ADMIN_ASSIGN_DOCTOR_PICK:
+        return this.handleAdminAssignDoctorPick(selection, phoneNumber, session);
+
       case FlowStates.ADMIN_REMOVE_DOCTOR_INPUT:
         return this.handleAdminRemoveDoctorInput(message, phoneNumber, session);
 
@@ -924,6 +999,13 @@ case FlowStates.CAREGIVER_AUTH:
 
       case FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT:
         return this.handleAdminReassignDoctorInput(message, phoneNumber, session);
+
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT:
+        return this.handleAdminReassignDoctorSelectConsultation(selection, phoneNumber, session);
+
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_PICK:
+        return this.handleAdminReassignDoctorPick(selection, phoneNumber, session);
+
      case FlowStates.ADMIN_ADD_ADMIN_INPUT:
        return this.handleAdminAddAdminInput(message, phoneNumber, session);
 
@@ -1406,7 +1488,6 @@ Example: 9876543210
     this.consultationManager.updateSession(phoneNumber, {
       consultationId: null,
       paymentTransaction: null,
-      pendingPayment: null,
       paymentVerified: false
     });
 
@@ -1586,6 +1667,9 @@ async handlePaymentStatusCheck(phoneNumber, session) {
     if (selection === '3') {
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
     }
+    if (selection === '0') {
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+    }
     return { nextState: FlowStates.BILLING, response: `❌ Invalid selection.\n\n${InteractiveMenus.billing}` };
   }
 
@@ -1658,7 +1742,9 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       return this.handleProfileInput(phoneNumber, message, session);
     }
 
-    if (currentState === FlowStates.ADMIN_PROFILE_EDIT) {
+    if (currentState === FlowStates.ADMIN_PROFILE_EDIT ||
+        currentState === FlowStates.ADMIN_PROFILE_EDIT_NAME ||
+        currentState === FlowStates.ADMIN_PROFILE_EDIT_PHONE) {
       return this.handleAdminProfileEditInput(phoneNumber, message, session);
     }
 
@@ -2814,27 +2900,32 @@ const handler = flowMap[selection];
       return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${InteractiveMenus.roleSelect}` };
     }
     const adminProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
-    
+
     const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-    
+
     // Block all doctor management actions when profile incomplete
     if (!adminProfileComplete) {
-return {
-      nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pending.length)
-    };
+      return {
+        nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+        response: `⚠️ *Profile Incomplete*\n\nComplete your admin profile (name required) before managing doctors.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
+      };
     }
-    
+
+    // Numbering here must match buildAdminDoctorManagement's button order
+    // exactly (1=view, 2=invite, 3=register, 4=assign, 5=remove, 6=reject,
+    // 7=message, 8=reassign) - this previously drifted out of sync with the
+    // keyboard (e.g. tapping "Register Doctor" ran Assign, tapping "Assign
+    // Doctor" ran Reassign), so every button below 5 silently did the wrong
+    // thing.
     const flowMap = {
       '1': () => this.listDoctors(phoneNumber),
-      '2': () => this.listPendingDoctors(phoneNumber),
-      '3': () => ({ nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT, response: InteractiveMenus.adminAssignDoctorInput }),
-      '4': () => ({ nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT, response: InteractiveMenus.adminReassignDoctorInput }),
+      '2': () => ({ nextState: FlowStates.ADMIN_INVITE_DOCTOR_INPUT, response: InteractiveMenus.adminInviteDoctorInput }),
+      '3': () => ({ nextState: FlowStates.ADMIN_REGISTER_DOCTOR_INPUT, response: InteractiveMenus.adminRegisterDoctorInput }),
+      '4': () => this.startAssignDoctorFlow(phoneNumber),
       '5': () => ({ nextState: FlowStates.ADMIN_REMOVE_DOCTOR_INPUT, response: InteractiveMenus.adminRemoveDoctorInput }),
       '6': () => ({ nextState: FlowStates.ADMIN_REJECT_DOCTOR_INPUT, response: InteractiveMenus.adminRejectDoctorInput }),
       '7': () => ({ nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: InteractiveMenus.adminMessageDoctorInput }),
-      '8': () => ({ nextState: FlowStates.ADMIN_REGISTER_DOCTOR_INPUT, response: InteractiveMenus.adminRegisterDoctorInput }),
-      '9': () => ({ nextState: FlowStates.ADMIN_INVITE_DOCTOR_INPUT, response: InteractiveMenus.adminInviteDoctorInput }),
+      '8': () => this.startReassignDoctorFlow(phoneNumber),
       '0': () => {
         const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
         const targetState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
@@ -2855,8 +2946,8 @@ listDoctors(phoneNumber) {
       return { nextState: FlowStates.WELCOME, response: `❌ Admin access required.\n\n${this.getWelcomeMenu(phoneNumber)}` };
     }
     const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
+    const pending = this.doctorRouter?.persistence?.getPendingDoctors() || [];
     let text = '👨⚕️ *All Doctors*\n\n';
-    const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
     if (doctors.length === 0) {
       text += '_No doctors registered_\n';
     } else {
@@ -2864,9 +2955,18 @@ listDoctors(phoneNumber) {
         text += `• ${d.id}: ${d.name} (${d.specialty}) - ${d.cancerTypes?.join(', ') || 'any'}\n`;
       });
     }
+    // Pending invitations (sent via "Invite Doctor", not yet /accept-ed)
+    // used to only be reachable through a dead button - fold them in here
+    // so they stay visible instead of becoming an orphaned screen.
+    if (pending.length > 0) {
+      text += `\n📧 *Pending Invitations*\n\n`;
+      pending.forEach(d => {
+        text += `• ${d.id}: ${d.name} (${d.specialty}) - invited\n`;
+      });
+    }
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pendingDoctors)
+      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pending.length)
     };
   }
 
@@ -2890,6 +2990,80 @@ listDoctors(phoneNumber) {
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
       response: text + '\n' + InteractiveMenus.adminDoctorManagement(pending.length)
+    };
+  }
+
+  // Inline picker for "Assign Doctor" - replaces the old free-text
+  // "CONSULTATION_ID DOCTOR_ID" entry (handleAdminAssignDoctorInput, still
+  // below for reference/back-compat but no longer reachable from the menu)
+  // with a two-step tap flow: pick the waiting consultation, then pick a
+  // doctor for it. Admins previously had to already know both raw IDs by
+  // heart or cross-reference "View Patients"/"View Doctors" in a separate
+  // screen.
+  startAssignDoctorFlow(phoneNumber) {
+    const pending = this.consultationManager.getPendingForAdmin();
+    const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    if (pending.length === 0) {
+      return {
+        nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+        response: `ℹ️ No consultations are currently waiting for a doctor.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
+      };
+    }
+    return {
+      nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT,
+      response: InteractiveMenus.adminAssignDoctorSelect(pending)
+    };
+  }
+
+  handleAdminAssignDoctorSelectConsultation(selection, phoneNumber, session) {
+    const pendingDoctorsCount = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    if (selection === '0' || selection.toLowerCase() === 'cancel') {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctorsCount) };
+    }
+    const pending = this.consultationManager.getPendingForAdmin();
+    const idx = parseInt(selection, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= pending.length) {
+      return { nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT, response: `❌ Invalid selection.\n\n${InteractiveMenus.adminAssignDoctorSelect(pending)}` };
+    }
+    const consultation = pending[idx];
+    const doctors = this.doctorRouter?.persistence?.getDoctors?.() || [];
+    if (doctors.length === 0) {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ No doctors registered yet.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    this.consultationManager.updateSession(phoneNumber, { pendingAssignConsultationId: consultation.id });
+    return {
+      nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_PICK,
+      response: InteractiveMenus.adminAssignDoctorPick(consultation, doctors)
+    };
+  }
+
+  handleAdminAssignDoctorPick(selection, phoneNumber, session) {
+    const pendingDoctorsCount = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    const consultationId = session?.pendingAssignConsultationId;
+    if (selection === '0' || selection.toLowerCase() === 'cancel' || !consultationId) {
+      this.consultationManager.updateSession(phoneNumber, { pendingAssignConsultationId: null });
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctorsCount) };
+    }
+    const consultation = this.consultationManager.getConsultationById(consultationId);
+    if (!consultation || consultation.doctorId) {
+      this.consultationManager.updateSession(phoneNumber, { pendingAssignConsultationId: null });
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ That consultation is no longer waiting for a doctor.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    const doctors = this.doctorRouter?.persistence?.getDoctors?.() || [];
+    const idx = parseInt(selection, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= doctors.length) {
+      return { nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_PICK, response: `❌ Invalid selection.\n\n${InteractiveMenus.adminAssignDoctorPick(consultation, doctors)}` };
+    }
+    const doctor = doctors[idx];
+    const success = this.consultationManager.assignDoctor(consultationId, doctor.id, String(phoneNumber));
+    this.consultationManager.updateSession(phoneNumber, { pendingAssignConsultationId: null });
+    if (!success) {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ Consultation is already assigned or cannot be updated.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    return {
+      nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+      response: `✅ Assigned Dr. ${formatDoctorName(doctor.name)} to ${consultationId}\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}`,
+      data: { consultationId, doctorId: doctor.id, patientPhone: consultation.patientPhone }
     };
   }
 
@@ -3043,6 +3217,81 @@ listDoctors(phoneNumber) {
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
+  }
+
+  // Same inline-picker treatment as Assign (see startAssignDoctorFlow above)
+  // for Reassign: pick which already-assigned consultation, then pick its
+  // new doctor from everyone except whoever currently has it.
+  startReassignDoctorFlow(phoneNumber) {
+    const isSuperAdmin = this.isSuperAdminPhone(phoneNumber);
+    const pendingDoctorsCount = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    if (!isSuperAdmin) {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ Only Super Admin can reassign doctors.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    const assigned = this.getReassignableConsultations();
+    if (assigned.length === 0) {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `ℹ️ No consultations currently have a doctor assigned.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    return { nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT, response: InteractiveMenus.adminReassignDoctorSelect(assigned) };
+  }
+
+  // Active consultations that have a doctor assigned, annotated with the
+  // current doctor's name for display (consultations only store doctorId).
+  getReassignableConsultations() {
+    const doctors = this.doctorRouter?.persistence?.getDoctors?.() || [];
+    return Array.from(this.consultationManager.consultations?.values() || [])
+      .filter(c => c.status === 'active' && c.doctorId)
+      .map(c => ({ ...c, doctorName: doctors.find(d => d.id === c.doctorId)?.name || c.doctorId }));
+  }
+
+  handleAdminReassignDoctorSelectConsultation(selection, phoneNumber, session) {
+    const pendingDoctorsCount = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    if (selection === '0' || selection.toLowerCase() === 'cancel') {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctorsCount) };
+    }
+    const assigned = this.getReassignableConsultations();
+    const idx = parseInt(selection, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= assigned.length) {
+      return { nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT, response: `❌ Invalid selection.\n\n${InteractiveMenus.adminReassignDoctorSelect(assigned)}` };
+    }
+    const consultation = assigned[idx];
+    const doctors = (this.doctorRouter?.persistence?.getDoctors?.() || []).filter(d => d.id !== consultation.doctorId);
+    if (doctors.length === 0) {
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ No other doctors available to reassign to.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    this.consultationManager.updateSession(phoneNumber, { pendingReassignConsultationId: consultation.id });
+    return {
+      nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_PICK,
+      response: InteractiveMenus.adminReassignDoctorPick(consultation, doctors)
+    };
+  }
+
+  handleAdminReassignDoctorPick(selection, phoneNumber, session) {
+    const pendingDoctorsCount = this.doctorRouter?.persistence?.getPendingDoctors?.().length || 0;
+    const consultationId = session?.pendingReassignConsultationId;
+    if (selection === '0' || selection.toLowerCase() === 'cancel' || !consultationId) {
+      this.consultationManager.updateSession(phoneNumber, { pendingReassignConsultationId: null });
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctorsCount) };
+    }
+    const consultation = this.consultationManager.getConsultationById(consultationId);
+    if (!consultation || !consultation.doctorId) {
+      this.consultationManager.updateSession(phoneNumber, { pendingReassignConsultationId: null });
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: `❌ That consultation is no longer assigned.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}` };
+    }
+    const doctors = (this.doctorRouter?.persistence?.getDoctors?.() || []).filter(d => d.id !== consultation.doctorId);
+    const idx = parseInt(selection, 10) - 1;
+    if (isNaN(idx) || idx < 0 || idx >= doctors.length) {
+      return { nextState: FlowStates.ADMIN_REASSIGN_DOCTOR_PICK, response: `❌ Invalid selection.\n\n${InteractiveMenus.adminReassignDoctorPick(consultation, doctors)}` };
+    }
+    const newDoctor = doctors[idx];
+    const oldDoctorId = consultation.doctorId;
+    this.consultationManager.reassignDoctor(consultationId, newDoctor.id);
+    this.consultationManager.updateSession(phoneNumber, { pendingReassignConsultationId: null });
+    return {
+      nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+      response: `✅ Reassigned ${consultationId} to Dr. ${formatDoctorName(newDoctor.name)}\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctorsCount)}`,
+      data: { consultationId, oldDoctorId, newDoctorId: newDoctor.id, patientPhone: consultation.patientPhone }
+    };
   }
 
   handleAdminReassignDoctorInput(message, phoneNumber, session) {
@@ -3659,6 +3908,9 @@ Example: cons_1234567890
   // sharing is opt-in per the platform terms (non-consent = full fee).
   handleDiscountCategoryPrimarySelection(selection, phoneNumber, session) {
     const trimmed = String(selection).trim();
+    if (trimmed === '0') {
+      return { nextState: FlowStates.BILLING, response: InteractiveMenus.billing };
+    }
     const map = {
       '1': { state: FlowStates.PROFILE_DISCOUNT_ECONOMIC, text: InteractiveMenus.discountEconomic },
       '2': { state: FlowStates.PROFILE_DISCOUNT_PROFESSION, text: InteractiveMenus.discountProfession },
@@ -3686,10 +3938,10 @@ Example: cons_1234567890
     
     // Accept 'none' explicitly from primary handler, otherwise look up in map
     const categoryMap = {
-      'discount_1': 'bpl_ews', 'discount_2': 'ayushman_bharat', 'discount_3': 'eshram', 'discount_4': 'farmer', 'discount_15': 'rural_tribal',
-      'discount_5': 'defence', 'discount_6': 'paramilitary', 'discount_7': 'police', 'discount_8': 'government_employee',
-      'discount_16': 'healthcare_worker', 'discount_17': 'teacher_anganwadi', 'discount_18': 'journalist',
-      'discount_9': 'senior_citizen', 'discount_11': 'widow_single_woman', 'discount_12': 'pwd_udid',
+      'discount_1': 'bpl_ews', 'discount_2': 'ayushman_bharat', 'discount_3': 'e_shram', 'discount_4': 'farmer', 'discount_15': 'rural_tribal_resident',
+      'discount_5': 'defence_exservicemen', 'discount_6': 'paramilitary', 'discount_7': 'police', 'discount_8': 'government_employee',
+      'discount_16': 'healthcare_worker', 'discount_17': 'teacher_angadiwadi', 'discount_18': 'journalist',
+      'discount_9': 'senior_citizen', 'discount_11': 'widow_single_woman', 'discount_12': 'pwd',
       'discount_13': 'sc_st', 'discount_14': 'minority_community'
     };
     
@@ -3990,12 +4242,23 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
       return { nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: `❌ Invalid phone or amount.\n\nFormat: PHONE AMOUNT [NOTE]\n\n0. Back to Admin Menu` };
     }
     
-    const targetSession = this.consultationManager.getSession(targetPhone);
-    if (targetSession?.pendingPayment) {
-      this.paymentService?.setFee?.(targetPhone, amount, adminNote);
+    // Was gated on session.pendingPayment, a field nothing in the app ever
+    // sets to a truthy value - this made "Set Fee" always report "No
+    // pending payment found" regardless of actual state. It also passed
+    // targetPhone to paymentService.setFee(), which keys its `payments` Map
+    // by transactionId, not phone - even past the dead gate, the fee would
+    // never actually have been applied to anything. The real pending
+    // payment lives in paymentService.payments, keyed by transaction ID and
+    // carrying its own phoneNumber field - look it up there instead.
+    const pendingEntry = Array.from(this.paymentService?.payments?.entries() || [])
+      .find(([, p]) => p.phoneNumber === targetPhone && p.status === 'pending');
+
+    if (pendingEntry) {
+      const [transactionId] = pendingEntry;
+      this.paymentService.setFee(transactionId, amount, adminNote);
       return { nextState: FlowStates.ADMIN_MENU, response: `✅ Fee set to ₹${amount} for ${targetPhone}${adminNote ? ` (${adminNote})` : ''}.\n\n${this.getAdminMenuText(phoneNumber)}` };
     }
-    
+
     return { nextState: FlowStates.ADMIN_SET_FEE_INPUT, response: `❌ No pending payment found for ${targetPhone}.\n\n0. Back to Admin Menu` };
   }
 

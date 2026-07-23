@@ -64,9 +64,13 @@ const ADMIN_DOMAIN_STATES = new Set([
   FlowStates.ADMIN_ROLE_APPROVALS,
   FlowStates.ADMIN_DOCTOR_MANAGEMENT,
   FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT,
+  FlowStates.ADMIN_ASSIGN_DOCTOR_PICK,
   FlowStates.ADMIN_REMOVE_DOCTOR_INPUT,
   FlowStates.ADMIN_REJECT_DOCTOR_INPUT,
   FlowStates.ADMIN_REASSIGN_DOCTOR_INPUT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT,
+  FlowStates.ADMIN_REASSIGN_DOCTOR_PICK,
   FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT,
   FlowStates.ADMIN_MESSAGE_PATIENT_INPUT,
   FlowStates.ADMIN_VERIFY_PAYMENT_INPUT,
@@ -80,7 +84,14 @@ const ADMIN_DOMAIN_STATES = new Set([
    FlowStates.ADMIN_ADD_ADMIN_INPUT,
    FlowStates.ADMIN_REMOVE_ADMIN_INPUT,
    FlowStates.ADMIN_SET_FEE_INPUT,
-   FlowStates.ADMIN_PROFILE_EDIT
+   FlowStates.ADMIN_PROFILE_EDIT,
+   FlowStates.ADMIN_PROFILE_EDIT_NAME,
+   FlowStates.ADMIN_PROFILE_EDIT_PHONE,
+   FlowStates.ADMIN_PROFILE_COMPLETE_OPTIONS,
+   FlowStates.ADMIN_CONSULTATIONS_MENU,
+   FlowStates.ADMIN_FINANCES_MENU,
+   FlowStates.ADMIN_SYSTEM_MENU,
+   FlowStates.SUPER_ADMIN_MANAGE_ADMINS
 ]);
 
 // Same idea for Support: SUPPORT_MENU plus the sub-states its own menu
@@ -96,7 +107,8 @@ const SUPPORT_DOMAIN_STATES = new Set([
 const DOCTOR_DOMAIN_STATES = new Set([
   FlowStates.DOCTOR_MENU,
   FlowStates.DOCTOR_PROFILE_EDIT,
-  FlowStates.DOCTOR_MSG_ADMIN_INPUT
+  FlowStates.DOCTOR_MSG_ADMIN_INPUT,
+  FlowStates.DOCTOR_PATIENTS_VIEW
 ]);
 
 // Cross-role states reachable from any persona's own menu (profile viewing/
@@ -153,6 +165,86 @@ class TelegramAdapter {
       return selected;
     }
     return persona.type;
+  }
+
+  // Single source of truth for "show this user their current role's home
+  // menu with live indicator state" - used by /start, /resume, /menu,
+  // /clear, and idle-recovery. Previously each of those call sites had its
+  // own copy of this branching logic, and every copy but /start's had drifted
+  // (hardcoded profileComplete=true, missing pending/active counts, Support
+  // shown the generic patient keyboard instead of buildSupportMenu, admins/
+  // doctors mishandled entirely). Consolidating here means a fix here fixes
+  // every entry point at once instead of needing to be repeated per-command.
+  async sendRoleHomeMenu(chatId) {
+    chatId = String(chatId);
+    const persona = new UserPersona(chatId);
+    const session = consultationManager.getSession(chatId);
+    const effectiveRole = this.getEffectiveRole(persona, session);
+
+    if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
+      const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
+      const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
+      consultationManager.updateSession(chatId, { flowState: adminMenuState });
+      ensureEnvSeededAdminRecord(chatId);
+      const adminProfileComplete = adminRegistry.isAdminProfileComplete(chatId);
+      const pendingCount = consultationManager.getPendingForAdmin().length;
+      const activeCount = Array.from(consultationManager.consultations.values())
+        .filter(c => c.status === 'active').length;
+      const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+      const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s =>
+        s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+      const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
+      const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+
+      const keyboard = isSuperAdmin
+        ? telegramKeyboards.buildSuperAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors)
+        : telegramKeyboards.buildAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
+      const header = isSuperAdmin
+        ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
+        : `🛠️ *Admin Panel*\n\nPending: ${pendingCount} | Active: ${activeCount}`;
+      await this.bot.sendMessage(chatId, header, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      return;
+    }
+
+    if (effectiveRole === PersonaTypes.SUPPORT) {
+      consultationManager.updateSession(chatId, { flowState: FlowStates.SUPPORT_MENU });
+      const hasOtherRoles = persona.availableRoles?.length > 1;
+      const keyboard = telegramKeyboards.buildSupportMenu(hasOtherRoles);
+      await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      return;
+    }
+
+    if (effectiveRole === PersonaTypes.DOCTOR) {
+      const doctors = doctorPersistence.getDoctors();
+      const doctor = doctors.find(d => d.telegramId === chatId || String(d.phoneNumber).replace('+', '') === chatId);
+      const hasActive = !!Array.from(consultationManager.consultations.values())
+        .find(c => c.doctorId === doctor?.id && c.status === 'active');
+      const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
+      consultationManager.updateSession(chatId, { flowState: FlowStates.DOCTOR_MENU });
+      const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
+      await this.bot.sendMessage(chatId, keyboard.text || `👨⚕️ *Doctor Menu*\n\nHi ${doctor?.name || 'Doctor'}`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      return;
+    }
+
+    if (effectiveRole === PersonaTypes.CAREGIVER || session?.flowState === FlowStates.CAREGIVER_MENU) {
+      consultationManager.updateSession(chatId, { flowState: FlowStates.CAREGIVER_MENU });
+      const hasOtherRoles = persona.availableRoles?.length > 1;
+      const profileComplete = conversationFlow.isProfileComplete(session);
+      const hasPending = !!consultationManager.getPendingConsultationByPatient(chatId);
+      const hasActive = !!Array.from(consultationManager.consultations.values())
+        .find(c => c.patientPhone === chatId && c.status === 'active');
+      const keyboard = telegramKeyboards.buildCaregiverMenu(hasOtherRoles, profileComplete, hasPending ? 1 : 0, hasActive ? 1 : 0);
+      await this.bot.sendMessage(chatId, `📲 *Caregiver Menu*\n\nActing on behalf of: ${session?.patientName || 'Patient'}`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
+      return;
+    }
+
+    const hasOtherRoles = persona.availableRoles?.length > 1;
+    const profileComplete = conversationFlow.isProfileComplete(session);
+    const hasPending = !!consultationManager.getPendingConsultationByPatient(chatId);
+    const hasActive = !!Array.from(consultationManager.consultations.values())
+      .find(c => c.patientPhone === chatId && c.status === 'active');
+    const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, profileComplete, false, false, hasPending ? 1 : 0, hasActive ? 1 : 0);
+    await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
   }
 
   // Shared by the photo/document handlers. Files were previously accepted
@@ -315,18 +407,24 @@ class TelegramAdapter {
       const getKeyboard = () => {
         const currentState = nextState;
         
-        if (currentState === FlowStates.WELCOME || currentState === FlowStates.MOBILE_COLLECTION || currentState === FlowStates.ROLE_SELECT) {
+        if (currentState === FlowStates.WELCOME) {
           const profileComplete = conversationFlow.isProfileComplete(session);
           const hasPending = !!consultationManager.getPendingConsultationByPatient(String(chatId));
           const hasActive = !!Array.from(consultationManager.consultations.values())
              .find(c => c.patientPhone === String(chatId) && c.status === 'active');
-          return telegramKeyboards.buildMainMenu(effectiveRole, 
-            effectiveRole !== 'patient', 
-            profileComplete, 
-            effectiveRole === 'admin', 
+          return telegramKeyboards.buildMainMenu(effectiveRole,
+            effectiveRole !== 'patient',
+            profileComplete,
+            effectiveRole === 'admin',
             effectiveRole === 'super_admin',
             hasPending ? 1 : 0,
             hasActive ? 1 : 0);
+        }
+        if (currentState === FlowStates.MOBILE_COLLECTION) {
+          return telegramKeyboards.buildMobileCollection();
+        }
+        if (currentState === FlowStates.ROLE_SELECT) {
+          return telegramKeyboards.buildRoleSelect();
         }
 if (currentState === FlowStates.PROFILE_VIEW) {
            const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
@@ -370,7 +468,7 @@ if (currentState === FlowStates.PROFILE_VIEW) {
           return telegramKeyboards.buildAdminMenu(pendingCount, activeCount,
             adminRegistry.isAdminProfileComplete(String(chatId)),
             Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-            Array.from(consultationManager.sessions?.values || []).some(s => 
+            Array.from(consultationManager.sessions?.values() || []).some(s => 
               s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
             userRegistry.getPendingRequests?.()?.length || 0,
             (doctorRouter?.persistence?.getPendingDoctors?.() || []).length);
@@ -382,7 +480,7 @@ if (currentState === FlowStates.PROFILE_VIEW) {
           return telegramKeyboards.buildSuperAdminMenu(pendingCount, activeCount,
             adminRegistry.isAdminProfileComplete(String(chatId)),
             Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-            Array.from(consultationManager.sessions?.values || []).some(s => 
+            Array.from(consultationManager.sessions?.values() || []).some(s => 
               s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
             userRegistry.getPendingRequests?.()?.length || 0,
             (doctorRouter?.persistence?.getPendingDoctors?.() || []).length);
@@ -471,7 +569,7 @@ if (currentState === FlowStates.PROFILE_VIEW) {
 
       if (payloadMap[currentState] && payloadMap[currentState][data]) {
         simulatedInput = payloadMap[currentState][data];
-      } else if (data === 'cancel' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents' || data === 'discount_back') {
+      } else if (data === 'cancel' || data === 'go_to_menu' || data === 'skip_upload' || data === 'skip_documents' || data === 'discount_back' || data === 'main_menu') {
         simulatedInput = '0';
       }
 
@@ -509,6 +607,32 @@ if (currentState === FlowStates.PROFILE_VIEW) {
               replyMarkup = telegramKeyboards.buildAdminDoctorManagement(pendingDocs);
               break;
             }
+            case FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT: {
+              const pending = consultationManager.getPendingForAdmin();
+              replyMarkup = telegramKeyboards.buildAdminAssignDoctorSelect(pending);
+              break;
+            }
+            case FlowStates.ADMIN_ASSIGN_DOCTOR_PICK: {
+              const doctors = doctorRouter?.persistence?.getDoctors?.() || [];
+              replyMarkup = telegramKeyboards.buildAdminAssignDoctorPick(doctors);
+              break;
+            }
+            case FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT: {
+              const assigned = Array.from(consultationManager.consultations.values()).filter(c => c.status === 'active' && c.doctorId);
+              replyMarkup = telegramKeyboards.buildAdminReassignDoctorSelect(assigned);
+              break;
+            }
+            case FlowStates.ADMIN_REASSIGN_DOCTOR_PICK: {
+              // The consultation being reassigned was just stored on the
+              // session by handleAdminReassignDoctorSelectConsultation - the
+              // `session` captured before handleFlow() ran above is stale,
+              // so this must re-fetch to see that write.
+              const freshSession = consultationManager.getSession(String(chatId));
+              const consultation = consultationManager.getConsultationById(freshSession?.pendingReassignConsultationId);
+              const doctors = (doctorRouter?.persistence?.getDoctors?.() || []).filter(d => d.id !== consultation?.doctorId);
+              replyMarkup = telegramKeyboards.buildAdminReassignDoctorPick(doctors);
+              break;
+            }
             case FlowStates.CANCER_TYPE: replyMarkup = telegramKeyboards.buildCancerTypeMenu(); break;
             case FlowStates.CONSULTATION_WITHDRAW: replyMarkup = telegramKeyboards.buildWithdrawalConfirm(); break;
             case FlowStates.REPORT_UPLOAD: replyMarkup = telegramKeyboards.buildReportUpload(); break;
@@ -537,14 +661,18 @@ if (currentState === FlowStates.PROFILE_VIEW) {
               break;
             }
             case FlowStates.ADMIN_FINANCES_MENU: {
-              replyMarkup = telegramKeyboards.buildAdminFinancesMenu(false, false);
+              const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+              const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s =>
+                s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+              replyMarkup = telegramKeyboards.buildAdminFinancesMenu(hasPendingPayments, hasPendingDiscounts);
               break;
             }
             case FlowStates.ADMIN_SYSTEM_MENU: {
               const pendingDoctors = doctorPersistence.getPendingDoctors().length;
+              const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
               const isSuperAdmin = process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(chatId)) ||
                  process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(chatId));
-              replyMarkup = telegramKeyboards.buildAdminSystemMenu(0, pendingDoctors, isSuperAdmin);
+              replyMarkup = telegramKeyboards.buildAdminSystemMenu(pendingRoles, pendingDoctors, isSuperAdmin);
               break;
             }
           }
@@ -591,85 +719,7 @@ if (currentState === FlowStates.PROFILE_VIEW) {
         return;
       }
 
-      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
-        const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
-        const inAdminFlow = session?.flowState === adminMenuState;
-        if (!inAdminFlow) {
-          consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
-        }
-        ensureEnvSeededAdminRecord(String(chatId));
-        const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-        const pendingCount = consultationManager.getPendingForAdmin().length;
-        const activeCount = Array.from(consultationManager.consultations.values())
-          .filter(c => c.status === 'active').length;
-        const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-        const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
-          s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
-        const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
-        const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-        
-        const keyboard = isSuperAdmin
-          ? telegramKeyboards.buildSuperAdminMenu(
-              pendingCount, activeCount, adminProfileComplete,
-              hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
-            )
-          : telegramKeyboards.buildAdminMenu(
-              pendingCount, activeCount, adminProfileComplete,
-              hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
-            );
-        
-        const header = isSuperAdmin 
-          ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
-          : `🛠️ *Admin Panel*\n\nPending: ${pendingCount} | Active: ${activeCount}`;
-          
-        consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
-        await this.bot.sendMessage(chatId, header, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (effectiveRole === PersonaTypes.SUPPORT) {
-        if (session?.flowState !== FlowStates.SUPPORT_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
-        }
-        const hasOtherRoles = persona.availableRoles?.length > 1;
-        const keyboard = telegramKeyboards.buildSupportMenu(hasOtherRoles);
-        await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (effectiveRole === PersonaTypes.DOCTOR) {
-        const doctors = doctorPersistence.getDoctors();
-        const doctor = doctors.find(d => d.telegramId === String(chatId) ||
-          String(d.phoneNumber).replace('+', '') === String(chatId));
-        const hasActive = !!Array.from(consultationManager.consultations.values())
-          .find(c => c.doctorId === doctor?.id && c.status === 'active');
-        const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
-        if (session?.flowState !== FlowStates.DOCTOR_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
-        }
-        const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
-        await this.bot.sendMessage(chatId, keyboard.text || `👨⚕️ *Doctor Menu*\n\nHi ${doctor?.name || 'Doctor'}`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (session?.flowState === FlowStates.CAREGIVER_MENU) {
-        const hasOtherRoles = persona.availableRoles?.length > 1;
-        const profileComplete = conversationFlow.isProfileComplete(session);
-        const keyboard = telegramKeyboards.buildCaregiverMenu(hasOtherRoles, profileComplete);
-        await this.bot.sendMessage(chatId, `📲 *Caregiver Menu*\n\nActing on behalf of: ${session?.patientName || 'Patient'}`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else {
-        const hasOtherRoles = persona.availableRoles?.length > 1;
-        const profileComplete = conversationFlow.isProfileComplete(session);
-        const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, profileComplete, false, false);
-        await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      }
+      await this.sendRoleHomeMenu(chatId);
     });
 
     this.bot.onText(/\/accept/, async (msg) => {
@@ -705,7 +755,8 @@ if (currentState === FlowStates.PROFILE_VIEW) {
         caregiverName: session.caregiverName,
         patientName: session.patientName,
         caregiverRelationship: session.caregiverRelationship,
-        caregiverReason: session.caregiverReason
+        caregiverReason: session.caregiverReason,
+        linkedPatientPhone: session.linkedPatientPhone
       };
       
       // Clean up active consultation
@@ -743,47 +794,28 @@ if (currentState === FlowStates.PROFILE_VIEW) {
         } catch (e) {}
       }
       
-      const persona = new UserPersona(chatId);
-      const effectiveRole = this.getEffectiveRole(persona, consultationManager.getSession(chatId));
-      await this.bot.sendMessage(chatId, 
-        '🗑️ Chat history cleared. Profile and documents preserved.\nSend /start or /resume to begin.', 
-        { 
-          parse_mode: 'Markdown',
-          reply_markup: telegramKeyboards.buildMainMenu(effectiveRole, 
-            persona.availableRoles?.length > 1, true, 
-            effectiveRole === 'admin', 
-            effectiveRole === 'super_admin').reply_markup
-        }
+      await this.bot.sendMessage(chatId,
+        '🗑️ Chat history cleared. Profile and documents preserved.'
       );
+      await this.sendRoleHomeMenu(chatId);
     });
 
     this.bot.onText(/\/resume/, async (msg) => {
       const chatId = String(msg.chat.id);
       const session = consultationManager.getSession(chatId);
-      const persona = new UserPersona(chatId);
-      const effectiveRole = this.getEffectiveRole(persona, session);
-      
       if (session?.patientProfile) {
-        const welcomeText = conversationFlow.getWelcomeMenu(chatId);
-        await this.bot.sendMessage(chatId, 
-          `📋 *Session Resumed*\n\nProfile: ${session.patientProfile.name || 'set'}\nDocs: ${session.media?.length || 0}\n\n${welcomeText}`, 
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: telegramKeyboards.buildMainMenu(effectiveRole, 
-              persona.availableRoles?.length > 1, true,
-              effectiveRole === 'admin',
-              effectiveRole === 'super_admin').reply_markup
-          }
-        );
-      } else {
-        await this.bot.sendMessage(chatId, 
-          `No previous session found. Use /start to begin.`,
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: telegramKeyboards.buildMainMenu('patient', false, true).reply_markup
-          }
+        await this.bot.sendMessage(chatId,
+          `📋 *Session Resumed*\n\nProfile: ${session.patientProfile.name || 'set'}\nDocs: ${session.media?.length || 0}`,
+          { parse_mode: 'Markdown' }
         );
       }
+      // Every role (not just patients with a patientProfile) has a session
+      // to resume into - admins/doctors/support don't have a patientProfile
+      // at all, so this used to wrongly tell them "No previous session
+      // found" and show them the patient menu. sendRoleHomeMenu resolves
+      // the user's actual current role and shows their real menu with live
+      // indicator state, same as /start and /menu.
+      await this.sendRoleHomeMenu(chatId);
     });
 
     this.bot.onText(/\/profile/, async (msg) => {
@@ -836,9 +868,14 @@ await this.bot.sendMessage(chatId, profileText, {
       const validRoles = ['doctor', 'caregiver', 'support'];
       
       if (!text) {
-        await this.bot.sendMessage(chatId, 
-          `📝 *Apply for Role*\n\nUsage: /apply <role>\n\nAvailable roles: ${validRoles.join(', ')}\n\nRoles require admin approval.`, 
-          { 
+        // The keyboard's buttons only resolve correctly through payloadMap
+        // while the session is actually sitting in ROLE_APPLICATION - without
+        // this, a tap would be interpreted against whatever state the user
+        // was previously in.
+        consultationManager.updateSession(chatId, { flowState: FlowStates.ROLE_APPLICATION });
+        await this.bot.sendMessage(chatId,
+          `📝 *Apply for Role*\n\nUsage: /apply <role>\n\nAvailable roles: ${validRoles.join(', ')}\n\nRoles require admin approval.`,
+          {
             parse_mode: 'Markdown',
             reply_markup: telegramKeyboards.buildRoleApplication().reply_markup
           }
@@ -882,7 +919,7 @@ await this.bot.sendMessage(chatId, profileText, {
           text += `${statusEmoji} *${role}* - ${status}\n`;
         });
       }
-      text += `\nUse "APPLY:ROLE" to request a new role.`;
+      text += `\nUse /apply <role> to request a new role.`;
       
       await this.bot.sendMessage(chatId, text, { 
         parse_mode: 'Markdown',
@@ -979,80 +1016,7 @@ await this.bot.sendMessage(chatId, profileText, {
     });
 
     this.bot.onText(/\/menu/, async (msg) => {
-      const chatId = msg.chat.id;
-      const session = consultationManager.getSession(String(chatId));
-      const flowState = session?.flowState || FlowStates.WELCOME;
-      const persona = new UserPersona(String(chatId));
-      const effectiveRole = this.getEffectiveRole(persona, session);
-
-      if (effectiveRole === PersonaTypes.ADMIN || effectiveRole === PersonaTypes.SUPER_ADMIN) {
-        const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
-        const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
-        if (flowState !== adminMenuState) {
-          consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
-        }
-        ensureEnvSeededAdminRecord(String(chatId));
-        const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-        const pendingCount = consultationManager.getPendingForAdmin().length;
-        const activeCount = Array.from(consultationManager.consultations.values())
-          .filter(c => c.status === 'active').length;
-        const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-        const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
-          s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
-        const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
-        const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-        
-        const keyboard = telegramKeyboards.buildAdminMenu(
-          pendingCount, activeCount, adminProfileComplete,
-          hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
-        );
-        
-        const header = isSuperAdmin 
-          ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
-          : `🛠️ *Admin Panel*\n\nPending: ${pendingCount} | Active: ${activeCount}`;
-          
-        await this.bot.sendMessage(chatId, header, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (effectiveRole === PersonaTypes.SUPPORT) {
-        if (flowState !== FlowStates.SUPPORT_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
-        }
-        const keyboard = telegramKeyboards.buildMainMenu('support', false, true);
-        await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (effectiveRole === PersonaTypes.DOCTOR) {
-        const doctors = doctorPersistence.getDoctors();
-        const doctor = doctors.find(d => d.telegramId === String(chatId) ||
-          String(d.phoneNumber).replace('+', '') === String(chatId));
-        const hasActive = !!Array.from(consultationManager.consultations.values())
-          .find(c => c.doctorId === doctor?.id && c.status === 'active');
-        const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
-        if (flowState !== FlowStates.DOCTOR_MENU) {
-          consultationManager.updateSession(String(chatId), { flowState: FlowStates.DOCTOR_MENU });
-        }
-        const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
-        await this.bot.sendMessage(chatId, keyboard.text || `👨⚕️ *Doctor Menu*\n\nHi ${doctor?.name || 'Doctor'}`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else if (flowState === FlowStates.CAREGIVER_MENU) {
-        const keyboard = telegramKeyboards.buildMainMenu('caregiver', false, true);
-        await this.bot.sendMessage(chatId, `📲 *Caregiver Menu*\n\nActing on behalf of: ${session?.patientName || 'Patient'}`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      } else {
-        const hasOtherRoles = persona.availableRoles?.length > 1;
-        const keyboard = telegramKeyboards.buildMainMenu('patient', hasOtherRoles, true, false, false);
-        await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { 
-          parse_mode: 'Markdown',
-          reply_markup: keyboard.reply_markup
-        });
-      }
+      await this.sendRoleHomeMenu(msg.chat.id);
     });
 
     this.bot.on('message', async (msg) => {
@@ -1106,7 +1070,7 @@ if (!inAdminDomain) {
                   .filter(c => c.status === 'active').length;
                 const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
                 const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-                const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
+                const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s => 
                   s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
                 const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
                 const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
@@ -1226,16 +1190,8 @@ if (!inAdminDomain) {
       const idleResult = conversationFlow.checkIdle(String(chatId));
       if (idleResult) {
         await this.notifyAdminsAbandonment(String(chatId), session, 'idle');
-        await this.bot.sendMessage(chatId, 
-          idleResult.response, 
-          { 
-            parse_mode: 'Markdown',
-            reply_markup: telegramKeyboards.buildMainMenu(effectiveRole, 
-              persona.availableRoles?.length > 1, true,
-              effectiveRole === 'admin',
-              effectiveRole === 'super_admin').reply_markup
-          }
-        );
+        await this.bot.sendMessage(chatId, idleResult.response, { parse_mode: 'Markdown' });
+        await this.sendRoleHomeMenu(chatId);
         return;
       }
 
@@ -1253,7 +1209,7 @@ if (!inAdminDomain) {
               .filter(c => c.status === 'active').length;
             const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
             const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-            const hasPendingDiscounts = Array.from(consultationManager.sessions?.values || []).some(s => 
+            const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s => 
               s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
             const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
             const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
@@ -1616,7 +1572,7 @@ if (!consultation) {
       return;
     }
 
-    await this.bot.sendMessage(session.patientPhone, message, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(consultation.patientPhone, message, { parse_mode: 'Markdown' });
     consultationManager.addMessage(consultation.id, 'doctor', message);
     
     await this.bot.sendMessage(chatId, 'Message sent to patient/caregiver.');

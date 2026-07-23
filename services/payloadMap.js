@@ -45,11 +45,23 @@ const payloadMap = {
   [FlowStates.CONSULTATION_WITHDRAW]: { 'withdraw_confirm': '1', 'withdraw_cancel': '0' },
   [FlowStates.ADMIN_ROLE_APPROVALS]: { 'view_role_apps': '1', 'approve_doctor': '2', 'approve_caregiver': '3', 'approve_support': '4', 'admin_menu': '0' },
   [FlowStates.ADMIN_DOCTOR_MANAGEMENT]: { 'view_doctors': '1', 'invite_doctor': '2', 'register_doctor': '3', 'assign_doctor': '4', 'remove_doctor': '5', 'reject_doctor': '6', 'message_doctor': '7', 'reassign_doctor': '8', 'admin_menu': '0' },
-  [FlowStates.CANCER_TYPE]: { 'cancer_lung': '1', 'cancer_breast': '2', 'cancer_prostate': '3', 'cancer_liver': '4', 'cancer_pancreatic': '5', 'cancer_ovarian': '6', 'cancer_blood': '7', 'cancer_general': '8', 'cancel': '0' },
+  [FlowStates.CANCER_TYPE]: { 'cancer_lung': '1', 'cancer_breast': '2', 'cancer_prostate': '3', 'cancer_liver': '4', 'cancer_pancreatic': '5', 'cancer_ovarian': '6', 'cancer_blood': '7', 'cancer_other': '8', 'cancel': '0' },
   [FlowStates.ADMIN_CLOSE_CONSULTATION]: { 'close_confirm': '1', 'close_cancel': '0' },
-  [FlowStates.ADMIN_PROFILE_EDIT]: { 'edit_name': '1', 'edit_phone': '2', 'cancel': '0' },
+  [FlowStates.ADMIN_PROFILE_EDIT]: { 'edit_name': '1', 'edit_phone': '2', 'view_profile': '3', 'cancel': '0' },
   [FlowStates.PROFILE_CONSENTS]: { 'consent_tele': '1', 'consent_data': '2', 'consent_dpdp': '3' },
-  [FlowStates.PROFILE_DISCOUNT_CATEGORY]: { 'discount_economic': '1', 'discount_profession': '2', 'discount_social': '3', 'discount_none': '4' }
+  [FlowStates.PROFILE_DISCOUNT_CATEGORY]: { 'discount_economic': '1', 'discount_profession': '2', 'discount_social': '3', 'discount_none': '4' },
+  [FlowStates.ROLE_APPLICATION]: { 'apply_doctor': '1', 'apply_caregiver': '2', 'apply_support': '3', 'cancel': '4' },
+  [FlowStates.PROFILE_REMOVE_ROLE]: { 'remove_doctor': 'doctor', 'remove_caregiver': 'caregiver', 'remove_support': 'support' },
+  [FlowStates.PERSONA_SELECT]: { 'patient': '1', 'caregiver': '2', 'doctor': '3', 'admin': '4', 'super_admin': '4', 'support': '5', 'main_menu': '0' },
+  [FlowStates.BILLING]: { 'request_payment_link': '1', 'payment_status': '2', 'apply_discount': '3', 'main_menu': '0' },
+  [FlowStates.ADMIN_MESSAGE_PATIENT_INPUT]: { 'admin_menu': '0' },
+  [FlowStates.ADMIN_VERIFY_PAYMENT_INPUT]: { 'admin_menu': '0' },
+  [FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT]: { 'admin_menu': '0' },
+  [FlowStates.ADMIN_SET_FEE_INPUT]: { 'admin_menu': '0' },
+  [FlowStates.DOCTOR_MSG_ADMIN_INPUT]: { 'doctor_menu': '0' },
+  [FlowStates.ADMIN_ADD_ADMIN_INPUT]: { 'super_admin_menu': '0' },
+  [FlowStates.ADMIN_REMOVE_ADMIN_INPUT]: { 'super_admin_menu': '0' },
+  [FlowStates.MOBILE_COLLECTION]: { 'mobile_skip': '0' }
 };
 
 module.exports = { payloadMap };

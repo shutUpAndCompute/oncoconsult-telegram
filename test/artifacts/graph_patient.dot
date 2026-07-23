@@ -17,6 +17,7 @@ digraph patient_flow {
   "welcome" -> "persona_select";
   "consultation" -> "report_upload";
   "consultation" -> "welcome";
+  "consultation" -> "persona_select";
   "profile_view" -> "welcome";
   "profile_view" -> "profile_edit";
   "profile_view" -> "role_application";

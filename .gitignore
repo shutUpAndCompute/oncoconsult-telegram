@@ -2,5 +2,8 @@ node_modules/
 .env
 data/sessions.json
 data/payments.json
+data/users.json
+data/pending_doctors.json
+data/consultations.json
 *.log
 .DS_Store

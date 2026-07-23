@@ -2,6 +2,17 @@ const { FlowStates } = require('./conversationFlow');
 
 const MAX_FILE_SIZE_MB = 20;
 
+// Seeded/registered doctor names sometimes already include a "Dr." prefix
+// (see data/doctors.json) and sometimes don't - strip it before display so
+// button labels don't ever read "Dr. Dr. Name".
+const formatDoctorName = (name) => String(name || '').replace(/^Dr\.?\s*/i, '');
+
+// isAdmin/isSuperAdmin are accepted for call-site symmetry with
+// buildAdminMenu/buildSuperAdminMenu but intentionally unused here - this is
+// always the generic patient-shaped menu (Consultations/Profile/Switch
+// Role). Admin/doctor/support roles must be routed to their own
+// buildAdminMenu/buildSuperAdminMenu/buildDoctorMenu/buildSupportMenu
+// instead of this function.
 const buildMainMenu = (persona = 'patient', hasOtherRoles = false, profileComplete = true, isAdmin = false, isSuperAdmin = false, pendingCount = 0, activeCount = 0) => {
   const buttons = [];
   
@@ -258,7 +269,11 @@ const buildRoleApplication = () => ({ reply_markup: { inline_keyboard: [
   [{ text: '4️⃣ Cancel', callback_data: 'cancel' }]
 ] } });
 
-const buildMyRoles = (roles = [], profile = {}) => ({ reply_markup: { inline_keyboard: roles.map(r => [{ text: r, callback_data: `role_${r}` }]) } });
+// Previously emitted a `role_${r}` button per applied role with no handler
+// anywhere in the app and no way back - a guaranteed dead end. /roles is an
+// informational screen (role/status list is in the message text), so all it
+// needs is a way back to the menu.
+const buildMyRoles = (roles = [], profile = {}) => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Menu', callback_data: 'main_menu' }]] } });
 
 const buildProfileRemoveRole = () => ({ reply_markup: { inline_keyboard: [[{ text: 'doctor', callback_data: 'remove_doctor' }, { text: 'caregiver', callback_data: 'remove_caregiver' }, { text: 'support', callback_data: 'remove_support' }, { text: '0️⃣ Cancel', callback_data: 'cancel' }]] } });
 
@@ -266,7 +281,8 @@ const buildDiscountPrimary = () => ({ reply_markup: { inline_keyboard: [
   [{ text: '1️⃣ Economic & Schemes', callback_data: 'discount_economic' }],
   [{ text: '2️⃣ Profession & Service', callback_data: 'discount_profession' }],
   [{ text: '3️⃣ Social & Demographic', callback_data: 'discount_social' }],
-  [{ text: '4️⃣ No Discount (Full Fee)', callback_data: 'discount_none' }]
+  [{ text: '4️⃣ No Discount (Full Fee)', callback_data: 'discount_none' }],
+  [{ text: '0️⃣ Back', callback_data: 'discount_back' }]
 ] } });
 
 const buildDiscountEconomic = () => ({ reply_markup: { inline_keyboard: [
@@ -298,7 +314,10 @@ const buildDiscountSocial = () => ({ reply_markup: { inline_keyboard: [
   [{ text: '0️⃣ Back', callback_data: 'discount_back' }]
 ] } });
 
-const buildConsentsMenu = () => ({ reply_markup: { inline_keyboard: [[{ text: '✅ Teleconsultation', callback_data: 'consent_tele' }, { text: '✅ Data Sharing', callback_data: 'consent_data' }, { text: '✅ DPDP', callback_data: 'consent_dpdp' }]] } });
+const buildConsentsMenu = () => ({ reply_markup: { inline_keyboard: [
+  [{ text: '✅ Teleconsultation', callback_data: 'consent_tele' }, { text: '✅ Data Sharing', callback_data: 'consent_data' }, { text: '✅ DPDP', callback_data: 'consent_dpdp' }],
+  [{ text: '0️⃣ Cancel', callback_data: 'cancel' }]
+] } });
 
 const buildDoctorSelect = (doctors = []) => {
   const buttons = doctors.map(d => [{ text: d.name || 'Doctor', callback_data: `doctor_${d.id}` }]);
@@ -340,6 +359,41 @@ const buildDoctorProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ tex
 const buildDoctorMsgAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Menu', callback_data: 'doctor_menu' }]] } });
 
 const buildAdminAssignDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
+
+// Inline pickers for Assign/Reassign Doctor (see startAssignDoctorFlow /
+// startReassignDoctorFlow in conversationFlow.js). Buttons use plain digit
+// callback_data ('1','2',...,'0') matching the 1-based list index the
+// handlers parse - since these lists are dynamically sized per request,
+// there's no fixed callback_data string a payloadMap entry could name, so
+// the digit itself IS the payload (same trick the fixed-size menus rely on,
+// just generated instead of hardcoded).
+const buildAdminAssignDoctorSelect = (pending = []) => ({
+  reply_markup: { inline_keyboard: [
+    ...pending.map((c, i) => [{ text: `${i + 1}️⃣ ${c.patientProfile?.name || c.patientPhone}`, callback_data: String(i + 1) }]),
+    [{ text: '0️⃣ Back to Doctor Management', callback_data: '0' }]
+  ] }
+});
+
+const buildAdminAssignDoctorPick = (doctors = []) => ({
+  reply_markup: { inline_keyboard: [
+    ...doctors.map((d, i) => [{ text: `${i + 1}️⃣ Dr. ${formatDoctorName(d.name)} (${d.specialty})`, callback_data: String(i + 1) }]),
+    [{ text: '0️⃣ Back to Doctor Management', callback_data: '0' }]
+  ] }
+});
+
+const buildAdminReassignDoctorSelect = (assigned = []) => ({
+  reply_markup: { inline_keyboard: [
+    ...assigned.map((c, i) => [{ text: `${i + 1}️⃣ ${c.patientProfile?.name || c.patientPhone}`, callback_data: String(i + 1) }]),
+    [{ text: '0️⃣ Back to Doctor Management', callback_data: '0' }]
+  ] }
+});
+
+const buildAdminReassignDoctorPick = (doctors = []) => ({
+  reply_markup: { inline_keyboard: [
+    ...doctors.map((d, i) => [{ text: `${i + 1}️⃣ Dr. ${formatDoctorName(d.name)} (${d.specialty})`, callback_data: String(i + 1) }]),
+    [{ text: '0️⃣ Back to Doctor Management', callback_data: '0' }]
+  ] }
+});
 
 const buildAdminRemoveDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
 
@@ -404,7 +458,9 @@ const buildAdminRoleApprovals = (pendingCounts = { doctor: 0, caregiver: 0, supp
 
 const buildBillingMenu = () => ({
   reply_markup: { inline_keyboard: [
-    [{ text: '1️⃣ Check Payment Status', callback_data: 'payment_status' }],
+    [{ text: '1️⃣ Request Payment Link', callback_data: 'request_payment_link' }],
+    [{ text: '2️⃣ Check Payment Status', callback_data: 'payment_status' }],
+    [{ text: '3️⃣ Apply for Fee Discount', callback_data: 'apply_discount' }],
     [{ text: '0️⃣ Main Menu', callback_data: 'main_menu' }]
   ]}
 });
@@ -470,10 +526,14 @@ module.exports = {
   buildDoctorProfileEdit,
   buildDoctorMsgAdminInput,
   buildAdminAssignDoctorInput,
+  buildAdminAssignDoctorSelect,
+  buildAdminAssignDoctorPick,
   buildAdminRemoveDoctorInput,
   buildAdminRejectDoctorInput,
   buildAdminMessageDoctorInput,
   buildAdminReassignDoctorInput,
+  buildAdminReassignDoctorSelect,
+  buildAdminReassignDoctorPick,
   buildAdminMessagePatientInput,
   buildAdminVerifyPaymentInput,
   buildAdminVerifyDiscountInput,

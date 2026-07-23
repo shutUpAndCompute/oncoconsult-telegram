@@ -15,8 +15,7 @@ class PersistenceManager {
     this.dataDir = dataDir;
     this.sessionsFile = path.join(dataDir, 'sessions.json');
     this.consultationsFile = path.join(dataDir, 'consultations.json');
-    this.paymentsFile = path.join(dataDir, 'payments.json');
-    
+
     this.ensureDataDir();
     this.sessions = this.load('sessions');
     this.consultations = this.load('consultations');
@@ -95,15 +94,13 @@ class ConsultationManager {
         invalidSelections: 0,
         patientProfile: null,
         profileStep: null,
-        pendingPayment: null,
         selectedPersona: null,
         isCaregiver: false,
         caregiverConsentGiven: false,
         caregiverName: null,
         patientName: null,
         caregiverRelationship: null,
-        caregiverReason: null,
-        consentsGiven: false
+        caregiverReason: null
       });
       this.persistence.saveSessions();
     }
@@ -181,7 +178,14 @@ class ConsultationManager {
       caregiverName: session.caregiverName,
       patientName: session.patientName,
       caregiverRelationship: session.caregiverRelationship,
-      caregiverReason: session.caregiverReason
+      caregiverReason: session.caregiverReason,
+      // isCaregiver and linkedPatientPhone are checked together everywhere
+      // (see routeToRoleHome/CAREGIVER_PATIENT_LINK guards in
+      // conversationFlow.js) - dropping this while keeping isCaregiver true
+      // left a caregiver's session in the impossible state of "is a
+      // caregiver but linked to no one" after every cancel/idle-timeout,
+      // forcing them to re-enter the patient's phone number from scratch.
+      linkedPatientPhone: session.linkedPatientPhone
     };
     
     this.releaseDoctorIfAssigned(phoneNumber);

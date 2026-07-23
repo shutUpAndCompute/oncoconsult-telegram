@@ -334,7 +334,7 @@ test('Dual-Support Contract: Missing Button Audit', async (t) => {
 
     await t.test('should have properly structured Discount Sub-Menus', () => {
       const kbPrimary = telegramKeyboards.buildDiscountPrimary().reply_markup.inline_keyboard;
-      assert.strictEqual(kbPrimary.length, 4);
+      assert.strictEqual(kbPrimary.length, 5); // 4 category options + 0️⃣ Back
       assert.match(InteractiveMenus.discountCategories, /Economic \& Schemes/);
 
       const kbEconomic = telegramKeyboards.buildDiscountEconomic().reply_markup.inline_keyboard;
