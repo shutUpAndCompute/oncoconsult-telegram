@@ -82,16 +82,18 @@ const buildPersonaSelect = (currentPersona, approvedRoles = []) => {
 
 const buildProfileMenu = (highlightMissing = {}) => {
   const buttons = [];
-  
+  const hasMissing = Object.keys(highlightMissing).length > 0;
+
   buttons.push([{ text: '1️⃣ View Profile', callback_data: 'view_profile' }]);
-  
-  if (highlightMissing.name) {
+
+  if (hasMissing) {
     buttons.push([{ text: '🔴 2️⃣ Edit Profile', callback_data: 'edit_profile' }]);
+    buttons.push([{ text: '🔴 3️⃣ Apply for Role', callback_data: 'apply_role' }]);
   } else {
     buttons.push([{ text: '2️⃣ Edit Profile', callback_data: 'edit_profile' }]);
+    buttons.push([{ text: '3️⃣ Apply for Role', callback_data: 'apply_role' }]);
   }
-  
-  buttons.push([{ text: '3️⃣ Apply for Role', callback_data: 'apply_role' }]);
+
   buttons.push([{ text: '4️⃣ My Roles', callback_data: 'my_roles' }]);
   buttons.push([{ text: '5️⃣ Remove Role', callback_data: 'remove_role' }]);
   buttons.push([{ text: '0️⃣ Back to Profile', callback_data: 'main_menu' }]);
@@ -112,8 +114,14 @@ const buildAdminConsultationsMenu = (pending = 0, active = 0) => {
 
 const buildAdminFinancesMenu = (hasPendingPayments = false, hasPendingDiscounts = false) => {
   const buttons = [];
-  buttons.push([{ text: hasPendingPayments ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment', callback_data: 'verify_payment' }]);
-  buttons.push([{ text: hasPendingDiscounts ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount', callback_data: 'verify_discount' }]);
+  let indDiscount = false, indPayment = false;
+  if (hasPendingDiscounts) {
+    indDiscount = true;
+  } else if (hasPendingPayments) {
+    indPayment = true;
+  }
+  buttons.push([{ text: indPayment ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment', callback_data: 'verify_payment' }]);
+  buttons.push([{ text: indDiscount ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount', callback_data: 'verify_discount' }]);
   buttons.push([{ text: '3️⃣ Set Fee', callback_data: 'set_fee' }]);
   buttons.push([{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]);
   return { reply_markup: { inline_keyboard: buttons } };
@@ -135,11 +143,21 @@ const buildAdminMenu = (pending = 0, active = 0, isProfileComplete = true, hasPe
   const hasConsultationAction = pending > 0 || active > 0;
   const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
   const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
+  let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
+  if (hasFinanceAction) {
+    indFinances = true;
+  } else if (hasSystemAction) {
+    indSystem = true;
+  } else if (!isProfileComplete) {
+    indProfile = true;
+  } else if (hasConsultationAction) {
+    indConsultations = true;
+  }
   
-  buttons.push([{ text: hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
-  buttons.push([{ text: hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
-  buttons.push([{ text: hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
-  buttons.push([{ text: !isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
+  buttons.push([{ text: indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
+  buttons.push([{ text: indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
+  buttons.push([{ text: indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
+  buttons.push([{ text: indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -158,11 +176,21 @@ const buildSuperAdminMenu = (pending = 0, active = 0, isProfileComplete = true, 
   const hasConsultationAction = pending > 0 || active > 0;
   const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
   const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
+  let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
+  if (hasFinanceAction) {
+    indFinances = true;
+  } else if (hasSystemAction) {
+    indSystem = true;
+  } else if (!isProfileComplete) {
+    indProfile = true;
+  } else if (hasConsultationAction) {
+    indConsultations = true;
+  }
   
-  buttons.push([{ text: hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
-  buttons.push([{ text: hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
-  buttons.push([{ text: hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
-  buttons.push([{ text: !isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
+  buttons.push([{ text: indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations', callback_data: 'menu_consultations' }]);
+  buttons.push([{ text: indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances', callback_data: 'menu_finances' }]);
+  buttons.push([{ text: indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles', callback_data: 'menu_system' }]);
+  buttons.push([{ text: indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile', callback_data: 'profile' }]);
   buttons.push([{ text: '0️⃣ Switch Role', callback_data: 'switch_role' }]);
   
   return { reply_markup: { inline_keyboard: buttons } };
@@ -209,14 +237,17 @@ const buildCaregiverAuth = () => ({ reply_markup: { inline_keyboard: [[{ text: '
 
 const buildPlatformTerms = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ I Agree', callback_data: 'terms_accept' }, { text: '2️⃣ Decline', callback_data: 'terms_decline' }]] } });
 
-const buildProfileView = (profile = {}) => ({ reply_markup: { inline_keyboard: [
-  [{ text: '1️⃣ View Profile', callback_data: 'view_profile' }],
-  [{ text: '2️⃣ Edit Profile', callback_data: 'edit_profile' }],
-  [{ text: '3️⃣ Apply for Role', callback_data: 'apply_role' }],
-  [{ text: '4️⃣ My Roles', callback_data: 'my_roles' }],
-  [{ text: '5️⃣ Remove Role', callback_data: 'remove_role' }],
-  [{ text: '0️⃣ Back to Menu', callback_data: 'main_menu' }]
-] } });
+const buildProfileView = (highlightMissing = {}) => {
+  const hasMissing = Object.keys(highlightMissing).length > 0;
+  return { reply_markup: { inline_keyboard: [
+    [{ text: '1️⃣ View Profile', callback_data: 'view_profile' }],
+    [{ text: hasMissing ? '🔴 2️⃣ Edit Profile' : '2️⃣ Edit Profile', callback_data: 'edit_profile' }],
+    [{ text: hasMissing ? '🔴 3️⃣ Apply for Role' : '3️⃣ Apply for Role', callback_data: 'apply_role' }],
+    [{ text: '4️⃣ My Roles', callback_data: 'my_roles' }],
+    [{ text: '5️⃣ Remove Role', callback_data: 'remove_role' }],
+    [{ text: '0️⃣ Back to Menu', callback_data: 'main_menu' }]
+  ]} };
+};
 
 const buildProfileEdit = () => ({ reply_markup: { inline_keyboard: [[{ text: '1️⃣ Edit Name', callback_data: 'edit_name' }, { text: '2️⃣ Edit Phone', callback_data: 'edit_phone' }]] } });
 

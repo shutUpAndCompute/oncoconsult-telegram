@@ -328,9 +328,19 @@ class TelegramAdapter {
             hasPending ? 1 : 0,
             hasActive ? 1 : 0);
         }
-        if (currentState === FlowStates.PROFILE_VIEW) {
-          return telegramKeyboards.buildProfileView();
-        }
+if (currentState === FlowStates.PROFILE_VIEW) {
+           const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
+           const missingFields = isPatient 
+             ? (session?.patientProfile ? conversationFlow.getIncompleteProfileFields(session) : {name: true, age: true})
+             : adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
+           const missingMap = {};
+           Object.keys(missingFields).forEach(k => missingMap[k] = true);
+           if (Array.isArray(missingFields)) {
+             if (missingFields.includes('Name')) missingMap.name = true;
+             if (missingFields.includes('Phone Number')) missingMap.phoneNumber = true;
+           }
+           return telegramKeyboards.buildProfileView(missingMap);
+         }
         if (currentState === FlowStates.PROFILE) {
           return telegramKeyboards.buildProfileEdit();
         }
@@ -806,13 +816,18 @@ class TelegramAdapter {
       
       const profile = session?.patientProfile || {};
       const isCaregiver = session?.isCaregiver || false;
-      
+      const missingFields = isCaregiver 
+        ? adminRegistry?.getIncompleteProfileFields?.(chatId) || {}
+        : conversationFlow.getIncompleteProfileFields(session);
+      const missingMap = {};
+      Object.keys(missingFields).forEach(k => missingMap[k] = true);
+
       const profileText = `📋 *Your Profile*\n\n*Name:* ${profile.name || 'Not set'}\n*Age:* ${profile.age || 'Not set'}\n*Gender:* ${profile.gender || 'Not set'}\n*Address:* ${profile.address || 'Not set'}\n*State:* ${profile.state || 'Not set'}\n*Cancer Type:* ${profile.cancerType || 'Not set'}\n*Treating Hospital:* ${profile.treatingHospital || 'Not set'}\n*Treatment Status:* ${profile.treatmentStatus || 'Not set'}\n*Medical Reports:* ${profile.medicalReports?.length || 0} uploaded\n*Emergency Contact:* ${profile.emergencyContactName || 'Not set'} (${profile.emergencyContactRelation || 'Not set'})\n*Discount Category:* ${profile.discountCategory || 'none'}\n*Discount Status:* ${profile.discountVerificationStatus || 'not_applied'}\n${isCaregiver && profile.caregiverName ? `\n*Caregiver Name:* ${profile.caregiverName}` : ''}\n${isCaregiver && profile.patientName ? `*Patient Name:* ${profile.patientName}` : ''}\n${isCaregiver && profile.caregiverRelationship ? `*Relationship:* ${profile.caregiverRelationship}` : ''}`;
       
-      await this.bot.sendMessage(chatId, profileText, { 
-        parse_mode: 'Markdown',
-        reply_markup: telegramKeyboards.buildProfileView().reply_markup
-      });
+await this.bot.sendMessage(chatId, profileText, { 
+         parse_mode: 'Markdown',
+         reply_markup: telegramKeyboards.buildProfileView(missingFields).reply_markup
+       });
     });
 
     this.bot.onText(/\/apply/, async (msg) => {
@@ -1255,11 +1270,15 @@ if (!inAdminDomain) {
             replyMarkup = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
           } else if (currentState === FlowStates.SUPPORT_MENU) {
             replyMarkup = telegramKeyboards.buildSupportMenu(persona.availableRoles?.length > 1);
-          } else if (currentState === FlowStates.PERSONA_SELECT) {
-            replyMarkup = telegramKeyboards.buildPersonaSelect(effectiveRole, persona.availableRoles);
-          } else if (currentState === FlowStates.PROFILE_VIEW) {
-            replyMarkup = telegramKeyboards.buildProfileView();
-          } else if (currentState === FlowStates.CAREGIVER_MENU) {
+} else if (currentState === FlowStates.PERSONA_SELECT) {
+             replyMarkup = telegramKeyboards.buildPersonaSelect(effectiveRole, persona.availableRoles);
+           } else if (currentState === FlowStates.PROFILE_VIEW) {
+             const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
+             const missingFields = isPatient 
+               ? (session?.patientProfile ? conversationFlow.getIncompleteProfileFields(session) : {name: true, age: true})
+               : adminRegistry?.getIncompleteProfileFields?.(String(chatId)) || {};
+             replyMarkup = telegramKeyboards.buildProfileView(missingFields);
+           } else if (currentState === FlowStates.CAREGIVER_MENU) {
             replyMarkup = telegramKeyboards.buildCaregiverMenu(persona.availableRoles?.length > 1, true);
           }
         }
