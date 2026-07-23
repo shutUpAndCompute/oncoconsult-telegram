@@ -160,12 +160,22 @@ Reply with number`,
     const hasConsultationAction = pending > 0 || active > 0;
     const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
     const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
+    let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
+    if (hasFinanceAction) {
+      indFinances = true;
+    } else if (hasSystemAction) {
+      indSystem = true;
+    } else if (!isProfileComplete) {
+      indProfile = true;
+    } else if (hasConsultationAction) {
+      indConsultations = true;
+    }
     return `🛠️ *Admin Panel*
 
-${hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
-${hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
-${hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
-${!isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
+${indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
+${indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
+${indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
+${indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
 
 0️⃣ Switch Role`;
   },
@@ -173,12 +183,22 @@ ${!isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
     const hasConsultationAction = pending > 0 || active > 0;
     const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
     const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
+    let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
+    if (hasFinanceAction) {
+      indFinances = true;
+    } else if (hasSystemAction) {
+      indSystem = true;
+    } else if (!isProfileComplete) {
+      indProfile = true;
+    } else if (hasConsultationAction) {
+      indConsultations = true;
+    }
     return `🔐 *Super Admin Panel*
 
-${hasConsultationAction ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
-${hasFinanceAction ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
-${hasSystemAction ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
-${!isProfileComplete ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
+${indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
+${indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
+${indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
+${indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
 
 0️⃣ Switch Role`;
   },
@@ -194,10 +214,16 @@ ${active > 0 ? `🟢 2️⃣ Active Consultations (${active} active)` : '2️⃣
 0️⃣ Back to Admin Menu`;
   },
   adminFinancesMenu: (hasPendingPayments = false, hasPendingDiscounts = false) => {
+    let indDiscount = false, indPayment = false;
+    if (hasPendingDiscounts) {
+      indDiscount = true;
+    } else if (hasPendingPayments) {
+      indPayment = true;
+    }
     return `💰 *Finances Menu*
 
-${hasPendingPayments ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment'}
-${hasPendingDiscounts ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount'}
+${indPayment ? '🔴 1️⃣ Verify Payment' : '1️⃣ Verify Payment'}
+${indDiscount ? '🔴 2️⃣ Verify Discount' : '2️⃣ Verify Discount'}
 3️⃣ Set Fee
 
 0️⃣ Back to Admin Menu`;
@@ -610,7 +636,7 @@ closeConsultationPrompt: `🔚 *Close Consultation*\n\nEnter consultation ID to 
 
 1️⃣ View Profile
 ${!highlightMissing.name ? '🔴 ' : ''}2️⃣ Edit Profile
-3️⃣ Apply for Role
+${!highlightMissing.name ? '🔴 ' : ''}3️⃣ Apply for Role
 4️⃣ My Roles
 5️⃣ Remove Role
 
@@ -657,14 +683,41 @@ getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null
       case FlowStates.ROLE_APPLICATION: return InteractiveMenus.roleApplication;
       case FlowStates.CONSULTATION_WITHDRAW: return InteractiveMenus.withdrawalConfirm;
       case FlowStates.ADMIN_MENU: {
-        const pending = this.consultationManager.getPendingActionsForAdmin?.(phoneNumber) || 0;
-        const active = 0;
+        const pending = this.consultationManager?.getPendingForAdmin?.(phoneNumber)?.length || 0;
+        const active = Array.from(this.consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length;
         const isProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
         const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
-        const hasPendingDiscounts = false;
-        const pendingRoles = 0;
-        const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+        const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountVerificationStatus === 'pending');
+        const pendingRoles = (this.userRegistry?.getPendingRequests?.('doctor')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('support')?.length || 0);
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
         return InteractiveMenus.adminMenu(pending, active, isProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
+      }
+      case FlowStates.SUPER_ADMIN_MENU: {
+        const pending = this.consultationManager?.getPendingForAdmin?.(phoneNumber)?.length || 0;
+        const active = Array.from(this.consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length;
+        const isProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountVerificationStatus === 'pending');
+        const pendingRoles = (this.userRegistry?.getPendingRequests?.('doctor')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('support')?.length || 0);
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        return InteractiveMenus.superAdminMenu(pending, active, isProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
+      }
+      case FlowStates.ADMIN_FINANCES_MENU: {
+        const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountVerificationStatus === 'pending');
+        return InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts);
+      }
+      case FlowStates.ADMIN_SYSTEM_MENU: {
+        const pendingRoles = (this.userRegistry?.getPendingRequests?.('doctor')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0) +
+                             (this.userRegistry?.getPendingRequests?.('support')?.length || 0);
+        const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
+        const isSuperAdmin = this.adminRegistry?.isSuperAdmin(phoneNumber) || false;
+        return InteractiveMenus.adminSystemMenu(pendingRoles, pendingDoctors, isSuperAdmin);
       }
       case FlowStates.ADMIN_CLOSE_CONSULTATION: return InteractiveMenus.closeConsultationPrompt;
       case FlowStates.ADMIN_ROLE_APPROVALS: {
@@ -3394,7 +3447,7 @@ handleAdminInviteDoctorInput(message, phoneNumber, session) {
       .filter(c => c.status === 'active').length;
     const hasPendingPayments = this.paymentService?.payments?.size > 0 && 
       Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-    const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values || [])
+    const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || [])
       .some(s => s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
     const isProfileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
     const pendingRoles = this.userRegistry?.getPendingRequests?.()?.length || 0;

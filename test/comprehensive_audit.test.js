@@ -356,3 +356,38 @@ test.describe('Response Validation', () => {
     assert.ok(!result.response.includes('}'), 'Response should not contain syntax error braces');
   });
 });
+
+test.describe('Single Indicator & Dynamic Cascade Audit', () => {
+  test('Admin menu enforces single-indicator priority order when multiple pending conditions exist', () => {
+    // Both pending payment and incomplete profile
+    const menuText = InteractiveMenus.adminMenu(1, 0, false, true, false, 0, 0);
+    assert.ok(menuText.includes('🔴 2️⃣ Finances'), 'Finances should carry indicator (deeper priority)');
+    assert.ok(!menuText.includes('🔴 1️⃣ Consultations'), 'Consultations should NOT carry indicator');
+    assert.ok(!menuText.includes('🔴 4️⃣ My Profile'), 'My Profile should NOT carry indicator');
+  });
+
+  test('Admin menu single indicator priority order when all conditions exist', () => {
+    // All conditions met: pending consultations, pending payments, pending roles, incomplete profile
+    const menuText = InteractiveMenus.adminMenu(2, 1, false, true, true, 3, 2);
+    const redDotCount = (menuText.match(/🔴/g) || []).length;
+    assert.strictEqual(redDotCount, 1, 'Only exactly one 🔴 indicator should be rendered on Admin Menu');
+    assert.ok(menuText.includes('🔴 2️⃣ Finances'), 'Finances must carry the single indicator as deepest applicable');
+  });
+
+  test('Admin finances menu enforces single indicator priority order', () => {
+    // Both payment and discount pending -> Verify Discount is deepest
+    const financesMenu = InteractiveMenus.adminFinancesMenu(true, true);
+    const redDotCount = (financesMenu.match(/🔴/g) || []).length;
+    assert.strictEqual(redDotCount, 1, 'Only exactly one 🔴 indicator should be rendered on Finances Menu');
+    assert.ok(financesMenu.includes('🔴 2️⃣ Verify Discount'), 'Verify Discount should carry the indicator');
+    assert.ok(!financesMenu.includes('🔴 1️⃣ Verify Payment'), 'Verify Payment should NOT carry indicator');
+  });
+
+  test('getMessageOptions(FlowStates.ADMIN_MENU) dynamically detects pending discounts', () => {
+    cm.updateSession('discount_pt', {
+      patientProfile: { discountCategory: 'bpl_ews', discountVerificationStatus: 'pending' }
+    });
+    const menuText = flow.getMessageOptions(FlowStates.ADMIN_MENU, 'admin', null, 'admin_phone');
+    assert.ok(menuText.includes('🔴 2️⃣ Finances'), 'Admin menu rendered via getMessageOptions should show 🔴 2️⃣ Finances when discount verification is pending');
+  });
+});
