@@ -109,9 +109,21 @@ case FlowStates.DOCTOR_PATIENTS_VIEW:
 
 // 5. Add new handler
 handleDoctorPatientsView(selection, phoneNumber, session) {
-  // Show patients list, handle navigation back to DOCTOR_MENU
+  if (selection === '0') {
+    return { nextState: FlowStates.DOCTOR_MENU, response: InteractiveMenus.doctorMenu(...) };
+  }
+  return { nextState: FlowStates.DOCTOR_PATIENTS_VIEW, response: ... };
 }
 ```
+
+### Fix Consultation Menu Option 4
+- **Issue**: Option '4' goes to WELCOME instead of PERSONA_SELECT
+- **Impact**: Loses role context when user wants to exit consultation
+- **Location**: `handleConsultationMenuSelection` - change `FlowStates.WELCOME` to `FlowStates.PERSONA_SELECT`
+
+### Fix Profile Remove Role Double Brace
+- **Issue**: Line 2032 has `}}` - potential syntax issue
+- **Location**: Line 2032 in handleRemoveRole
 
 ### Add Response Validation Tests (20 mins)
 ```javascript
