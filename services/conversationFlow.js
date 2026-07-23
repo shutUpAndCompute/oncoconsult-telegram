@@ -1069,7 +1069,12 @@ Example: 9876543210
 
   handleCaregiverMenuSelection(selection, phoneNumber, session) {
     const flowMap = {
-      '1': () => ({ nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation }),
+      '1': () => {
+        const profileComplete = this.adminRegistry?.isAdminProfileComplete(phoneNumber);
+        const hasPendingPayment = this.paymentService?.payments?.size > 0 && 
+          Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+        return { nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete, hasPendingPayment) };
+      },
       '2': () => ({ nextState: FlowStates.PROFILE_VIEW, response: InteractiveMenus.profileMenu({})}),
       '0': () => {
         const { getAvailableRoles } = require('../models/persona');
@@ -2657,10 +2662,10 @@ const handler = flowMap[selection];
     
     // Block all doctor management actions when profile incomplete
     if (!adminProfileComplete) {
-      return {
-        nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `⚠️ *Profile Required*\n\nComplete your admin profile first (option 5 from main admin menu).\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
-      };
+return {
+      nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
+      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pending.length)
+    };
     }
     
     const flowMap = {
@@ -2694,6 +2699,7 @@ listDoctors(phoneNumber) {
     }
     const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
     let text = '👨⚕️ *All Doctors*\n\n';
+    const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
     if (doctors.length === 0) {
       text += '_No doctors registered_\n';
     } else {
@@ -2703,7 +2709,7 @@ listDoctors(phoneNumber) {
     }
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: text + '\n' + InteractiveMenus.adminDoctorManagement
+      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pendingDoctors)
     };
   }
 
@@ -2726,7 +2732,7 @@ listDoctors(phoneNumber) {
     }
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: text + '\n' + InteractiveMenus.adminDoctorManagement
+      response: text + '\n' + InteractiveMenus.adminDoctorManagement(pending.length)
     };
   }
 
@@ -2736,9 +2742,10 @@ listDoctors(phoneNumber) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isAdmin) {
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `❌ Admin access required.\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `❌ Admin access required.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -2749,7 +2756,8 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement };
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
     }
     const parts = trimmed.split(/\s+/);
     if (parts.length < 2) {
@@ -2768,9 +2776,10 @@ listDoctors(phoneNumber) {
     if (!success) {
       return { nextState: FlowStates.ADMIN_ASSIGN_DOCTOR_INPUT, response: `❌ Consultation is already assigned or cannot be updated.\n\n0. Back` };
     }
+    const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: `✅ Assigned ${doctor.name} to ${consultationId}\n\n${InteractiveMenus.adminDoctorManagement}`,
+      response: `✅ Assigned ${doctor.name} to ${consultationId}\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`,
       data: { consultationId, doctorId, patientPhone: consultation.patientPhone }
     };
   }
@@ -2780,9 +2789,10 @@ listDoctors(phoneNumber) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isSuperAdmin) {
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `❌ Only Super Admin can remove doctors.\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `❌ Only Super Admin can remove doctors.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -2793,7 +2803,8 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement };
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
     }
     const doctor = this.doctorRouter?.persistence?.getDoctorById(trimmed);
     if (!doctor) {
@@ -2809,9 +2820,10 @@ listDoctors(phoneNumber) {
     }
     const removed = this.doctorRouter?.persistence?.removeDoctor(trimmed);
     if (removed) {
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `✅ Doctor ${trimmed} removed\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `✅ Doctor ${trimmed} removed\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
@@ -2820,7 +2832,8 @@ listDoctors(phoneNumber) {
   handleAdminMessageDoctorInput(message, phoneNumber, session) {
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement };
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
     }
     const parts = trimmed.split(/\s+/);
     if (parts.length < 2) {
@@ -2831,13 +2844,9 @@ listDoctors(phoneNumber) {
     if (!doctor) {
       return { nextState: FlowStates.ADMIN_MESSAGE_DOCTOR_INPUT, response: `❌ Doctor ${doctorId} not found\n\n0. Back` };
     }
-    // Same dead-end as handleAdminMessagePatientInput used to have: pointed
-    // the admin at a raw MSG_DOCTOR command nothing ever parsed instead of
-    // actually sending anything. data.adminMsgToDoctor lets telegramBot.js
-    // deliver it for real.
     return {
       nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-      response: `✅ Message sent to Dr. ${doctor.name}.\n\n${InteractiveMenus.adminDoctorManagement}`,
+      response: `✅ Message sent to Dr. ${doctor.name}.\n\n${InteractiveMenus.adminDoctorManagement()}`,
       data: { adminMsgToDoctor: { doctorId, message: msgParts.join(' ') } }
     };
   }
@@ -2847,9 +2856,10 @@ listDoctors(phoneNumber) {
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
     if (!isSuperAdmin) {
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `❌ Only Super Admin can reject doctor requests.\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `❌ Only Super Admin can reject doctor requests.\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -2860,7 +2870,8 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement };
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
+      return { nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT, response: InteractiveMenus.adminDoctorManagement(pendingDoctors) };
     }
     const doctor = this.doctorRouter?.persistence?.getPendingDoctors().find(d => d.id === trimmed);
     if (!doctor) {
@@ -2868,9 +2879,10 @@ listDoctors(phoneNumber) {
     }
     const rejected = this.doctorRouter?.persistence?.rejectDoctor(trimmed);
     if (rejected) {
+      const pendingDoctors = this.doctorRouter?.persistence?.getPendingDoctors().length || 0;
       return {
         nextState: FlowStates.ADMIN_DOCTOR_MANAGEMENT,
-        response: `✅ Doctor request ${trimmed} rejected\n\n${InteractiveMenus.adminDoctorManagement}`
+        response: `✅ Doctor request ${trimmed} rejected\n\n${InteractiveMenus.adminDoctorManagement(pendingDoctors)}`
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
@@ -3077,10 +3089,15 @@ listDoctors(phoneNumber) {
     const isSuperAdmin = this.adminRegistry?.isSuperAdmin(phoneNumber) || this.adminRegistry?.isSuperAdmin(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
+    const getPendingApps = () => ({
+      doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+      caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+      support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+    });
     if (!isSuperAdmin) {
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `❌ Only Super Admin can approve doctors.\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `❌ Only Super Admin can approve doctors.\n\n${InteractiveMenus.adminRoleApprovals(getPendingApps())}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -3091,7 +3108,7 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
+      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(getPendingApps()) };
     }
     const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
@@ -3107,9 +3124,14 @@ listDoctors(phoneNumber) {
         consultationFee: 1500
       };
       this.doctorRouter?.persistence?.addDoctor(doctor);
+      const pendingApps = {
+        doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+        caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+        support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+      };
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `✅ Doctor approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `✅ Doctor approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals(pendingApps)}`
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
@@ -3119,10 +3141,15 @@ listDoctors(phoneNumber) {
     const isSuperAdmin = this.adminRegistry?.isSuperAdmin(phoneNumber) || this.adminRegistry?.isSuperAdmin(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
+    const getPendingApps = () => ({
+      doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+      caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+      support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+    });
     if (!isSuperAdmin) {
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `❌ Only Super Admin can approve caregivers.\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `❌ Only Super Admin can approve caregivers.\n\n${InteractiveMenus.adminRoleApprovals(getPendingApps())}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -3133,16 +3160,17 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
+      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(getPendingApps()) };
     }
     const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
       return { nextState: FlowStates.ADMIN_APPROVE_CAREGIVER_INPUT, response: `❌ No user found for ${trimmed}\n\n0. Back` };
     }
     if (this.userRegistry.approveRole(user.chatId, 'caregiver', phoneNumber)) {
+      const pendingApps = getPendingApps();
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `✅ Caregiver approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `✅ Caregiver approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals(pendingApps)}`
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
@@ -3152,10 +3180,15 @@ listDoctors(phoneNumber) {
     const isSuperAdmin = this.adminRegistry?.isSuperAdmin(phoneNumber) || this.adminRegistry?.isSuperAdmin(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(phoneNumber)) ||
       process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(phoneNumber));
+    const getPendingApps = () => ({
+      doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+      caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+      support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+    });
     if (!isSuperAdmin) {
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `❌ Only Super Admin can approve support.\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `❌ Only Super Admin can approve support.\n\n${InteractiveMenus.adminRoleApprovals(getPendingApps())}`
       };
     }
     if (!this.adminRegistry?.isAdminProfileComplete(phoneNumber)) {
@@ -3166,16 +3199,17 @@ listDoctors(phoneNumber) {
     }
     const trimmed = message.trim();
     if (trimmed === '0') {
-      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals };
+      return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(getPendingApps()) };
     }
     const user = this.userRegistry.getUser(trimmed) || this.userRegistry.getUserByPhone(trimmed);
     if (!user) {
       return { nextState: FlowStates.ADMIN_APPROVE_SUPPORT_INPUT, response: `❌ No user found for ${trimmed}\n\n0. Back` };
     }
     if (this.userRegistry.approveRole(user.chatId, 'support', phoneNumber)) {
+      const pendingApps = getPendingApps();
       return {
         nextState: FlowStates.ADMIN_ROLE_APPROVALS,
-        response: `✅ Support approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals}`
+        response: `✅ Support approved for ${trimmed}\n\n${InteractiveMenus.adminRoleApprovals(pendingApps)}`
       };
     }
     return { nextState: FlowStates.ADMIN_MENU, response: this.getAdminMenuText(phoneNumber) };
