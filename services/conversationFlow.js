@@ -640,9 +640,11 @@ class ConversationFlow {
 getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null) {
     const hasPendingPayment = phoneNumber && this.paymentService?.payments?.size > 0 && 
       Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+    const profileComplete = session?.profileComplete !== false;
+    const hasOtherRoles = session?.hasOtherRoles || false;
     
     switch (state) {
-      case FlowStates.WELCOME: return InteractiveMenus.main(persona);
+      case FlowStates.WELCOME: return InteractiveMenus.main(persona, hasOtherRoles, profileComplete, hasPendingPayment);
       case FlowStates.ROLE_SELECT: return InteractiveMenus.roleSelect;
       case FlowStates.CAREGIVER_AUTH: return InteractiveMenus.caregiverAuth;
       case FlowStates.CAREGIVER_CONSENT_ACK: return InteractiveMenus.caregiverConsentAck;
