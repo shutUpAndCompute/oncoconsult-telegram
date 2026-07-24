@@ -10,20 +10,20 @@
 // conversationFlow.
 
 function computeAdminFacts(chatId, services) {
-  const { consultationManager, paymentService, userRegistry, adminRegistry, doctorRouter, doctorPersistence } = services;
+  const { consultationManager, paymentService, userRegistry, adminRegistry, doctorRouter, doctorPersistence } = services || {};
   const pendingDoctorsSource = doctorRouter?.persistence || doctorPersistence;
 
   return {
-    pendingConsultations: consultationManager.getPendingForAdmin().length,
-    activeConsultations: Array.from(consultationManager.consultations.values()).filter(c => c.status === 'active').length,
-    isAdminProfileComplete: adminRegistry.isAdminProfileComplete(chatId),
-    adminMissingFields: adminRegistry.getIncompleteProfileFields?.(chatId) || [],
-    hasPendingPayments: Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-    hasPendingDiscounts: Array.from(consultationManager.sessions?.values() || []).some(s =>
+    pendingConsultations: consultationManager?.getPendingForAdmin?.()?.length || 0,
+    activeConsultations: Array.from(consultationManager?.consultations?.values() || []).filter(c => c.status === 'active').length,
+    isAdminProfileComplete: adminRegistry?.isAdminProfileComplete?.(chatId) || false,
+    adminMissingFields: adminRegistry?.getIncompleteProfileFields?.(chatId) || [],
+    hasPendingPayments: Array.from(paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending),
+    hasPendingDiscounts: Array.from(consultationManager?.sessions?.values() || []).some(s =>
       s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
-    pendingDoctorRoleRequests: userRegistry.getPendingRequests?.('doctor')?.length || 0,
-    pendingCaregiverRoleRequests: userRegistry.getPendingRequests?.('caregiver')?.length || 0,
-    pendingSupportRoleRequests: userRegistry.getPendingRequests?.('support')?.length || 0,
+    pendingDoctorRoleRequests: userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+    pendingCaregiverRoleRequests: userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+    pendingSupportRoleRequests: userRegistry?.getPendingRequests?.('support')?.length || 0,
     pendingDoctorInvites: (pendingDoctorsSource?.getPendingDoctors?.() || []).length
   };
 }

@@ -1,10 +1,19 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_keyboards');
+
 const TelegramAdapter = require('../src/servers/telegramBot');
 const { FlowStates } = require('../services/conversationFlow');
 const ConsultationManager = require('../services/consultationManager');
 const PaymentService = require('../services/paymentService');
 const adminRegistry = require('../services/adminRegistry');
+
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
 
 // Regression test for the bug where typing a digit instead of tapping an
 // inline button - while sitting in ADMIN_MENU/SUPER_ADMIN_MENU/DOCTOR_MENU/

@@ -1,5 +1,10 @@
 const assert = require('node:assert');
 const { test } = require('node:test');
+const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_ux');
+
 const { ConversationFlow, FlowStates } = require('../services/conversationFlow');
 const telegramKeyboards = require('../services/telegramKeyboards');
 const ConsultationManager = require('../services/consultationManager');
@@ -14,6 +19,10 @@ const paymentService = new PaymentService();
 const userRegistry = new UserRegistry();
 
 const conversationFlow = new ConversationFlow(consultationManager, doctorRouter, paymentService, userRegistry, adminRegistry);
+
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
 
 function clearTestSessions() {
   consultationManager.sessions.clear();

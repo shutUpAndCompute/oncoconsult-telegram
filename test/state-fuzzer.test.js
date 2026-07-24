@@ -1,6 +1,9 @@
 const { test, describe, before, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_fuzzer');
 
 const { ConversationFlow, FlowStates } = require('../services/conversationFlow');
 const ConsultationManager = require('../services/consultationManager');
@@ -15,6 +18,10 @@ const paymentService = new PaymentService();
 const userRegistry = new UserRegistry();
 const conversationFlow = new ConversationFlow(consultationManager, doctorRouter, paymentService, userRegistry, adminRegistry);
 
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
+
 describe('Exhaustive State Machine Fuzzer', () => {
   const TEST_CHAT_ID = '999999991';
 
@@ -22,13 +29,16 @@ describe('Exhaustive State Machine Fuzzer', () => {
     consultationManager.sessions.clear();
     consultationManager.consultations.clear();
     
-    // Register a valid admin profile so we pass profile completeness checks
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'users.json'), JSON.stringify({}));
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'doctors.json'), JSON.stringify([]));
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'admins.json'), JSON.stringify([]));
+    
     adminRegistry.addAdmin(TEST_CHAT_ID, 'system', TEST_CHAT_ID, 'super_admin', 'Fuzzer Admin');
   });
 
   afterEach(() => {
-    try { if (fs.existsSync('data/sessions.json')) fs.unlinkSync('data/sessions.json'); } catch(e){}
-    try { if (fs.existsSync('data/sessions.json.tmp')) fs.unlinkSync('data/sessions.json.tmp'); } catch(e){}
+    try { if (fs.existsSync(path.join(process.env.DATA_DIR, 'sessions.json'))) fs.unlinkSync(path.join(process.env.DATA_DIR, 'sessions.json')); } catch(e){}
+    try { if (fs.existsSync(path.join(process.env.DATA_DIR, 'sessions.json.tmp'))) fs.unlinkSync(path.join(process.env.DATA_DIR, 'sessions.json.tmp')); } catch(e){}
   });
 
   const statesToTest = Object.values(FlowStates);

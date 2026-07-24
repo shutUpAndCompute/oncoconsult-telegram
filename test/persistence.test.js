@@ -2,13 +2,16 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_persistence');
+
 const ConsultationManager = require('../services/consultationManager');
 const DoctorRouter = require('../services/doctorRouter');
 const PaymentService = require('../services/paymentService');
 const adminRegistry = require('../services/adminRegistry');
 const UserRegistry = require('../services/userRegistry');
 
-const DATA_DIR = process.env.DATA_DIR || './data';
+const DATA_DIR = process.env.DATA_DIR;
 const SESSIONS_FILE = path.join(DATA_DIR, 'sessions.json');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 
@@ -19,6 +22,10 @@ function readJsonFile(filePath) {
     return null;
   }
 }
+
+test.after(() => {
+  fs.rmSync(DATA_DIR, { recursive: true, force: true });
+});
 
 function getSessionFromFile(phone) {
   const data = readJsonFile(SESSIONS_FILE);

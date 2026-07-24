@@ -15,6 +15,8 @@ const assert = require('node:assert');
 const fs   = require('fs');
 const path = require('path');
 
+process.env.DATA_DIR = path.join(__dirname, 'test_data_graph_crawler');
+
 const { ConversationFlow, FlowStates } = require('../services/conversationFlow');
 const ConsultationManager = require('../services/consultationManager');
 const DoctorRouter        = require('../services/doctorRouter');
@@ -194,6 +196,10 @@ function coverageReport(visited) {
   return { total: all.size, covered: covered.length, missed, pct };
 }
 
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
+
 // ═════════════════════════════════════════════════════════════════════════════
 // TEST SUITE
 // ═════════════════════════════════════════════════════════════════════════════
@@ -207,7 +213,6 @@ describe('Mathematical State-Machine Crawler', () => {
   let cm, flow, dr, userReg;
 
   beforeEach(() => {
-    process.env.DATA_DIR = path.join(__dirname, '../data');
     dr      = new DoctorRouter();
     cm      = new ConsultationManager(dr);
     userReg = new UserRegistry();

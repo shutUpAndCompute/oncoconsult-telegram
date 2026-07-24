@@ -1,6 +1,9 @@
 const { test, describe, before, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_e2e');
 
 const { ConversationFlow, FlowStates } = require('../services/conversationFlow');
 const ConsultationManager = require('../services/consultationManager');
@@ -15,6 +18,10 @@ const paymentService = new PaymentService();
 const userRegistry = new UserRegistry();
 const conversationFlow = new ConversationFlow(consultationManager, doctorRouter, paymentService, userRegistry, adminRegistry);
 
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
+
 describe('End-to-End (E2E) Lifecycle Simulator', () => {
   const ADMIN_CHAT = 'admin123';
   const DOCTOR_CHAT = 'doctor456';
@@ -22,33 +29,26 @@ describe('End-to-End (E2E) Lifecycle Simulator', () => {
   const CAREGIVER_CHAT = 'caregiver012';
 
   before(() => {
-    if (!fs.existsSync('data')) fs.mkdirSync('data');
+    if (!fs.existsSync(process.env.DATA_DIR)) fs.mkdirSync(process.env.DATA_DIR, { recursive: true });
   });
 
   beforeEach(() => {
     consultationManager.sessions.clear();
     consultationManager.consultations.clear();
     
-    // Clear registries to prevent test pollution
-    fs.writeFileSync('data/users.json', JSON.stringify({}));
-    fs.writeFileSync('data/doctors.json', JSON.stringify([]));
-    fs.writeFileSync('data/admins.json', JSON.stringify([]));
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'users.json'), JSON.stringify({}));
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'doctors.json'), JSON.stringify([]));
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'admins.json'), JSON.stringify([]));
     
-    // Refresh internal caches if possible, or just instantiate anew (but singletons won't reload).
-    // Fortunately for users and doctors they reload from disk on write if we simulate it, but we can also just clear internal structures.
     userRegistry.users = {};
     doctorRouter.persistence.doctors = [];
     
-    // Seed an admin to act as the approver
     adminRegistry.addAdmin(ADMIN_CHAT, 'system', ADMIN_CHAT, 'super_admin', 'E2E Admin');
-    
-    // Clean up duplicates if addAdmin appended to our empty array
-    // (We rely on addAdmin updating the in-memory array)
   });
 
   afterEach(() => {
-    try { if (fs.existsSync('data/sessions.json')) fs.unlinkSync('data/sessions.json'); } catch(e){}
-    try { if (fs.existsSync('data/sessions.json.tmp')) fs.unlinkSync('data/sessions.json.tmp'); } catch(e){}
+    try { if (fs.existsSync(path.join(process.env.DATA_DIR, 'sessions.json'))) fs.unlinkSync(path.join(process.env.DATA_DIR, 'sessions.json')); } catch(e){}
+    try { if (fs.existsSync(path.join(process.env.DATA_DIR, 'sessions.json.tmp'))) fs.unlinkSync(path.join(process.env.DATA_DIR, 'sessions.json.tmp')); } catch(e){}
   });
 
   test('Doctor Onboarding Lifecycle', async () => {

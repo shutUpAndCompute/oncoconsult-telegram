@@ -1,7 +1,16 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_navigation');
+
 const { ConversationFlow, FlowStates, InteractiveMenus } = require('../services/conversationFlow');
 const adminRegistry = require('../services/adminRegistry');
+
+test.after(() => {
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
+});
 
 test('Navigation Principle 2: Menu text uses emoji format', () => {
   assert.ok(InteractiveMenus.adminMenu(0, 0).includes('0️⃣'), 'Admin menu should use emoji format');

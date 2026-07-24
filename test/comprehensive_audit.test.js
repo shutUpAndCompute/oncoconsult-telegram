@@ -1,5 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
+const path = require('path');
+
+process.env.DATA_DIR = path.join(__dirname, 'test_data_comprehensive');
+
 const { ConversationFlow, FlowStates, InteractiveMenus } = require('../services/conversationFlow');
 const adminRegistry = require('../services/adminRegistry');
 const ConsultationManager = require('../services/consultationManager');
@@ -7,15 +12,13 @@ const DoctorRouter = require('../services/doctorRouter');
 const PaymentService = require('../services/paymentService');
 const UserRegistry = require('../services/userRegistry');
 
-const fs = require('fs');
-
 const cm = new ConsultationManager(new DoctorRouter());
 const ps = new PaymentService();
 const ur = new UserRegistry();
 const flow = new ConversationFlow(cm, new DoctorRouter(), ps, ur, adminRegistry);
 
 test.after(() => {
-  fs.rmSync('./data', { recursive: true, force: true });
+  fs.rmSync(process.env.DATA_DIR, { recursive: true, force: true });
 });
 
 test.describe('Caregiver Role Audit', () => {

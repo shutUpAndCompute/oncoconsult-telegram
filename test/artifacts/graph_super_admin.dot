@@ -27,7 +27,6 @@ digraph super_admin_flow {
   "admin_register_doctor_input" [label="admin register doctor input" fillcolor="#bf3288"];
   "admin_remove_doctor_input" [label="admin remove doctor input" fillcolor="#bf3288"];
   "admin_reject_doctor_input" [label="admin reject doctor input" fillcolor="#bf3288"];
-  "admin_reassign_doctor_select" [label="admin reassign doctor select" fillcolor="#bf3288"];
   "admin_add_admin_input" [label="admin add admin input" fillcolor="#bf3288"];
   "admin_remove_admin_input" [label="admin remove admin input" fillcolor="#bf3288"];
   "role_application" [label="role application" fillcolor="#bf3288"];
@@ -76,7 +75,6 @@ digraph super_admin_flow {
   "admin_doctor_management" -> "admin_remove_doctor_input";
   "admin_doctor_management" -> "admin_reject_doctor_input";
   "admin_doctor_management" -> "welcome";
-  "admin_doctor_management" -> "admin_reassign_doctor_select";
   "super_admin_manage_admins" -> "super_admin_menu";
   "super_admin_manage_admins" -> "admin_add_admin_input";
   "super_admin_manage_admins" -> "admin_remove_admin_input";
@@ -95,7 +93,6 @@ digraph super_admin_flow {
   "admin_register_doctor_input" -> "admin_doctor_management";
   "admin_remove_doctor_input" -> "admin_doctor_management";
   "admin_reject_doctor_input" -> "admin_doctor_management";
-  "admin_reassign_doctor_select" -> "admin_doctor_management";
   "admin_add_admin_input" -> "admin_menu";
   "admin_remove_admin_input" -> "admin_menu";
   "role_application" -> "profile_view";
