@@ -1,5 +1,116 @@
 # To-Fix Gaps — Menu / Navigation / State / Persistence Audit
 
+## 2026-07-24: universal post-action navigation — "confirm the change, return to the actual parent"
+
+Trigger: a real transcript (`/start` → Edit Admin Profile → Edit Name → type a name) where the
+result skipped past the screen the action was launched from. The question behind it: after any
+set/edit action, anywhere, for any role, should (a) print what changed and (b) return to the exact
+parent menu of the screen the action happened on - not some other screen, not the root menu, not a
+different role's menu tree. Investigating that one case turned up the same defect at scale across
+nearly every admin action handler, plus two bugs in the tree itself. Fixed all of it; verified live
+(sim script + full suite, 271/271) rather than by inspection alone.
+
+**Root cause, again**: `services/telegramKeyboards.js`'s keyboard builders were migrated onto
+`menuTree.js` in the previous pass, but `conversationFlow.js`'s *text* twins for every submenu below
+the root (Consultations/Finances/System/Role Approvals/Doctor Management/Manage Admins/Admin Profile
+Edit/patient Profile & Roles/Doctor Menu) were never migrated - each still hand-computed its own
+badge logic independently, the exact duplication pattern this whole document exists to eliminate.
+Migrated all of them onto `renderMenuText(treeNode, facts, {title, footer})`. Concrete divergences
+this caught, live, that unit tests never would (they asserted against the same hand-written text,
+not against the tree):
+- `adminProfileEdit`'s text used `else if` (only one of Edit Name/Edit Phone could ever show 🔴,
+  even if both fields were missing) - the tree's real default is independent per-sibling dots.
+- `doctorMenu`'s text put 🔴 on "Status" for any pending action; the tree (and the real keyboard,
+  which was already tree-driven) puts 🔴 on "Message Admin" and 🟢 on "Status" - text and buttons
+  disagreed on *which button* was flagged, not just on styling.
+- Patient `profileMenu`'s text said "0️⃣ Back to **Profile**"; the tree's live button on the exact
+  same screen has always said "Back to **Menu**" - visible divergence between the keyboard a button
+  tap sees and the text a typed digit sees, on the single highest-traffic patient screen.
+
+**The "Edit Admin Profile" bug chain** (`handleAdminProfileEditInput`, `conversationFlow.js`):
+1. Stray literal `}` at the end of both the name- and phone-updated success strings (rendered
+   verbatim to the user: `...${InteractiveMenus.profileMenu({})}}`).
+2. Every branch - cancel from Edit Name, cancel from Edit Phone, and both success paths when the
+   profile was still incomplete afterward - sent the admin to `PROFILE_VIEW`, the **patient**-shaped
+   Profile & Roles tree (View Profile/Edit Profile/Apply for Role/My Roles/Remove Role), not back to
+   "Edit Admin Profile" (the actual immediate parent of Edit Name/Edit Phone).
+3. Every one of those same "still incomplete" branches displayed
+   `InteractiveMenus.adminProfileCompleteOptions(role)`, whose text is literally "✅ *{role} Profile
+   Complete!*" - shown specifically in the branch that fires when the profile is **not** complete.
+   A cancel while incomplete showed a false completion banner.
+4. The top-level `selection === '0'` check ran *before* the `session.flowState ===
+   ADMIN_PROFILE_EDIT_NAME/_PHONE` checks, so cancelling out of either sub-prompt (typing "0", which
+   the prompt itself instructs) was unreachable dead code - it fell through to the screen-level
+   handler instead and jumped two levels up, to the admin root, not one level up to Edit Admin
+   Profile.
+
+Fixed: removed the typo; cancel now always returns to Edit Admin Profile (its real parent); the
+one-time "Profile Complete!" wizard now only fires on the actual incomplete→complete transition
+(tracked via a local `wasComplete` snapshot, not instance state - an instance field would leak
+across concurrent users on this shared singleton); every success path prints `✅ {field} updated to
+"{value}"` before the re-rendered parent; reordered the sub-state checks first. `2️⃣ Continue Editing`
+on the (now-genuine) "Profile Complete!" screen was *also* routing to the patient `PROFILE_VIEW`
+tree instead of back to Edit Admin Profile - same bug, different entry point; fixed the same way.
+
+**The systemic version, once the pattern was visible**: swept every admin action handler that
+commits a change. Nearly all of them returned `nextState: ADMIN_MENU` (the root) regardless of which
+submenu the action was launched from:
+- Verify Discount, Verify Payment, Set Fee (children of **Finances Menu**) → now return to
+  `ADMIN_FINANCES_MENU` with the change confirmed and the finances submenu re-rendered live.
+- Message Patient, Close Consultation, View Pending Requests, View Active Consultations, View All
+  Patients (children of **Consultations Menu**) → now return to `ADMIN_CONSULTATIONS_MENU`.
+- Add Admin / Remove Admin's "0 to return to menu" exit (children of **Manage Admins**, itself a
+  child of **System Menu**) → now returns to `SUPER_ADMIN_MANAGE_ADMINS`, not the admin root; the
+  bulk "enter another number" loop itself was correct and left alone.
+- Every error-fallback path in Approve Doctor/Caregiver/Support, Register/Invite Doctor, Remove/
+  Reject Doctor (when the underlying registry call unexpectedly failed) had the same
+  root-instead-of-parent bug; fixed to match their success-path siblings.
+- Added `getAdminFacts`/`getAdminFinancesMenuText`/`getAdminConsultationsMenuText`/
+  `getAdminSystemMenuText` helpers so every one of the above recomputes live facts fresh from the
+  same single `menuFacts.computeAdminFacts` call, instead of each handler either reconstructing the
+  services bag inline or (previously) not recomputing anything at all.
+
+**Two bugs in the tree itself** (`services/menuTree.js`), not just in how handlers used it: Role
+Approvals and Doctor Management are children of **System & Roles Menu**
+(`adminRoot → adminSystemMenu → {adminRoleApprovals, adminDoctorManagement, superAdminManageAdmins}`)
+- but only `superAdminManageAdmins`'s back button correctly said "Back to System Menu". The other two
+said "Back to Admin Menu" / `callbackData: 'admin_menu'`, both in the label *and* in
+`payloadMap.js`'s actual routing table, and `handleAdminRoleApprovalsSelection`/
+`handleAdminDoctorManagementSelection`'s own `'0'` cases matched that (wrong) destination - so this
+wasn't just a label bug, tapping "0" for real skipped System & Roles Menu on the way back. Fixed the
+tree, `payloadMap.js` (`admin_menu` → `menu_system` for these two states), and both handlers together
+so button-tap and typed-digit stay in agreement.
+
+**Also found and fixed while in this code**:
+- `InteractiveMenus.adminDoctorManagement` (a function since the earlier tree migration, taking a
+  `pendingDocs` argument) was referenced **without calling it** - `${InteractiveMenus.adminDoctorManagement}`
+  - at 9 call sites across Reassign Doctor, Register Doctor, and Invite Doctor's guard/fallback
+  branches. This stringifies the function's source code into the Telegram message instead of
+  rendering the menu - a live, user-facing bug, not a hypothetical one. Fixed all 9.
+- `adminSetFeeInput` was defined **twice** as a key in the same `InteractiveMenus` object literal;
+  the second silently shadowed the first (valid but confusing JS, not an error) - deleted the dead
+  first copy.
+- `getCloseConsultationPrompt()` - a whole method, fully duplicating `InteractiveMenus.closeConsultationPrompt`'s
+  text - was never called from anywhere. Deleted (zero-impact, matching the #27/#28 removal pattern).
+- `services/menuFacts.js`'s `computeDoctorFacts` still had its own inline
+  `d.telegramId === chatId || phone-strip === chatId` doctor lookup - the exact duplication pattern
+  centralized into `doctorPersistence.findByChatId` in the previous pass, just missed because this
+  file wasn't touched by that sweep. Fixed to call `findByChatId`.
+- `telegramKeyboards.js`'s `buildProfileMenu` - a full second, hand-written implementation of the
+  patient Profile & Roles keyboard, never imported or exported anywhere - deleted as dead code.
+- Button labels for the "0️⃣ Back" buttons on Verify Payment/Verify Discount/Set Fee/Message Patient/
+  Add Admin/Remove Admin input screens all said "Back to Admin Menu"/"Back to Super Admin Menu"
+  regardless of actual destination; relabeled to match where they've always actually gone (their
+  `callback_data` and `payloadMap.js` routing were already correct - button behavior didn't change,
+  only the previously-misleading label text).
+
+Verified live: a standalone script exercises Set Fee, Verify Payment, Verify Discount, Message
+Patient, Role Approvals "0", Doctor Management "0", and the Add Admin bulk-loop exit, asserting each
+lands on its real immediate parent - all pass. Full suite: 271/271, no regressions (2 pre-existing
+test assertions in `test/navigation.test.js` were asserting the *old, buggy* destinations - e.g.
+"Continue Editing → profile_view" - updated to assert the corrected behavior instead of reverting
+the fix to match them).
+
 ## 2026-07-24: architectural rewrite — declarative menu tree
 
 Every fix on this page up to today shared one root cause: there was no single place that computed
@@ -515,3 +626,93 @@ Legend: **CF** = `services/conversationFlow.js`, **TB** = `src/servers/telegramB
 - Not re-covered here: items already fixed per prior session memory (profile flow CANCEL/0 escape
   hatches, caregiver back-nav, `/health`/`/ready` endpoints, admin API key auth) — see git log for
   `feature/ux-overhaul` if you need that history.
+
+---
+
+## Test Coverage Gap Analysis (2026-07-24)
+
+**Root cause pattern**: Every bug class fixed here wasn't "missing test" — it was "tested the logic layer, not the user layer." The following gaps remain.
+
+### **Gap 1: Real Entry Point Testing**
+**Current status**: Only `test/typed_navigation_keyboards.test.js` (4 tests) exercises `TelegramAdapter` directly. All other 267 tests call `conversationFlow.js` methods directly, bypassing `telegramBot.js`'s message routing entirely.
+
+**Evidence from TOFIXGAPS.md**:
+- #6 (Switch Role dead): `telegramKeyboards.js:58-81` emits `apply_doctor`, but handler expects `'1'`-`'4'`. No test exercised the callback path.
+- #14 (8️⃣ Other/General cancer type dead): `payloadMap.js` maps `cancer_general` instead of `cancer_other`. Unit tests for `handleCancerSelection` passed because they tested the handler in isolation.
+- #22 (Assign/Reassign Doctor): Button order had drifted (`telegramKeyboards.js:58-81` vs `conversationFlow.js:816-993`). Only manual testing caught this.
+
+**Missing tests needed**:
+- Tap button → verify next state transition in `telegramBot.js`'s `handleCallbackQuery`.
+- Type digit → verify `sendTypedNavigationReply` attaches `reply_markup`.
+- Every state that has both tap and type paths should have identical outcome assertions.
+
+### **Gap 2: Agreement Between Code Paths**
+**Current status**: `ux-modernization.test.js` has "Dual-Support Contract: Missing Button Audit" (8 assertions) checking button counts vs text. Not systematic.
+
+**Evidence from TOFIXGAPS.md**:
+- #21 (Discount categories): `conversationFlow.js:3681-3691` vs `paymentService.js` key mismatch (`eshram` vs `e_shram`, `teacher_anganwadi` vs `teacher_angadiwadi`, etc). No test asserted the two key sets agree.
+- #19 (Finances fallback keyboard): `telegramBot.js:540` hardcoded `buildAdminFinancesMenu(false, false)` regardless of actual pending-payment/discount state. No test rendered this specific fallback path with real pending data to catch the hardcode.
+
+**Missing tests needed**:
+- For every `FlowState`: `keyboard.buttons.length === textMenuOptions.length`.
+- For every indicator: `keyboardButton.indicator === textMenu.indicator`.
+- Assert `buildKeyboardForState` output matches `InteractiveMenus` template for the same facts.
+
+### **Gap 3: Tap vs. Type Coverage Matrix**
+**Current status**: 
+- `typed_navigation_keyboards.test.js`: Covers typed navigation for `ADMIN_MENU`, `PERSONA_SELECT`.
+- `ux-modernization.test.js`: Covers typed navigation for `WELCOME`, `PROFILE_DISCOUNT_CATEGORY`.
+- **Missing**: Doctor, Caregiver, Support typed navigation; admin/doctor sub-menu typed paths.
+
+**Evidence from TOFIXGAPS.md**:
+- #7 (Billing menu): "Every tap returns to the Profile menu without ever calling." Button taps never reach the handler because `payloadMap.js` doesn't map billing callbacks. Typing works because it bypasses `payloadMap.js`.
+- #12 (Domain state guards): Typed navigation resets users from `ADMIN_CONSULTATIONS_MENU` because it wasn't in `ADMIN_DOMAIN_STATES`. Button path worked fine.
+
+**Missing tests needed**:
+- All 64 FlowStates should have both:
+  - `tap Navigation` test: Press button → verify state via `handleCallbackQuery`.
+  - `type Navigation` test: Type digit → verify state via `sendTypedNavigationReply`.
+
+### **Gap 4: Role × Role-Boundary Tests**
+**Current status**: `e2e-lifecycle.test.js` has 4 lifecycle tests, but they don't stress boundary conditions.
+
+**Evidence from TOFIXGAPS.md**:
+- #13 (Caregiver reset): `resetSession()` drops `linkedPatientPhone`. This only manifests when a caregiver triggers a reset, which no test simulates.
+- #15 (Profile view back button): `payloadMap.js` missing `view_profile` mapping. Only visible when admin taps "3️⃣" after typing to reach the screen first.
+- #18 (`/resume` wrong role): `/resume` checks `patientProfile` but not `effectiveRole`. Survived because no test mixed role types.
+
+**Missing tests needed**:
+- `doctor → patient` handoff: Doctor replies to patient → verify patient receives message.
+- `admin → doctor` handoff: Admin assigns doctor → verify doctor session reflects assignment.
+- `caregiver → patient` link: Caregiver cancels → restart → verify link persists.
+- Cross-role: Admin types `/menu` → patient taps → verify both get correct keyboards.
+
+### **Gap 5: Idempotent, Isolated Test Runs** — largely closed as of 2026-07-24, see correction below
+**Corrected status** (the two bullets originally here were stale — verified 2026-07-24 against actual file contents, not re-inferred from memory of an earlier pass): all 11 test files were checked. 8 touch persistence and all 8 use `process.env.DATA_DIR` isolation with a `test.after`/equivalent `fs.rmSync(..., {recursive:true,force:true})` cleanup scoped to that isolated dir (`persistence.test.js` aliases `process.env.DATA_DIR` to a local `const DATA_DIR`, which is why a naive grep for the literal string missed it). The other 3 (`telegram_integration.test.js`, `phone.test.js`, `menu_tree.test.js`) correctly don't need isolation — no persistence touched. `e2e-lifecycle.test.js`'s `test.after` does a full `DATA_DIR` wipe, not a `sessions.json`-only clean. `comprehensive_audit.test.js`'s admin add/remove calls are each paired (`addAdmin('9999999999', ...)` immediately followed by `removeAdmin('9999999999')`, same for `'8888888888'` and `'admin_phone'`) — no order dependency found. This was exactly the bug class already fixed earlier this session (commit `42e3038`, "fix test-suite production-data isolation") — the two false claims above were describing pre-fix state as if still current. Running the full suite twice back-to-back and diffing the real `data/` directory produces no changes (verified live during that pass).
+- Bugs #27/#28 were "vestigial fields" but tests asserted behavior on pre-initialized sessions, never testing true first-run state — this specific observation still stands and isn't covered by the isolation fix above.
+
+**Remaining gap**: singleton registries (`adminRegistry`, `userRegistry`, `doctorRouter`) persist in-memory state across tests *within* a single test file's process even with `DATA_DIR` isolated on disk — that's why `comprehensive_audit.test.js` has to manually pair every add with a remove rather than relying on isolation to reset it. A `beforeEach` singleton-reset helper would remove the need for that manual discipline.
+
+### **Gap 6: Live-Data Simulation Over Mocks**
+**Current status**:
+- `state-fuzzer.test.js`: Uses real `ConsultationManager` but mocks `ConversationFlow` context.
+- `e2e-lifecycle.test.js`: Creates real consultation/payment records.
+- Most other tests stub `adminRegistry.isAdmin = () => true` instead of real `addAdmin()`.
+
+**Evidence from TOFIXGAPS.md**:
+- #9 (discount indicator): Missing `()` on `.values()`. This was invisible to tests because:
+  - `state-fuzzer.test.js` uses real `ConsultationManager` but never sets `patientProfile.discountVerificationStatus: 'pending'`.
+  - `comprehensive_audit.test.js` tests `discountVerificationStatus` in isolation but never links it to indicator rendering.
+- Doctor-lookup-by-chat-id (not separately numbered above — found and fixed 2026-07-24, commit `720b117`): ~18 call sites across `telegramBot.js`/`conversationFlow.js` each reimplemented `d.telegramId === X || phone-strip === X` independently, in three subtly different (inconsistent) shapes. Tests were passing because they exercised doctors with `telegramId` already set, never the phone-only pre-`/start` path where the inconsistency actually bites. Centralized into `doctorPersistence.findByChatId`/`findPendingByChatId`/`chatIdFor`; two real latent bugs (a wrong-field comparison, a call to a method that was never defined) surfaced and were fixed in the process specifically because consolidating forced every call site through one path.
+
+**Missing tests needed**:
+- Replace `adminRegistry.isAdmin = () => true` with `adminRegistry.addAdmin(chatId, ...)` in all tests.
+- Create real `Payment` objects with `status: 'pending'` instead of stubbing `paymentService`.
+- Fuzz `doctorPersistence.findByChatId` with phone-only doctors (no `telegramId` set).
+
+---
+
+**Priority for next iteration**:
+1. Expand `typed_navigation_keyboards.test.js` to cover all 64 FlowStates.
+2. Add "keyboard state == text state" assertions to the dual-support contract tests.
+3. Write cross-role handoff scenarios as targeted integration tests.

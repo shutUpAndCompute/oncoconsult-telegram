@@ -49,8 +49,7 @@ function computePatientFacts(chatId, services) {
 
 function computeDoctorFacts(chatId, services) {
   const { consultationManager, doctorPersistence } = services;
-  const doctor = doctorPersistence.getDoctors().find(d =>
-    d.telegramId === chatId || String(d.phoneNumber).replace('+', '') === chatId);
+  const doctor = doctorPersistence.findByChatId(chatId);
   return {
     doctorName: doctor?.name || 'Doctor',
     hasActiveConsultation: !!doctor && Array.from(consultationManager.consultations.values())

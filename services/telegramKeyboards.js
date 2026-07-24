@@ -298,11 +298,11 @@ const buildAdminMessageDoctorInput = () => ({ reply_markup: { inline_keyboard: [
 
 const buildAdminReassignDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
 
-const buildAdminMessagePatientInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+const buildAdminMessagePatientInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Consultations Menu', callback_data: 'admin_menu' }]] } });
 
-const buildAdminVerifyPaymentInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+const buildAdminVerifyPaymentInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Finances Menu', callback_data: 'admin_menu' }]] } });
 
-const buildAdminVerifyDiscountInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+const buildAdminVerifyDiscountInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Finances Menu', callback_data: 'admin_menu' }]] } });
 
 const buildAdminInviteDoctorInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Doctor Management', callback_data: 'doctor_management' }]] } });
 
@@ -314,11 +314,11 @@ const buildAdminApproveCaregiverInput = () => ({ reply_markup: { inline_keyboard
 
 const buildAdminApproveSupportInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Role Approvals', callback_data: 'role_approvals' }]] } });
 
-const buildAdminAddAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'super_admin_menu' }]] } });
+const buildAdminAddAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Manage Admins', callback_data: 'super_admin_menu' }]] } });
 
-const buildAdminRemoveAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Super Admin Menu', callback_data: 'super_admin_menu' }]] } });
+const buildAdminRemoveAdminInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Manage Admins', callback_data: 'super_admin_menu' }]] } });
 
-const buildAdminSetFeeInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
+const buildAdminSetFeeInput = () => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Finances Menu', callback_data: 'admin_menu' }]] } });
 
 const buildPendingRequests = (count = 0) => ({ reply_markup: { inline_keyboard: [[{ text: '0️⃣ Back to Admin Menu', callback_data: 'admin_menu' }]] } });
 

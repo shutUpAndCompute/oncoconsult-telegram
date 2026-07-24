@@ -60,7 +60,7 @@ const adminRoleApprovals = {
       label: f => f.pendingSupportRoleRequests > 0 ? `Approve Support (${f.pendingSupportRoleRequests} pending)` : 'Approve Support',
       isPending: f => f.pendingSupportRoleRequests > 0
     },
-    { id: 'role_approvals_back', callbackData: 'admin_menu', label: 'Back to Admin Menu', digit: 0 }
+    { id: 'role_approvals_back', callbackData: 'menu_system', label: 'Back to System Menu', digit: 0 }
   ]
 };
 
@@ -81,7 +81,7 @@ const adminDoctorManagement = {
     { id: 'reject_doctor', callbackData: 'reject_doctor', label: 'Reject Doctor' },
     { id: 'message_doctor', callbackData: 'message_doctor', label: 'Message Doctor' },
     { id: 'reassign_doctor', callbackData: 'reassign_doctor', label: 'Reassign Doctor' },
-    { id: 'doctor_mgmt_back', callbackData: 'admin_menu', label: 'Back to Admin Menu', digit: 0 }
+    { id: 'doctor_mgmt_back', callbackData: 'menu_system', label: 'Back to System Menu', digit: 0 }
   ]
 };
 

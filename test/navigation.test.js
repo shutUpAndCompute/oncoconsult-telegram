@@ -20,12 +20,19 @@ test('Navigation Principle 2: Menu text uses emoji format', () => {
 });
 
 test('Menu text consistency: All back options specify destination', () => {
-  assert.ok(InteractiveMenus.adminRoleApprovals(0).includes('Back to Admin Menu'), 'Should specify "Back to Admin Menu"');
-  assert.ok(InteractiveMenus.adminDoctorManagement(0).includes('Back to Admin Menu'), 'Should specify "Back to Admin Menu"');
+  // Role Approvals and Doctor Management are children of System & Roles
+  // Menu, not the admin root - their back button must name their actual
+  // immediate parent (previously both wrongly skipped straight to "Admin
+  // Menu", bypassing System & Roles Menu entirely).
+  assert.ok(InteractiveMenus.adminRoleApprovals(0).includes('Back to System Menu'), 'Should specify "Back to System Menu"');
+  assert.ok(InteractiveMenus.adminDoctorManagement(0).includes('Back to System Menu'), 'Should specify "Back to System Menu"');
   assert.ok(InteractiveMenus.adminAssignDoctorInput.includes('Back to Doctor Management'), 'Should specify "Back to Doctor Management"');
   assert.ok(InteractiveMenus.profileMenu({}).includes('Apply for Role'), 'Should specify "Apply for Role"');
-  assert.ok(InteractiveMenus.closeConsultationPrompt.includes('Back to Admin Menu'), 'Should specify "Back to Admin Menu"');
-  assert.ok(InteractiveMenus.adminSetFeeInput.includes('Back to Admin Menu'), 'Should specify "Back to Admin Menu"');
+  // Close Consultation and Set Fee are children of Consultations/Finances
+  // Menu respectively, not the admin root (same "skipped its own parent"
+  // bug as above).
+  assert.ok(InteractiveMenus.closeConsultationPrompt.includes('Back to Consultations Menu'), 'Should specify "Back to Consultations Menu"');
+  assert.ok(InteractiveMenus.adminSetFeeInput.includes('Back to Finances Menu'), 'Should specify "Back to Finances Menu"');
 });
 
 test('Set Fee menu item exists and is properly integrated', () => {
@@ -63,7 +70,9 @@ test('Admin profile complete options flow works', () => {
   const result1 = flow.handleAdminProfileCompleteOptions('1', 'admin_phone');
   assert.strictEqual(result1.nextState, 'admin_menu', 'Option 1 should go to admin_menu');
   const result2 = flow.handleAdminProfileCompleteOptions('2', 'admin_phone');
-  assert.strictEqual(result2.nextState, 'profile_view', 'Option 2 should go to profile_view');
+  // Was routing "Continue Editing" to the patient-shaped PROFILE_VIEW menu
+  // instead of back to the actual Edit Admin Profile screen.
+  assert.strictEqual(result2.nextState, 'admin_profile_edit', 'Option 2 (Continue Editing) should go to admin_profile_edit');
   const result3 = flow.handleAdminProfileCompleteOptions('3', 'admin_phone');
   assert.strictEqual(result3.nextState, 'welcome', 'Option 3 should go to welcome');
   const resultInvalid = flow.handleAdminProfileCompleteOptions('999', 'admin_phone');
