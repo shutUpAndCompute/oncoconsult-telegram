@@ -82,6 +82,38 @@ class DoctorPersistence {
     return this.doctors.find(d => d.id === id);
   }
 
+  // Single source of truth for "which registered doctor is this Telegram
+  // chat". Previously reimplemented independently at ~16 call sites across
+  // telegramBot.js and conversationFlow.js, in three different (and
+  // inconsistent) shapes: some checked telegramId OR a '+'-stripped phone
+  // match (the correct/complete form), some checked telegramId OR the raw
+  // phoneNumber with no '+' stripping (silently never matches a doctor
+  // stored with a '+' prefix), and several checked telegramId only -
+  // meaning a doctor who registered by phone but hasn't yet sent /start
+  // (so has no telegramId set) would be found by some code paths and not
+  // others, depending on which copy happened to run.
+  findByChatId(chatId) {
+    const id = String(chatId);
+    return this.getDoctors().find(d => d.telegramId === id || String(d.phoneNumber).replace('+', '') === id);
+  }
+
+  // Same idea for a pending (not-yet-accepted) invitation - was duplicated
+  // twice with a narrower match (raw phoneNumber, no '+' stripping) than
+  // findByChatId's, so an invitation sent to a '+'-prefixed number would
+  // silently never be found by chat ID.
+  findPendingByChatId(chatId) {
+    const id = String(chatId);
+    return this.pendingDoctors.find(d => d.status === 'invited' &&
+      (d.telegramId === id || String(d.phoneNumber).replace('+', '') === id));
+  }
+
+  // The inverse operation: given a doctor record, which Telegram chat id
+  // to actually message. Was duplicated as an inline `||` fallback at each
+  // notification call site.
+  static chatIdFor(doctor) {
+    return doctor?.telegramId || String(doctor?.phoneNumber || '').replace('+', '') || null;
+  }
+
   addDoctor(doctorData) {
     const doctor = new DoctorProfile(doctorData);
     this.doctors.push(doctor);

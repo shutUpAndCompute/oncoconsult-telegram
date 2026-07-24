@@ -1897,8 +1897,7 @@ isProfileComplete(session) {
     }
 
     isDoctorProfileComplete(chatId) {
-     const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
-     const doctor = doctors.find(d => d.telegramId === String(chatId) || String(d.phoneNumber).replace('+', '') === String(chatId));
+     const doctor = this.doctorRouter?.persistence?.findByChatId(chatId);
      if (!doctor) return false;
      return !!(doctor.name && doctor.specialty && doctor.cancerTypes && doctor.cancerTypes.length > 0);
    }
@@ -2325,8 +2324,7 @@ switch (role) {
           : { nextState: FlowStates.CAREGIVER_PATIENT_LINK, response: InteractiveMenus.caregiverPatientLink };
       }
       case 'doctor': {
-        const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
-        const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
+        const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
         const hasActive = !!doctor && Array.from(this.consultationManager.consultations.values())
           .some(c => c.doctorId === doctor.id && c.status === 'active');
         const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
@@ -2430,8 +2428,7 @@ case 'support': {
     // a doctor record and a patient profile sees the right one depending on
     // which Switch Role mode they're actually in.
     if (effectiveRole === 'doctor') {
-      const doctors = this.doctorRouter?.persistence?.getDoctors() || [];
-      const doctor = doctors.find(d => d.telegramId === String(phoneNumber) || String(d.phoneNumber).replace('+', '') === String(phoneNumber));
+      const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
       if (doctor) {
         return {
           nextState: FlowStates.PROFILE_VIEW,
@@ -4067,7 +4064,11 @@ Send your message to admin:
 const activeConsultation = Array.from(this.consultationManager.consultations.values())
         .find(c => c.doctorId === session?.doctorId && c.status === 'active');
       const consultationInfo = activeConsultation ? `\nActive: ${activeConsultation.id}` : '';
-      const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(session?.doctorId));
+      // session.doctorId holds the doctor's own record id (e.g. "doc_001"),
+      // not a Telegram chat id - this was comparing it against d.telegramId,
+      // which could never match, so `doctor` (and pendingActions below) was
+      // always undefined/0 on this fallback path.
+      const doctor = this.doctorRouter?.persistence?.getDoctorById(session?.doctorId);
       const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
       return {
         nextState: FlowStates.DOCTOR_MENU,
@@ -4078,7 +4079,7 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
   }
 
   handleEditDoctorProfile(phoneNumber) {
-    const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+    const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
     if (!doctor) {
       return {
         nextState: FlowStates.DOCTOR_MENU,
@@ -4093,7 +4094,7 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
 
   handleDoctorProfileEditInput(phoneNumber, message, session) {
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
-      const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+      const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
       const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
       return {
         nextState: FlowStates.DOCTOR_MENU,
@@ -4101,7 +4102,7 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
       };
     }
 
-    const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+    const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
     const updates = {};
 
     const lines = message.split('\n');
@@ -4132,7 +4133,7 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
   }
 
   handleDoctorMsgAdminInput(phoneNumber, message, session) {
-    const doctor = this.doctorRouter?.persistence?.getDoctors().find(d => d.telegramId === String(phoneNumber));
+    const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
 
     if (message.trim().toLowerCase() === 'menu' || message.trim() === '0') {
       const pendingActions = doctor ? this.consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
@@ -4243,8 +4244,10 @@ const activeConsultation = Array.from(this.consultationManager.consultations.val
   }
 
   handleDoctorStatus(phoneNumber, session) {
-    const doctor = this.doctorRouter?.persistence?.getDoctorByPhone?.(phoneNumber) || 
-                   this.doctorRouter?.persistence?.getDoctors?.().find(d => d.telegramId === phoneNumber);
+    // getDoctorByPhone() was never actually defined anywhere on
+    // DoctorPersistence - this always silently no-op'd via the optional
+    // chain and fell through to the plain telegramId-only lookup.
+    const doctor = this.doctorRouter?.persistence?.findByChatId(phoneNumber);
     if (!doctor) return { nextState: FlowStates.DOCTOR_MENU, response: '❌ Doctor profile not found' };
     
     return {

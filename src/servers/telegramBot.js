@@ -218,8 +218,7 @@ class TelegramAdapter {
     }
 
     if (effectiveRole === PersonaTypes.DOCTOR) {
-      const doctors = doctorPersistence.getDoctors();
-      const doctor = doctors.find(d => d.telegramId === chatId || String(d.phoneNumber).replace('+', '') === chatId);
+      const doctor = doctorPersistence.findByChatId(chatId);
       const hasActive = !!Array.from(consultationManager.consultations.values())
         .find(c => c.doctorId === doctor?.id && c.status === 'active');
       const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
@@ -409,9 +408,7 @@ class TelegramAdapter {
   // through to the default patient-report-upload path).
   async handleIncomingMedia(chatId, session, effectiveRole, { kind, fileId, send }) {
     if (effectiveRole === PersonaTypes.DOCTOR) {
-      const doctors = doctorPersistence.getDoctors();
-      const doctor = doctors.find(d => d.telegramId === String(chatId) ||
-        String(d.phoneNumber).replace('+', '') === String(chatId));
+      const doctor = doctorPersistence.findByChatId(chatId);
       const consultation = doctor && Array.from(consultationManager.consultations.values())
         .find(c => c.doctorId === doctor.id && c.status === 'active');
       if (consultation) {
@@ -705,10 +702,8 @@ class TelegramAdapter {
 
     this.bot.onText(/\/accept/, async (msg) => {
       const chatId = msg.chat.id;
-      const doctors = doctorPersistence.getPendingDoctors();
-      const invited = doctors.find(d => d.status === 'invited' && 
-        (d.telegramId === String(chatId) || d.phoneNumber === String(chatId)));
-      
+      const invited = doctorPersistence.findPendingByChatId(chatId);
+
       if (!invited) {
         await this.bot.sendMessage(chatId, '❌ No pending invitation found.\nYou may be registered already or need to register first.');
         return;
@@ -1117,7 +1112,7 @@ if (!inAdminDomain) {
 
           // Handle doctor message admin input - send to admin
           if (session?.flowState === FlowStates.DOCTOR_MSG_ADMIN_INPUT && effectiveRole === PersonaTypes.DOCTOR) {
-            const doctor = doctorPersistence.getDoctors().find(d => d.telegramId === String(chatId));
+            const doctor = doctorPersistence.findByChatId(chatId);
             const adminPhone = doctorPersistence.getAdminForDoctor(doctor.id);
             if (adminPhone) {
               await this.bot.sendMessage(adminPhone, `📩 *Message from Dr. ${doctor.name}*:\n\n${text}`, { parse_mode: 'Markdown' });
@@ -1398,15 +1393,10 @@ await this.bot.sendMessage(
   async handleDoctor(chatId, message) {
     const chatIdStr = String(chatId);
     const persona = new UserPersona(chatIdStr);
-    const doctors = doctorPersistence.getDoctors();
-    const doctor = doctors.find(
-      d => d.telegramId === chatIdStr || String(d.phoneNumber).replace('+', '') === chatIdStr
-    );
+    const doctor = doctorPersistence.findByChatId(chatIdStr);
 
     if (!doctor) {
-      const invited = doctorPersistence.getPendingDoctors().find(
-        d => d.status === 'invited' && (d.telegramId === chatIdStr || d.phoneNumber === chatIdStr)
-      );
+      const invited = doctorPersistence.findPendingByChatId(chatIdStr);
       if (invited) {
         await this.bot.sendMessage(chatId, `📩 You have a pending invitation from admin!\n\nSend /accept to accept and activate your doctor account.`);
         return;
@@ -1551,8 +1541,8 @@ if (!consultation) {
     
     const connectedMedia = session.media || [];
     if (connectedMedia.length > 0) {
-      const doctorTelegramId = doctor.telegramId || String(doctor.phoneNumber).replace('+', '');
-      await this.bot.sendMessage(doctorTelegramId, 
+      const doctorTelegramId = DoctorPersistence.chatIdFor(doctor);
+      await this.bot.sendMessage(doctorTelegramId,
         `📩 New Consultation\nPatient Chat ID: ${chatId}\nDocs: ${connectedMedia.length}`
       ).catch(e => console.error(`[NOTIFY-FAIL]`, e));
     }
@@ -1561,8 +1551,8 @@ if (!consultation) {
   }
 
   notifyDoctorOfNewConsultation(patientChatId, session, doctor) {
-    if (!doctor.telegramId && !doctor.phoneNumber) return;
-    const doctorTelegramId = doctor.telegramId || String(doctor.phoneNumber).replace('+', '');
+    const doctorTelegramId = DoctorPersistence.chatIdFor(doctor);
+    if (!doctorTelegramId) return;
     const pendingConsultation = consultationManager.getPendingConsultationByPatient(patientChatId);
     const connectedMedia = pendingConsultation?.rawQueryMedia || session.media || [];
     const isCaregiverNote = session.isCaregiver ? `\n\nNote: Caregiver session. Patient: ${session.patientName}` : '';
