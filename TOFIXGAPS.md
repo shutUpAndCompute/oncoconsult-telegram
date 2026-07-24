@@ -1,5 +1,121 @@
 # To-Fix Gaps — Menu / Navigation / State / Persistence Audit
 
+## 2026-07-24: architectural rewrite — declarative menu tree
+
+Every fix on this page up to today shared one root cause: there was no single place that computed
+"is X pending" once. ~15 keyboard-builder functions each took positional booleans/counts as
+arguments, every call site had to independently recompute those values from live services, and
+every independent recomputation was a fresh chance to typo a field name, drop a `()`, leave a
+`// TODO` stub, pass the wrong type, or just forget an argument — which is exactly how bugs #9,
+#19, #21, and the finances/system-menu/role-approvals stubs found on 2026-07-24 all happened, one
+at a time, despite the underlying *pattern* being identical every time.
+
+Replaced with three new modules that are now the only place this logic lives:
+- **`services/menuFacts.js`** — the only code in the app that reads live data from services.
+  `computeAdminFacts`/`computePatientFacts`/`computeDoctorFacts`, one call per render.
+- **`services/menuTree.js`** — declarative per-role node trees (admin/super-admin, patient,
+  caregiver, doctor). Every leaf's `isPending(facts)`/`hasActivity(facts)` is a pure lookup on the
+  facts object above — no service access, no duplication. Parents don't compute anything; they
+  inherit bottom-up.
+- **`services/menuTreeRenderer.js`** — one generic recursive `renderKeyboard(node, facts)` /
+  `renderMenuText(node, facts)`, used by every role's every menu. `isNodePending` cascades "does
+  this node or any descendant need attention" up automatically.
+
+`src/servers/telegramBot.js`'s `buildKeyboardForState` (the single chokepoint added in the
+previous pass) now looks the state up in the tree and renders it — no more per-state positional-arg
+threading in that ~230-line switch. `telegramKeyboards.js`'s existing build* functions became thin
+wrappers over the tree (facts constructed from their same positional args) purely so the existing
+test suite and any other direct callers keep working unchanged — the wrappers are not where the
+logic lives anymore. `conversationFlow.js`'s `InteractiveMenus.adminMenu`/`superAdminMenu` (the
+text-only twins, previously an independent second implementation of the same priority math via a
+now-deleted `adminIndicators.js`) render from the exact same tree node, so the text list and the
+buttons structurally cannot disagree again. 271/271 tests passing (`test/menu_tree.test.js` is new,
+exercising the tree/renderer directly with no service mocking needed since facts are plain objects).
+
+**Two deliberate behavior changes**, both flagged before implementation:
+1. Cascading is bottom-up OR by default now (any pending descendant flags every ancestor) rather
+   than each menu hand-coding its own suppression logic. The one place the *product* genuinely
+   wants only-the-highest-priority-item-shown (admin root: Finances > System > Profile >
+   Consultations; Finances submenu: Discount > Payment, both per `DESIGN_CASCADING_INDICATORS.md`)
+   is preserved via an explicit `priorityOrder` field on those two nodes — but this only suppresses
+   the *sibling display* at that one level; drilling into a suppressed sibling still shows its own
+   real state. Verified live: Finance+System both pending → root shows only Finance red, but System
+   still shows real state on nested drill-in, resets when Finance resolves.
+2. `buildConsultationMenu`'s "Check Payment Status" used ⚠️ while "Start New Consultation" used 🔴
+   for the identical underlying condition (incomplete profile) — normalized to 🔴 for both, since
+   the tree has no way to express "same fact, different color" and there was no reason for the
+   difference beyond how the two lines happened to be hand-written originally.
+
+## 2026-07-24 (verification pass): admin profile-completion cascade
+
+Live-simulated the full cascade for an admin/super admin with an incomplete profile: top-level
+"My Profile" 🔴 appears when the profile is incomplete and nothing higher-priority is pending,
+correctly gets *suppressed* (not cleared - the underlying incompleteness is unchanged) when a
+higher-priority Finance/System item is also pending, and correctly reappears once that higher item
+is resolved. Confirmed via `services/adminRegistry.js`'s `isAdminProfileComplete`/
+`getIncompleteProfileFields` feeding `computeAdminMenuIndicators` correctly.
+
+Found one more instance of the same bug class while checking the deepest leaf: `buildKeyboardForState`'s
+`ADMIN_PROFILE_EDIT` case called `telegramKeyboards.buildAdminProfileEdit()` with **no argument**,
+so "Edit Name"/"Edit Phone" could never show which one was actually missing - carried over verbatim
+from the pre-refactor switch fallback, which had the identical bug. Fixed by passing
+`adminRegistry.getIncompleteProfileFields(chatId)` through, same as the accompanying text already
+did. Added a regression test (`test/typed_navigation_keyboards.test.js`) asserting the specific
+missing field is flagged. 266/266 passing.
+
+## 2026-07-24: the actual reason indicators kept "not working" across every prior rewrite
+
+Every fix in this document up to this point patched *what a keyboard should show*. None of them
+could have mattered for a large fraction of real traffic, because of a bug one layer up: in
+`src/servers/telegramBot.js`'s plain-text message handler (`bot.on('message')`), the branches that
+handle a user **typing** a digit instead of **tapping** an inline button — while sitting in
+`WELCOME`, `ADMIN_MENU`, `SUPER_ADMIN_MENU`, `DOCTOR_MENU`, or `SUPPORT_MENU` — called
+`bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' })` with **no `reply_markup`
+key at all**. Telegram's `sendMessage` doesn't preserve or update the previous message's keyboard
+when you omit `reply_markup` on a *new* message — it just doesn't attach one. So the next screen
+had zero buttons, not stale or wrong ones. There was no second chance to reattach a keyboard later
+either, because the next reply came from this exact same broken branch again.
+
+This explains the "still not working after so many rewrites and testing" report precisely: **no
+test in this repo ever exercised `src/servers/telegramBot.js`'s message routing.** Every existing
+test called `services/conversationFlow.js` functions directly (`test/telegram_integration.test.js`
+was 25 lines and only tested `cleanTextForKeyboard`, a pure string function). Rewriting the
+indicator math inside `conversationFlow.js`/`telegramKeyboards.js` — which is what every prior pass
+(including most of this document, before today) actually touched — could never have fixed this,
+because the buttons those functions produce were never reaching the user on this path in the first
+place. Anyone testing by *typing* into the bot (a very natural thing to do when debugging, faster
+than tapping) would see this on effectively every screen.
+
+**Fix**: consolidated the three independent copies of "which keyboard belongs to this FlowState"
+(a `getKeyboard()` closure + a ~35-case `switch` fallback in the callback_query handler, plus a
+shorter, differently-incomplete if/else chain in the message handler that didn't even cover
+`ADMIN_FINANCES_MENU`/`ADMIN_SYSTEM_MENU`/`ADMIN_CONSULTATIONS_MENU`) into one method,
+`TelegramAdapter.buildKeyboardForState(chatId, state)`, plus a `sendTypedNavigationReply(chatId,
+flowResult)` helper that always calls it. Every typed-text branch now goes through
+`sendTypedNavigationReply` instead of a bare `sendMessage`. Along the way this also fixed:
+`PERSONA_SELECT` (tapping "Switch Role" via a **button** produced zero buttons on the resulting
+screen too — no case existed for it in the old switch), and the `WELCOME`-state typed-text path
+(the single highest-traffic branch of all, hit by every patient who types "1" instead of tapping).
+
+Also found and fixed while tracing this, all in `conversationFlow.js`'s own response-generation
+(masked in the button-tap path by the keyboard rebuild above, but shown verbatim - wrong - whenever
+no keyboard was attached, i.e. every typed-text hit before today):
+- `handleAdminMenuSelection`/`handleSuperAdminMenuSelection`'s `'menu_finances'` case had
+  `const hasPendingPayments = false; // TODO: Implement pending payments logic` (and same for
+  discounts) - a stub comment left in place, hardcoding the Finances indicator off unconditionally.
+- The same two functions' `'menu_system'` case called `getPendingRequests('doctor')`, undercounting
+  the System & Roles indicator by ignoring pending caregiver/support applications.
+- `handleAdminFinancesMenuSelection`'s invalid-input fallback hardcoded `(false, false)`.
+- `handleAdminSystemMenuSelection`'s Role-Approvals case, and `handleAdminRoleApprovalsSelection`/
+  `getDoctorApplications`'s fallbacks, passed a bare pending-count *number* into
+  `adminRoleApprovals()`, which expects a `{doctor, caregiver, support}` object - `number.doctor` is
+  `undefined`, so every per-role indicator there was silently always off.
+
+Added `test/typed_navigation_keyboards.test.js` - the first test in this repo that actually
+instantiates `TelegramAdapter` and asserts `reply_markup` is present (not `undefined`) on the typed
+navigation path, and that indicators reflect live data through it. This is the regression guard
+that was missing; without it this exact bug class has no way to resurface undetected again.
+
 ## Status (updated 2026-07-23, same-day fix pass)
 
 **All 31 of 31 fixed and verified** (`npm test` — 262/262 passing, no regressions).

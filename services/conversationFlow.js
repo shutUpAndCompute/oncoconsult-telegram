@@ -1,6 +1,8 @@
 const { CancerSpecializations } = require('../models/doctor');
 const MasterDataManager = require('../services/masterDataManager');
 const { DISCOUNT_CATEGORIES, TREATMENT_STATUSES } = require('../models/patient');
+const menuTree = require('./menuTree');
+const { renderMenuText } = require('./menuTreeRenderer');
 
 const masterData = new MasterDataManager();
 
@@ -169,52 +171,26 @@ Reply with number`,
     return `👤 *Select Your Role*\n\nCurrent: ${currentPersona || 'Patient'}\n\n${options.join('\n')}\n\nReply with number`;
   },
 
-  adminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) => {
-    const hasConsultationAction = pending > 0 || active > 0;
-    const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
-    const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
-    let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
-    if (hasFinanceAction) {
-      indFinances = true;
-    } else if (hasSystemAction) {
-      indSystem = true;
-    } else if (!isProfileComplete) {
-      indProfile = true;
-    } else if (hasConsultationAction) {
-      indConsultations = true;
-    }
-    return `🛠️ *Admin Panel*
-
-${indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
-${indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
-${indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
-${indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
-
-0️⃣ Switch Role`;
-  },
-  superAdminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) => {
-    const hasConsultationAction = pending > 0 || active > 0;
-    const hasFinanceAction = hasPendingPayments || hasPendingDiscounts;
-    const hasSystemAction = pendingRoles > 0 || pendingDoctors > 0;
-    let indFinances = false, indSystem = false, indProfile = false, indConsultations = false;
-    if (hasFinanceAction) {
-      indFinances = true;
-    } else if (hasSystemAction) {
-      indSystem = true;
-    } else if (!isProfileComplete) {
-      indProfile = true;
-    } else if (hasConsultationAction) {
-      indConsultations = true;
-    }
-    return `🔐 *Super Admin Panel*
-
-${indConsultations ? '🔴 1️⃣ Consultations' : '1️⃣ Consultations'}
-${indFinances ? '🔴 2️⃣ Finances' : '2️⃣ Finances'}
-${indSystem ? '🔴 3️⃣ System & Roles' : '3️⃣ System & Roles'}
-${indProfile ? '🔴 4️⃣ My Profile' : '4️⃣ My Profile'}
-
-0️⃣ Switch Role`;
-  },
+  // Text-only twin of telegramKeyboards.js's buildAdminMenu/buildSuperAdminMenu
+  // - both now render from the exact same menuTree.adminRoot node, so the
+  // (usually-stripped-before-display, see cleanTextForKeyboard) text list
+  // and the actual buttons can never disagree about indicator state again.
+  adminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) =>
+    renderMenuText(menuTree.adminRoot, {
+      pendingConsultations: pending, activeConsultations: active,
+      isAdminProfileComplete: isProfileComplete, adminMissingFields: isProfileComplete ? [] : ['Name'],
+      hasPendingPayments, hasPendingDiscounts,
+      pendingDoctorRoleRequests: pendingRoles, pendingCaregiverRoleRequests: 0, pendingSupportRoleRequests: 0,
+      pendingDoctorInvites: pendingDoctors, isSuperAdmin: false
+    }, { title: '🛠️ *Admin Panel*' }),
+  superAdminMenu: (pending = 0, active = 0, isProfileComplete = true, hasPendingPayments = false, hasPendingDiscounts = false, pendingRoles = 0, pendingDoctors = 0) =>
+    renderMenuText(menuTree.adminRoot, {
+      pendingConsultations: pending, activeConsultations: active,
+      isAdminProfileComplete: isProfileComplete, adminMissingFields: isProfileComplete ? [] : ['Name'],
+      hasPendingPayments, hasPendingDiscounts,
+      pendingDoctorRoleRequests: pendingRoles, pendingCaregiverRoleRequests: 0, pendingSupportRoleRequests: 0,
+      pendingDoctorInvites: pendingDoctors, isSuperAdmin: true
+    }, { title: '🔐 *Super Admin Panel*' }),
   adminConsultationsMenu: (pending = 0, active = 0) => {
     return `🩺 *Consultations Menu*
 
@@ -2728,12 +2704,12 @@ case 'support': {
         return { nextState: FlowStates.ADMIN_CONSULTATIONS_MENU, response: InteractiveMenus.adminConsultationsMenu(pendingCount, activeCount) };
       },
       'menu_finances': () => {
-        const hasPendingPayments = false; // TODO: Implement pending payments logic
-        const hasPendingDiscounts = false; // TODO: Implement pending discounts logic
+        const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
         return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts) };
       },
       'menu_system': () => {
-        const pendingRoles = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
+        const pendingRoles = this.userRegistry?.getPendingRequests?.()?.length || 0;
         const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
         return { nextState: FlowStates.ADMIN_SYSTEM_MENU, response: InteractiveMenus.adminSystemMenu(pendingRoles, pendingDoctors, this.isSuperAdminPhone(phoneNumber)) };
       },
@@ -2788,12 +2764,12 @@ const handler = flowMap[selection];
         return { nextState: FlowStates.ADMIN_CONSULTATIONS_MENU, response: InteractiveMenus.adminConsultationsMenu(pendingCount, activeCount) };
       },
       'menu_finances': () => {
-        const hasPendingPayments = false; // TODO: Implement pending payments logic
-        const hasPendingDiscounts = false; // TODO: Implement pending discounts logic
+        const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+        const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
         return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts) };
       },
       'menu_system': () => {
-        const pendingRoles = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
+        const pendingRoles = this.userRegistry?.getPendingRequests?.()?.length || 0;
         const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
         return { nextState: FlowStates.ADMIN_SYSTEM_MENU, response: InteractiveMenus.adminSystemMenu(pendingRoles, pendingDoctors, this.isSuperAdminPhone(phoneNumber)) };
       },
@@ -2846,14 +2822,24 @@ const handler = flowMap[selection];
     };
     const handler = flowMap[selection];
     if (handler) return handler();
-    return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(false, false) };
+    const hasPendingPayments = Array.from(this.paymentService?.payments?.values() || []).some(p => p.status === 'pending' && !p.feePending);
+    const hasPendingDiscounts = Array.from(this.consultationManager?.sessions?.values() || []).some(s => s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
+    return { nextState: FlowStates.ADMIN_FINANCES_MENU, response: InteractiveMenus.adminFinancesMenu(hasPendingPayments, hasPendingDiscounts) };
   }
 
   handleAdminSystemMenuSelection(selection, phoneNumber) {
     const flowMap = {
       '1': () => {
-        const pendingApps = this.userRegistry?.getPendingRequests?.('doctor')?.length || 0;
-        return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingApps) };
+        // adminRoleApprovals() expects a {doctor,caregiver,support} object,
+        // not a single number - passing the raw count made every
+        // pendingCounts.X access undefined, so the indicator/count text
+        // here could never show regardless of actual pending requests.
+        const pendingCounts = {
+          doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+          caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+          support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+        };
+        return { nextState: FlowStates.ADMIN_ROLE_APPROVALS, response: InteractiveMenus.adminRoleApprovals(pendingCounts) };
       },
       '2': () => {
         const pendingDoctors = (this.doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
@@ -3452,7 +3438,14 @@ listDoctors(phoneNumber) {
   }
 
   handleAdminRoleApprovalsSelection(selection, phoneNumber, session) {
-    const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
+    // adminRoleApprovals() expects a {doctor,caregiver,support} object, not
+    // a single count - this used to pass a bare number, silently defeating
+    // every per-role indicator/count in the fallback response below.
+    const pendingApps = {
+      doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+      caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+      support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+    };
     const flowMap = {
       '1': () => this.getDoctorApplications(phoneNumber),
       '2': () => ({ nextState: FlowStates.ADMIN_APPROVE_DOCTOR_INPUT, response: InteractiveMenus.adminApproveDoctorInput }),
@@ -3466,7 +3459,11 @@ listDoctors(phoneNumber) {
   }
 
   getDoctorApplications(phoneNumber) {
-    const pendingApps = this.userRegistry?.getPendingRequests?.()?.length || 0;
+    const pendingApps = {
+      doctor: this.userRegistry?.getPendingRequests?.('doctor')?.length || 0,
+      caregiver: this.userRegistry?.getPendingRequests?.('caregiver')?.length || 0,
+      support: this.userRegistry?.getPendingRequests?.('support')?.length || 0
+    };
     // Only super_admin can actually approve doctor/caregiver/support role
     // requests (see the isSuperAdmin checks in the approve handlers below),
     // so a regular admin has no need-to-know for applicants' contact IDs.

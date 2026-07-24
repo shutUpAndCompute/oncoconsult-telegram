@@ -12,6 +12,9 @@ const UserRegistry = require('../../services/userRegistry');
 const adminRegistry = require('../../services/adminRegistry');
 const telegramKeyboards = require('../../services/telegramKeyboards');
 const { payloadMap } = require('../../services/payloadMap');
+const menuTree = require('../../services/menuTree');
+const menuFacts = require('../../services/menuFacts');
+const { renderKeyboard } = require('../../services/menuTreeRenderer');
 
 function ensureEnvSeededAdminRecord(chatId) {
   const adminRecord = adminRegistry.getAdmin(String(chatId));
@@ -247,6 +250,158 @@ class TelegramAdapter {
     await this.bot.sendMessage(chatId, `🩺 *Oncology Consultation*\n\nReady to start?`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
   }
 
+  // Single source of truth for "what keyboard belongs under this
+  // FlowState, computed from live data". Previously this logic was
+  // triplicated: a getKeyboard() closure + a ~35-case switch statement
+  // inside the callback_query handler, plus a much shorter, differently
+  // pruned if/else chain inside the plain-text message handler (missing
+  // ADMIN_FINANCES_MENU/ADMIN_SYSTEM_MENU/ADMIN_CONSULTATIONS_MENU/etc
+  // entirely). Any admin/doctor/support user who navigated by *typing* a
+  // digit instead of tapping a button hit the short, incomplete copy - or,
+  // worse, hit an early-return branch that called
+  // handleAdminMenuSelection()/handleSuperAdminMenuSelection()/
+  // handleDoctorMenuSelection()/handleSupportMenuSelection() directly and
+  // sent the reply with NO reply_markup at all, so the keyboard (and every
+  // indicator on it) simply vanished rather than being stale - the buttons
+  // never got re-attached before the next tap. Both callback_query and the
+  // message handler now call this one function instead of maintaining
+  // their own copies.
+  buildKeyboardForState(chatId, state) {
+    chatId = String(chatId);
+    const session = consultationManager.getSession(chatId);
+    const persona = new UserPersona(chatId);
+    const effectiveRole = this.getEffectiveRole(persona, session);
+
+    // Tree-backed states: one fact computation per domain
+    // (services/menuFacts.js), then the generic recursive renderer
+    // (services/menuTreeRenderer.js) over the declarative tree
+    // (services/menuTree.js). No positional booleans/counts are threaded
+    // through here by hand - there is nothing left to forget to pass.
+    if (menuTree.ADMIN_STATE_NODES[state]) {
+      const facts = menuFacts.computeAdminFacts(chatId, { consultationManager, paymentService, userRegistry, adminRegistry, doctorRouter, doctorPersistence });
+      facts.isSuperAdmin = effectiveRole === 'super_admin';
+      return renderKeyboard(menuTree.ADMIN_STATE_NODES[state], facts);
+    }
+    if (menuTree.PATIENT_STATE_NODES[state]) {
+      const facts = menuFacts.computePatientFacts(chatId, { consultationManager, conversationFlow });
+      facts.hasOtherRoles = persona.availableRoles?.length > 1;
+      return renderKeyboard(menuTree.PATIENT_STATE_NODES[state], facts);
+    }
+    if (menuTree.DOCTOR_STATE_NODES[state]) {
+      const facts = menuFacts.computeDoctorFacts(chatId, { consultationManager, doctorPersistence });
+      return renderKeyboard(menuTree.DOCTOR_STATE_NODES[state], facts);
+    }
+
+    switch (state) {
+      case FlowStates.MOBILE_COLLECTION:
+        return telegramKeyboards.buildMobileCollection();
+      case FlowStates.ROLE_SELECT:
+        return telegramKeyboards.buildRoleSelect();
+      case FlowStates.PROFILE_VIEW: {
+        // Shared state (admin/doctor/support can land here too, e.g. via
+        // Apply for Role) - the missing-fields source depends on role, so
+        // this can't go through the plain patient auto-lookup above.
+        const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
+        const missingFields = isPatient
+          ? (session?.patientProfile ? conversationFlow.getIncompleteProfileFields(session) : { name: true, age: true })
+          : adminRegistry?.getIncompleteProfileFields?.(chatId) || [];
+        const isProfileComplete = isPatient
+          ? (session?.patientProfile ? Object.keys(missingFields).length === 0 : false)
+          : (Array.isArray(missingFields) ? missingFields.length === 0 : false);
+        return renderKeyboard(menuTree.patientProfileMenu, { isProfileComplete, hasMissingProfileFields: !isProfileComplete });
+      }
+      case FlowStates.PROFILE:
+        return telegramKeyboards.buildProfileEdit();
+      case FlowStates.SUPPORT_MENU:
+        return telegramKeyboards.buildSupportMenu(persona.availableRoles?.length > 1);
+      case FlowStates.PERSONA_SELECT:
+        // The most common way into this state is tapping "Switch Role" via
+        // callback_query - it had no case here or in the old switch
+        // fallback at all, so tapping Switch Role produced a message with
+        // zero buttons on it, full stop, for every role.
+        return telegramKeyboards.buildPersonaSelect(effectiveRole, persona.availableRoles);
+      case FlowStates.BILLING:
+        return telegramKeyboards.buildBillingMenu();
+      case FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT: {
+        const pending = consultationManager.getPendingForAdmin();
+        return telegramKeyboards.buildAdminAssignDoctorSelect(pending);
+      }
+      case FlowStates.ADMIN_ASSIGN_DOCTOR_PICK: {
+        const doctors = doctorRouter?.persistence?.getDoctors?.() || [];
+        return telegramKeyboards.buildAdminAssignDoctorPick(doctors);
+      }
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT: {
+        const assigned = Array.from(consultationManager.consultations.values()).filter(c => c.status === 'active' && c.doctorId);
+        return telegramKeyboards.buildAdminReassignDoctorSelect(assigned);
+      }
+      case FlowStates.ADMIN_REASSIGN_DOCTOR_PICK: {
+        const consultation = consultationManager.getConsultationById(session?.pendingReassignConsultationId);
+        const doctors = (doctorRouter?.persistence?.getDoctors?.() || []).filter(d => d.id !== consultation?.doctorId);
+        return telegramKeyboards.buildAdminReassignDoctorPick(doctors);
+      }
+      case FlowStates.CANCER_TYPE:
+        return telegramKeyboards.buildCancerTypeMenu();
+      case FlowStates.CONSULTATION_WITHDRAW:
+        return telegramKeyboards.buildWithdrawalConfirm();
+      case FlowStates.REPORT_UPLOAD:
+        return telegramKeyboards.buildReportUpload();
+      case FlowStates.ROLE_APPLICATION:
+        return telegramKeyboards.buildRoleApplication();
+      case FlowStates.PROFILE_REMOVE_ROLE:
+        return telegramKeyboards.buildProfileRemoveRole();
+      case FlowStates.PROFILE_DISCOUNT_CATEGORY:
+        return telegramKeyboards.buildDiscountPrimary();
+      case FlowStates.PROFILE_DISCOUNT_ECONOMIC:
+        return telegramKeyboards.buildDiscountEconomic();
+      case FlowStates.PROFILE_DISCOUNT_PROFESSION:
+        return telegramKeyboards.buildDiscountProfession();
+      case FlowStates.PROFILE_DISCOUNT_SOCIAL:
+        return telegramKeyboards.buildDiscountSocial();
+      case FlowStates.PROFILE_DISCOUNT_DOCUMENTS:
+        return telegramKeyboards.buildProfileDiscountDocuments();
+      case FlowStates.PROFILE_CONSENTS:
+        return telegramKeyboards.buildConsentsMenu();
+      case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT:
+        return telegramKeyboards.buildAdminVerifyPaymentInput();
+      case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT:
+        return telegramKeyboards.buildAdminVerifyDiscountInput();
+      case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT:
+        return telegramKeyboards.buildAdminMessagePatientInput();
+      case FlowStates.ADMIN_SET_FEE_INPUT:
+        return telegramKeyboards.buildAdminSetFeeInput();
+      case FlowStates.DOCTOR_MSG_ADMIN_INPUT:
+        return telegramKeyboards.buildDoctorMsgAdminInput();
+      case FlowStates.ADMIN_ADD_ADMIN_INPUT:
+        return telegramKeyboards.buildAdminAddAdminInput();
+      case FlowStates.ADMIN_REMOVE_ADMIN_INPUT:
+        return telegramKeyboards.buildAdminRemoveAdminInput();
+      case FlowStates.ADMIN_CLOSE_CONSULTATION:
+        return telegramKeyboards.buildCloseConsultationPrompt();
+      default:
+        return null;
+    }
+  }
+
+  // Sends a menu-handler's {nextState, response} as a plain-text reply,
+  // always attaching the live keyboard for nextState via
+  // buildKeyboardForState(). This is the typed-text equivalent of what the
+  // callback_query handler already did correctly - every one of this
+  // method's call sites used to call bot.sendMessage() with no reply_markup
+  // at all, so a user who typed a digit instead of tapping got a message
+  // with zero buttons (not stale buttons - none), for every subsequent
+  // screen in their session, since there was never another chance to
+  // re-attach one.
+  async sendTypedNavigationReply(chatId, flowResult) {
+    const replyMarkup = flowResult.nextState ? this.buildKeyboardForState(chatId, flowResult.nextState) : null;
+    const displayResponse = replyMarkup
+      ? this.cleanTextForKeyboard(flowResult.response, true)
+      : flowResult.response;
+    await this.bot.sendMessage(chatId, displayResponse, {
+      parse_mode: 'Markdown',
+      reply_markup: replyMarkup?.reply_markup
+    });
+  }
+
   // Shared by the photo/document handlers. Files were previously accepted
   // from any sender and unconditionally filed as a patient's own medical
   // report, regardless of who actually sent them. Returns true if this
@@ -290,9 +445,10 @@ class TelegramAdapter {
       consultationManager.updateSession(targetPhone, { patientProfile: profile });
       consultationManager.updateSession(String(chatId), { flowState: FlowStates.BILLING });
       const categoryLabel = profile.discountCategory?.replace(/_/g, ' ') || 'selected';
+      const keyboard = this.buildKeyboardForState(chatId, FlowStates.BILLING);
       await this.bot.sendMessage(chatId,
-        `✅ Discount document received for *${categoryLabel}*. Admin will review it.\n\n${InteractiveMenus.billing}`,
-        { parse_mode: 'Markdown' }
+        `✅ Discount document received for *${categoryLabel}*. Admin will review it.`,
+        { parse_mode: 'Markdown', reply_markup: keyboard?.reply_markup }
       );
       await this.notifyAdminsDiscountDocument(targetPhone, categoryLabel, fileId);
       return true;
@@ -404,89 +560,7 @@ class TelegramAdapter {
       let responseText = '';
       let replyMarkup = null;
       
-      const getKeyboard = () => {
-        const currentState = nextState;
-        
-        if (currentState === FlowStates.WELCOME) {
-          const profileComplete = conversationFlow.isProfileComplete(session);
-          const hasPending = !!consultationManager.getPendingConsultationByPatient(String(chatId));
-          const hasActive = !!Array.from(consultationManager.consultations.values())
-             .find(c => c.patientPhone === String(chatId) && c.status === 'active');
-          return telegramKeyboards.buildMainMenu(effectiveRole,
-            effectiveRole !== 'patient',
-            profileComplete,
-            effectiveRole === 'admin',
-            effectiveRole === 'super_admin',
-            hasPending ? 1 : 0,
-            hasActive ? 1 : 0);
-        }
-        if (currentState === FlowStates.MOBILE_COLLECTION) {
-          return telegramKeyboards.buildMobileCollection();
-        }
-        if (currentState === FlowStates.ROLE_SELECT) {
-          return telegramKeyboards.buildRoleSelect();
-        }
-if (currentState === FlowStates.PROFILE_VIEW) {
-           const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
-           const missingFields = isPatient 
-             ? (session?.patientProfile ? conversationFlow.getIncompleteProfileFields(session) : {name: true, age: true})
-             : adminRegistry?.getIncompleteProfileFields?.(phoneNumber) || [];
-           const missingMap = {};
-           Object.keys(missingFields).forEach(k => missingMap[k] = true);
-           if (Array.isArray(missingFields)) {
-             if (missingFields.includes('Name')) missingMap.name = true;
-             if (missingFields.includes('Phone Number')) missingMap.phoneNumber = true;
-           }
-           return telegramKeyboards.buildProfileView(missingMap);
-         }
-        if (currentState === FlowStates.PROFILE) {
-          return telegramKeyboards.buildProfileEdit();
-        }
-        if (currentState === FlowStates.CAREGIVER_MENU) {
-          const profileComplete = conversationFlow.isProfileComplete(session);
-          const hasPending = !!consultationManager.getPendingConsultationByPatient(String(chatId));
-          const hasActive = !!Array.from(consultationManager.consultations.values())
-             .find(c => c.patientPhone === String(chatId) && c.status === 'active');
-          return telegramKeyboards.buildCaregiverMenu(persona.availableRoles?.length > 1, profileComplete, hasPending ? 1 : 0, hasActive ? 1 : 0);
-        }
-        if (currentState === FlowStates.DOCTOR_MENU) {
-          const doctors = doctorPersistence.getDoctors();
-          const doctor = doctors.find(d => d.telegramId === String(chatId) ||
-            String(d.phoneNumber).replace('+', '') === String(chatId));
-          const hasActive = !!Array.from(consultationManager.consultations.values())
-            .find(c => c.doctorId === doctor?.id && c.status === 'active');
-          const pendingActions = doctor ? consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
-          return telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
-        }
-        if (currentState === FlowStates.SUPPORT_MENU) {
-          return telegramKeyboards.buildSupportMenu(true);
-        }
-        if (currentState === FlowStates.ADMIN_MENU) {
-          const pendingCount = consultationManager.getPendingForAdmin().length;
-          const activeCount = Array.from(consultationManager.consultations.values())
-            .filter(c => c.status === 'active').length;
-          return telegramKeyboards.buildAdminMenu(pendingCount, activeCount,
-            adminRegistry.isAdminProfileComplete(String(chatId)),
-            Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-            Array.from(consultationManager.sessions?.values() || []).some(s => 
-              s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
-            userRegistry.getPendingRequests?.()?.length || 0,
-            (doctorRouter?.persistence?.getPendingDoctors?.() || []).length);
-        }
-        if (currentState === FlowStates.SUPER_ADMIN_MENU) {
-          const pendingCount = consultationManager.getPendingForAdmin().length;
-          const activeCount = Array.from(consultationManager.consultations.values())
-            .filter(c => c.status === 'active').length;
-          return telegramKeyboards.buildSuperAdminMenu(pendingCount, activeCount,
-            adminRegistry.isAdminProfileComplete(String(chatId)),
-            Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending),
-            Array.from(consultationManager.sessions?.values() || []).some(s => 
-              s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending'),
-            userRegistry.getPendingRequests?.()?.length || 0,
-            (doctorRouter?.persistence?.getPendingDoctors?.() || []).length);
-        }
-        return null;
-      };
+      const getKeyboard = () => this.buildKeyboardForState(chatId, nextState);
       
       const handleFlow = async (selection) => {
         const result = await conversationFlow.createFlowHandler(String(chatId), selection);
@@ -583,100 +657,7 @@ if (currentState === FlowStates.PROFILE_VIEW) {
 
       // 3. Edit the message with the proper text returned by the controller
       if (nextState && responseText) {
-        // Expand getKeyboard to cover more states if needed, or rely on the fact that conversationFlow 
-        // generated responseText which we will display (and we fall back to missing keyboards if not mapped).
-        replyMarkup = getKeyboard(); 
-        
-        // If getKeyboard returns null, but we have some known simple keyboards:
-        if (!replyMarkup) {
-          switch (nextState) {
-            case FlowStates.CONSULTATION: replyMarkup = telegramKeyboards.buildConsultationMenu(); break;
-            case FlowStates.BILLING: replyMarkup = telegramKeyboards.buildBillingMenu(); break;
-            case FlowStates.ADMIN_ROLE_APPROVALS: {
-              const pendingReqs = userRegistry.getPendingRequests?.() || [];
-              const pendingCounts = {
-                doctor: pendingReqs.filter(r => r.role === 'doctor').length,
-                caregiver: pendingReqs.filter(r => r.role === 'caregiver').length,
-                support: pendingReqs.filter(r => r.role === 'support').length
-              };
-              replyMarkup = telegramKeyboards.buildAdminRoleApprovals(pendingCounts);
-              break;
-            }
-            case FlowStates.ADMIN_DOCTOR_MANAGEMENT: {
-              const pendingDocs = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-              replyMarkup = telegramKeyboards.buildAdminDoctorManagement(pendingDocs);
-              break;
-            }
-            case FlowStates.ADMIN_ASSIGN_DOCTOR_SELECT: {
-              const pending = consultationManager.getPendingForAdmin();
-              replyMarkup = telegramKeyboards.buildAdminAssignDoctorSelect(pending);
-              break;
-            }
-            case FlowStates.ADMIN_ASSIGN_DOCTOR_PICK: {
-              const doctors = doctorRouter?.persistence?.getDoctors?.() || [];
-              replyMarkup = telegramKeyboards.buildAdminAssignDoctorPick(doctors);
-              break;
-            }
-            case FlowStates.ADMIN_REASSIGN_DOCTOR_SELECT: {
-              const assigned = Array.from(consultationManager.consultations.values()).filter(c => c.status === 'active' && c.doctorId);
-              replyMarkup = telegramKeyboards.buildAdminReassignDoctorSelect(assigned);
-              break;
-            }
-            case FlowStates.ADMIN_REASSIGN_DOCTOR_PICK: {
-              // The consultation being reassigned was just stored on the
-              // session by handleAdminReassignDoctorSelectConsultation - the
-              // `session` captured before handleFlow() ran above is stale,
-              // so this must re-fetch to see that write.
-              const freshSession = consultationManager.getSession(String(chatId));
-              const consultation = consultationManager.getConsultationById(freshSession?.pendingReassignConsultationId);
-              const doctors = (doctorRouter?.persistence?.getDoctors?.() || []).filter(d => d.id !== consultation?.doctorId);
-              replyMarkup = telegramKeyboards.buildAdminReassignDoctorPick(doctors);
-              break;
-            }
-            case FlowStates.CANCER_TYPE: replyMarkup = telegramKeyboards.buildCancerTypeMenu(); break;
-            case FlowStates.CONSULTATION_WITHDRAW: replyMarkup = telegramKeyboards.buildWithdrawalConfirm(); break;
-            case FlowStates.REPORT_UPLOAD: replyMarkup = telegramKeyboards.buildReportUpload(); break;
-            case FlowStates.ROLE_APPLICATION: replyMarkup = telegramKeyboards.buildRoleApplication(); break;
-            case FlowStates.PROFILE_REMOVE_ROLE: replyMarkup = telegramKeyboards.buildProfileRemoveRole(); break;
-            case FlowStates.PROFILE_DISCOUNT_CATEGORY: replyMarkup = telegramKeyboards.buildDiscountPrimary(); break;
-            case FlowStates.PROFILE_DISCOUNT_ECONOMIC: replyMarkup = telegramKeyboards.buildDiscountEconomic(); break;
-            case FlowStates.PROFILE_DISCOUNT_PROFESSION: replyMarkup = telegramKeyboards.buildDiscountProfession(); break;
-            case FlowStates.PROFILE_DISCOUNT_SOCIAL: replyMarkup = telegramKeyboards.buildDiscountSocial(); break;
-            case FlowStates.PROFILE_DISCOUNT_DOCUMENTS: replyMarkup = telegramKeyboards.buildProfileDiscountDocuments(); break;
-            case FlowStates.PROFILE_CONSENTS: replyMarkup = telegramKeyboards.buildConsentsMenu(); break;
-            case FlowStates.ADMIN_VERIFY_PAYMENT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyPaymentInput(); break;
-            case FlowStates.ADMIN_VERIFY_DISCOUNT_INPUT: replyMarkup = telegramKeyboards.buildAdminVerifyDiscountInput(); break;
-            case FlowStates.ADMIN_MESSAGE_PATIENT_INPUT: replyMarkup = telegramKeyboards.buildAdminMessagePatientInput(); break;
-            case FlowStates.ADMIN_SET_FEE_INPUT: replyMarkup = telegramKeyboards.buildAdminSetFeeInput(); break;
-            case FlowStates.DOCTOR_MSG_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildDoctorMsgAdminInput(); break;
-            case FlowStates.ADMIN_ADD_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildAdminAddAdminInput(); break;
-            case FlowStates.ADMIN_REMOVE_ADMIN_INPUT: replyMarkup = telegramKeyboards.buildAdminRemoveAdminInput(); break;
-            case FlowStates.ADMIN_CLOSE_CONSULTATION: replyMarkup = telegramKeyboards.buildCloseConsultationPrompt(); break;
-            case FlowStates.ADMIN_PROFILE_EDIT: replyMarkup = telegramKeyboards.buildAdminProfileEdit(); break;
-            case FlowStates.SUPER_ADMIN_MANAGE_ADMINS: replyMarkup = telegramKeyboards.buildSuperAdminManageAdminsMenu(); break;
-            case FlowStates.ADMIN_CONSULTATIONS_MENU: {
-              const pCount = consultationManager.getPendingForAdmin(String(chatId))?.length || 0;
-              const aCount = Array.from(consultationManager.consultations.values()).filter(c => c.status === 'active').length;
-              replyMarkup = telegramKeyboards.buildAdminConsultationsMenu(pCount, aCount);
-              break;
-            }
-            case FlowStates.ADMIN_FINANCES_MENU: {
-              const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-              const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s =>
-                s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
-              replyMarkup = telegramKeyboards.buildAdminFinancesMenu(hasPendingPayments, hasPendingDiscounts);
-              break;
-            }
-            case FlowStates.ADMIN_SYSTEM_MENU: {
-              const pendingDoctors = doctorPersistence.getPendingDoctors().length;
-              const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
-              const isSuperAdmin = process.env.SUPER_ADMIN_PHONES?.split(',')?.includes(String(chatId)) ||
-                 process.env.SUPER_ADMIN_CHAT_IDS?.split(',')?.includes(String(chatId));
-              replyMarkup = telegramKeyboards.buildAdminSystemMenu(pendingRoles, pendingDoctors, isSuperAdmin);
-              break;
-            }
-          }
-        }
+        replyMarkup = getKeyboard();
 
         try {
           const options = {
@@ -1050,7 +1031,7 @@ await this.bot.sendMessage(chatId, profileText, {
            if (flowResult.nextState) {
              consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
            }
-           await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+           await this.sendTypedNavigationReply(chatId, flowResult);
            return;
          }
          // Other doctor-domain shared states (PROFILE_VIEW, PROFILE_EDIT,
@@ -1065,28 +1046,16 @@ if (!inAdminDomain) {
                 const isSuperAdmin = effectiveRole === PersonaTypes.SUPER_ADMIN;
                 const adminMenuState = isSuperAdmin ? FlowStates.SUPER_ADMIN_MENU : FlowStates.ADMIN_MENU;
                 consultationManager.updateSession(String(chatId), { flowState: adminMenuState });
+                const keyboard = this.buildKeyboardForState(chatId, adminMenuState);
                 const pendingCount = consultationManager.getPendingForAdmin().length;
                 const activeCount = Array.from(consultationManager.consultations.values())
                   .filter(c => c.status === 'active').length;
-                const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-                const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-                const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s => 
-                  s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
-                const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
-                const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-                
-                const keyboard = telegramKeyboards.buildAdminMenu(
-                  pendingCount, activeCount, adminProfileComplete,
-                  hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors
-                );
-                
-                const header = isSuperAdmin 
+                const header = isSuperAdmin
                   ? `🔐 *Super Admin Panel*\n\nYou have full system access.\n\nPending: ${pendingCount} | Active: ${activeCount}`
                   : `🛠️ *Admin Panel*\n\nPending: ${pendingCount} | Active: ${activeCount}`;
-                  
-                await this.bot.sendMessage(chatId, header, { 
+                await this.bot.sendMessage(chatId, header, {
                   parse_mode: 'Markdown',
-                  reply_markup: keyboard.reply_markup
+                  reply_markup: keyboard?.reply_markup
                 });
                 return;
               }
@@ -1096,7 +1065,7 @@ if (!inAdminDomain) {
                if (flowResult.nextState) {
                  consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
                }
-               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+               await this.sendTypedNavigationReply(chatId, flowResult);
                return;
              }
              if (currentFlowState === FlowStates.ADMIN_MENU) {
@@ -1104,7 +1073,7 @@ if (!inAdminDomain) {
                if (flowResult.nextState) {
                  consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
                }
-               await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+               await this.sendTypedNavigationReply(chatId, flowResult);
                return;
              }
              // Other admin-domain sub-states (ADMIN_ROLE_APPROVALS,
@@ -1119,10 +1088,10 @@ if (!inAdminDomain) {
 
             if (!inSupportDomain) {
               consultationManager.updateSession(String(chatId), { flowState: FlowStates.SUPPORT_MENU });
-              const keyboard = telegramKeyboards.buildMainMenu('support', false, true);
-              await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, { 
+              const keyboard = this.buildKeyboardForState(chatId, FlowStates.SUPPORT_MENU);
+              await this.bot.sendMessage(chatId, `🆘 *Support Menu*\n\nHow can we help you today?`, {
                 parse_mode: 'Markdown',
-                reply_markup: keyboard.reply_markup
+                reply_markup: keyboard?.reply_markup
               });
               return;
             }
@@ -1132,7 +1101,7 @@ if (!inAdminDomain) {
               if (flowResult.nextState) {
                 consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
               }
-              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+              await this.sendTypedNavigationReply(chatId, flowResult);
               return;
             }
           }
@@ -1141,7 +1110,7 @@ if (!inAdminDomain) {
             const flowResult = await conversationFlow.createFlowHandler(String(chatId), text);
             if (flowResult.nextState && flowResult.response) {
               consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
-              await this.bot.sendMessage(chatId, flowResult.response, { parse_mode: 'Markdown' });
+              await this.sendTypedNavigationReply(chatId, flowResult);
             }
             return;
           }
@@ -1199,54 +1168,7 @@ if (!inAdminDomain) {
 
       if (flowResult.nextState && flowResult.response) {
         consultationManager.updateSession(String(chatId), { flowState: flowResult.nextState });
-        
-        let replyMarkup = null;
-        const currentState = flowResult.nextState;
-        if (ADMIN_DOMAIN_STATES.has(currentState) || SHARED_DOMAIN_STATES.has(currentState)) {
-          if (currentState === FlowStates.ADMIN_MENU || currentState === FlowStates.SUPER_ADMIN_MENU) {
-            const pendingCount = consultationManager.getPendingForAdmin().length;
-            const activeCount = Array.from(consultationManager.consultations.values())
-              .filter(c => c.status === 'active').length;
-            const adminProfileComplete = adminRegistry.isAdminProfileComplete(String(chatId));
-            const hasPendingPayments = Array.from(paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-            const hasPendingDiscounts = Array.from(consultationManager.sessions?.values() || []).some(s => 
-              s.patientProfile?.discountCategory && s.patientProfile?.discountVerificationStatus === 'pending');
-            const pendingRoles = userRegistry.getPendingRequests?.()?.length || 0;
-            const pendingDoctors = (doctorRouter?.persistence?.getPendingDoctors?.() || []).length;
-            replyMarkup = currentState === FlowStates.SUPER_ADMIN_MENU
-              ? telegramKeyboards.buildSuperAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors)
-              : telegramKeyboards.buildAdminMenu(pendingCount, activeCount, adminProfileComplete, hasPendingPayments, hasPendingDiscounts, pendingRoles, pendingDoctors);
-          } else if (currentState === FlowStates.DOCTOR_MENU) {
-            const doctors = doctorPersistence.getDoctors();
-            const doctor = doctors.find(d => d.telegramId === String(chatId) ||
-              String(d.phoneNumber).replace('+', '') === String(chatId));
-            const hasActive = !!Array.from(consultationManager.consultations.values())
-              .find(c => c.doctorId === doctor?.id && c.status === 'active');
-            const pendingActions = doctor ? consultationManager.getPendingActionsForDoctor(doctor.id) || 0 : 0;
-            replyMarkup = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
-          } else if (currentState === FlowStates.SUPPORT_MENU) {
-            replyMarkup = telegramKeyboards.buildSupportMenu(persona.availableRoles?.length > 1);
-} else if (currentState === FlowStates.PERSONA_SELECT) {
-             replyMarkup = telegramKeyboards.buildPersonaSelect(effectiveRole, persona.availableRoles);
-           } else if (currentState === FlowStates.PROFILE_VIEW) {
-             const isPatient = !session?.isCaregiver && session?.selectedPersona !== 'caregiver';
-             const missingFields = isPatient 
-               ? (session?.patientProfile ? conversationFlow.getIncompleteProfileFields(session) : {name: true, age: true})
-               : adminRegistry?.getIncompleteProfileFields?.(String(chatId)) || {};
-             replyMarkup = telegramKeyboards.buildProfileView(missingFields);
-           } else if (currentState === FlowStates.CAREGIVER_MENU) {
-            replyMarkup = telegramKeyboards.buildCaregiverMenu(persona.availableRoles?.length > 1, true);
-          }
-        }
-        
-        const displayResponse = replyMarkup 
-          ? this.cleanTextForKeyboard(flowResult.response, true) 
-          : flowResult.response;
-        
-        await this.bot.sendMessage(chatId, displayResponse, { 
-          parse_mode: 'Markdown',
-          reply_markup: replyMarkup?.reply_markup
-        });
+        await this.sendTypedNavigationReply(chatId, flowResult);
 
         if (flowResult.nextState === FlowStates.CAREGIVER_AUTH) {
           await this.notifyAdminsCaregiverRequest(String(chatId));
