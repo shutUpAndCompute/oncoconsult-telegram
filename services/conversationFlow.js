@@ -156,12 +156,14 @@ const CAREGIVER_DOMAIN_STATES = [
 ];
 
 const InteractiveMenus = {
-  main: (persona = 'patient', hasOtherRoles = false, profileComplete = true, hasPendingPayment = false) => `🩺 *Oncology Consultation*
-
-${hasPendingPayment ? '🔴 ' : ''}1️⃣ My Consultations
-${!profileComplete ? '🔴 ' : ''}2️⃣ 👤 Profile & Roles${hasOtherRoles ? '\n3️⃣ Switch Role' : ''}
-
-Reply with number`,
+  // Text-only twin of telegramKeyboards.js's buildMainMenu (menuTree.patientRoot).
+  // Previously hand-computed its own badge state from a `hasPendingPayment`
+  // boolean that isn't even a fact the tree/buttons ever used - the real
+  // keyboard has never put a 🔴 on "My Consultations" (it's deliberately
+  // informational-only, see menuTree.js), so this text could show a red dot
+  // the buttons never did. Also previously put Switch Role at digit 3;
+  // now digit 0, matching every other role.
+  main: (facts = {}) => renderMenuText(menuTree.patientRoot, facts, { title: '🩺 *Oncology Consultation*', footer: 'Reply with number' }),
   personaSelect: (currentPersona, approvedRoles = []) => {
     const options = ['1️⃣ Patient Mode'];
     if (approvedRoles.includes('caregiver')) options.push('2️⃣ Caregiver Mode');
@@ -561,12 +563,17 @@ Roles require admin approval. Select a role to apply for.`,
   // action was pending; the tree (and the live keyboard, which was already
   // rendering from it) correctly puts 🔴 on "Message Admin" (the thing that's
   // actually pending) and 🟢 on "Status" only for an active consultation.
-  doctorMenu: (doctorName, hasActive, pendingActions = 0) => `👨⚕️ *Doctor Menu*
+  // hasOtherRoles defaults to true (matching telegramKeyboards.js's
+  // buildDoctorMenu default) for the many call sites below that don't have
+  // it handy - Switch Role is now a real tree node (previously hardcoded as
+  // a trailing line here, unconditionally, while the actual tap-able
+  // keyboard had no such button at all).
+  doctorMenu: (doctorName, hasActive, pendingActions = 0, hasOtherRoles = true) => `👨⚕️ *Doctor Menu*
 
 Hi ${doctorName}
-${renderMenuText(menuTree.doctorRoot, { hasActiveConsultation: hasActive, pendingActions })}
+${renderMenuText(menuTree.doctorRoot, { hasActiveConsultation: hasActive, pendingActions, hasOtherRoles })}
 
-${hasActive ? '_Has active consultation_\n' : ''}${pendingActions > 0 ? `_${pendingActions} pending action${pendingActions > 1 ? 's' : ''}_\n` : ''}0️⃣ Switch Role`,
+${hasActive ? '_Has active consultation_\n' : ''}${pendingActions > 0 ? `_${pendingActions} pending action${pendingActions > 1 ? 's' : ''}_` : ''}`,
 
   roleSelect: `👤 *Select Your Role*
 
@@ -582,7 +589,7 @@ Complete profile after selection.`,
 
   cancerTypes: `🔍 *Select Cancer Type*\n\n1️⃣ Lung Cancer\n2️⃣ Breast Cancer\n3️⃣ Prostate Cancer\n4️⃣ Liver Cancer\n5️⃣ Pancreatic\n6️⃣ Ovarian\n7️⃣ Blood Cancer\n8️⃣ Other/General\n\n0️⃣ Cancel\n\nReply with number`,
 
-  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Check Payment Status\n3️⃣ Apply for Fee Discount\n0️⃣ Main Menu\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
+  billing: `💰 *Consultation Pricing*\n\n• Standard Fee: ₹1500\n• Follow-up: ₹800\n• Report Review: ₹500\nDiscounts are at admin discretion. See discount tiers in admin panel.\n\n1️⃣ Request Payment Link\n2️⃣ Check Payment Status\n3️⃣ Apply for Fee Discount\n0️⃣ Back to Consultations\n\nReply with number\n\n💡 Sharing eligibility information qualifies you for discounts at admin discretion.`,
 
   caregiverConsentAck: `⚠️ *Caregiver Data Sharing Consent*\n\nTo qualify for any discounts, the patient MUST share:\n\n1. Medical eligibility documents (consultation reports, diagnostic reports, medical records)\n2. Socio-economic eligibility documents (if claiming discounted categories)\n\nWithout document sharing, full-fee consultation applies.\n\nOur administrators will review eligibility and determine discounts at their discretion.\n\n1. ✅ I acknowledge and provide consent for discount eligibility\n2. ❌ No consent (proceed without discount eligibility)`,
 
@@ -590,17 +597,15 @@ Complete profile after selection.`,
 
   confirmPayment: `✅ *Payment Status*\n\n1️⃣ Payment Completed\n2️⃣ Payment Pending\n3️⃣ Back to Menu\n\nReply "1" after making payment`,
 
-  consultation: (profileComplete = false, hasPendingPayment = false) => {
-    const hasWarning = !profileComplete;
-    return `📋 *My Consultations*\n\n${!profileComplete ? '⚠️ ' : ''}Start a new consultation or manage existing ones.
-
-${hasPendingPayment ? '🔴 ' : ''}1️⃣ Start New Consultation
-${hasWarning ? '⚠️ ' : ''}2️⃣ Check Payment Status
-3️⃣ Withdraw Consultation
-4️⃣ Back to Menu
-
-Reply with number`;
-  },
+  // Text-only twin of telegramKeyboards.js's buildConsultationMenu
+  // (menuTree.patientConsultationMenu). Previously used a `hasPendingPayment`
+  // boolean to redden "Start New Consultation" - a fact the tree/live
+  // keyboard has never used for that button at all (it's driven by
+  // profile completeness, same as "Check Payment Status") - so the two
+  // could show a red dot under completely different, unrelated conditions.
+  consultation: (profileComplete = false) =>
+    renderMenuText(menuTree.patientConsultationMenu, { isProfileComplete: profileComplete },
+      { title: `📋 *My Consultations*\n\n${!profileComplete ? '⚠️ ' : ''}Start a new consultation or manage existing ones.`, footer: 'Reply with number' }),
 
   withdrawalConfirm: `⚠️ *Withdraw Consultation*\n\nThis will cancel your pending consultation. Your data will be saved but you'll need to re-request a consultation.\n\n1️⃣ Yes, withdraw\n2️⃣ No, keep consultation\n\nReply with number`,
 
@@ -655,20 +660,27 @@ class ConversationFlow {
 getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null) {
     const hasPendingPayment = phoneNumber && this.paymentService?.payments?.size > 0 && 
       Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
+    // Was hardcoded `profileComplete = true`/`hasOtherRoles = false`
+    // unconditionally, regardless of the actual session - since
     // session.profileComplete/hasOtherRoles are never written anywhere in
-    // the app - the real completeness check is the isProfileComplete()
-    // method (a separate code path) - so these always evaluated to
-    // true/false respectively. Left as plain constants rather than removed
-    // outright since callers below still expect the parameters.
-    const profileComplete = true;
-    const hasOtherRoles = false;
+    // the app (the real check is isProfileComplete(), a separate code
+    // path), this meant the WELCOME/CONSULTATION text rendered through
+    // here could never show the "profile incomplete" 🔴/⚠️, no matter how
+    // incomplete the real profile was.
+    const effectiveSession = session || (phoneNumber ? this.consultationManager.getSession(phoneNumber) : null);
+    const profileComplete = effectiveSession ? this.isProfileComplete(effectiveSession) : false;
+    const hasOtherRoles = phoneNumber ? (require('../models/persona').getAvailableRoles(phoneNumber).length > 1) : false;
 
     switch (state) {
-      case FlowStates.WELCOME: return InteractiveMenus.main(persona, hasOtherRoles, profileComplete, hasPendingPayment);
+      case FlowStates.WELCOME: return InteractiveMenus.main({
+        isProfileComplete: profileComplete, hasMissingProfileFields: !profileComplete, hasOtherRoles,
+        hasPendingConsultation: phoneNumber ? !!this.consultationManager.getPendingConsultationByPatient(phoneNumber) : false,
+        hasActiveConsultation: phoneNumber ? Array.from(this.consultationManager.consultations.values()).some(c => c.patientPhone === phoneNumber && c.status === 'active') : false
+      });
       case FlowStates.ROLE_SELECT: return InteractiveMenus.roleSelect;
       case FlowStates.CAREGIVER_AUTH: return InteractiveMenus.caregiverAuth;
       case FlowStates.CAREGIVER_CONSENT_ACK: return InteractiveMenus.caregiverConsentAck;
-      case FlowStates.CONSULTATION: return InteractiveMenus.consultation(profileComplete, hasPendingPayment);
+      case FlowStates.CONSULTATION: return InteractiveMenus.consultation(profileComplete);
       case FlowStates.CANCER_TYPE: return InteractiveMenus.cancerTypes;
       case FlowStates.BILLING: return InteractiveMenus.billing;
       case FlowStates.REPORT_UPLOAD: return '📎 Send your diagnostic report (image/PDF)';
@@ -801,7 +813,7 @@ getMessageOptions(state, persona = 'patient', session = null, phoneNumber = null
         });
         return InteractiveMenus.profileLinkedPatients(patients);
       }
-      default: return InteractiveMenus.main(persona);
+      default: return InteractiveMenus.main({ isProfileComplete: profileComplete, hasMissingProfileFields: !profileComplete, hasOtherRoles });
     }
   }
 
@@ -967,8 +979,11 @@ case FlowStates.DOCTOR_SELECT:
         return this.handleDoctorSelection(selection, phoneNumber, session);
 
 case FlowStates.REPORT_UPLOAD: {
+        // Same wizard-parent fix as Cancer Type just above it - Report
+        // Upload is reached from the Consultations menu too.
         if (selection === '0' || selection.toLowerCase() === 'cancel') {
-          return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+          const profileComplete = this.isProfileComplete(this.consultationManager.getSession(phoneNumber));
+          return { nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete) };
         }
         return {
           nextState: FlowStates.REPORT_UPLOAD,
@@ -1045,12 +1060,25 @@ Send /menu or 0 to go back.`
   // Role" when applicable, not just the one a user happens to land on -
   // otherwise the option would flicker in and out depending on which of
   // the many WELCOME-returning code paths produced the current screen.
-getWelcomeMenu(phoneNumber, profileComplete = true) {
+  //
+  // `profileComplete` used to be a caller-supplied parameter defaulting to
+  // `true` - every one of this function's ~15 call sites omitted it, so
+  // the "Profile & Roles" 🔴 indicator on the single highest-traffic
+  // patient screen could never actually fire, regardless of real profile
+  // state. Now always computed fresh from the real session, like every
+  // other role's home-menu renderer already does.
+getWelcomeMenu(phoneNumber) {
      const { getAvailableRoles } = require('../models/persona');
      const hasOtherRoles = getAvailableRoles(phoneNumber).length > 1;
-     const hasPendingPayment = this.paymentService?.payments?.size > 0 && 
-       Array.from(this.paymentService.payments.values()).some(p => p.status === 'pending' && !p.feePending);
-     return InteractiveMenus.main('patient', hasOtherRoles, profileComplete, hasPendingPayment);
+     const session = this.consultationManager.getSession(phoneNumber);
+     const profileComplete = session ? this.isProfileComplete(session) : false;
+     const hasPendingConsultation = !!this.consultationManager.getPendingConsultationByPatient(phoneNumber);
+     const hasActiveConsultation = Array.from(this.consultationManager.consultations.values())
+       .some(c => c.patientPhone === phoneNumber && c.status === 'active');
+     return InteractiveMenus.main({
+       isProfileComplete: profileComplete, hasMissingProfileFields: !profileComplete, hasOtherRoles,
+       hasPendingConsultation, hasActiveConsultation
+     });
    }
 
   getProfileMenuResponse(phoneNumber, session) {
@@ -1325,12 +1353,14 @@ Example: 9876543210
       return this.handlePaymentStatusCheck(phoneNumber, session);
     } else if (selection === '3') {
       return this.handleWithdrawalRequest(phoneNumber, session);
-    } else if (selection === '4') {
-      const { getAvailableRoles } = require('../models/persona');
-      const currentRole = this.getCurrentEffectiveRole(phoneNumber, session);
-      return { nextState: FlowStates.PERSONA_SELECT, response: InteractiveMenus.personaSelect(currentRole, getAvailableRoles(phoneNumber)) };
+    } else if (selection === '0') {
+      // Was digit '4' and, despite being labeled "Back to Menu", actually
+      // routed to Switch Role (PERSONA_SELECT) - neither the right digit
+      // (submenus use 0) nor the right destination for what it claimed to do.
+      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
     }
-    return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation(true)}` };
+    const profileComplete = this.isProfileComplete(session);
+    return { nextState: FlowStates.CONSULTATION, response: `❌ Invalid selection.\n\n${InteractiveMenus.consultation(profileComplete)}` };
   }
 
   async handleStartConsultation(phoneNumber, session) {
@@ -1379,9 +1409,10 @@ Example: 9876543210
 
   handleWithdrawalRequest(phoneNumber, session) {
     if (!session.consultationId && !session.paymentTransaction) {
+      const profileComplete = this.isProfileComplete(session);
       return {
-        nextState: FlowStates.WELCOME,
-        response: `⚠️ No pending consultation or payment request found.\n\n${this.getWelcomeMenu(phoneNumber)}`,
+        nextState: FlowStates.CONSULTATION,
+        response: `⚠️ No pending consultation or payment request found.\n\n${InteractiveMenus.consultation(profileComplete)}`,
         data: {}
       };
     }
@@ -1530,8 +1561,13 @@ async handlePaymentStatusCheck(phoneNumber, session) {
   }
 
   handleCancerTypeSelection(selection, phoneNumber) {
+    // Cancer Type is the first step of the "Start Consultation" wizard,
+    // launched from the Consultations menu (handleStartConsultation) - "0"
+    // was skipping past it straight to WELCOME instead of back to My
+    // Consultations, its actual immediate parent.
     if (selection === '0') {
-      return { nextState: FlowStates.WELCOME, response: InteractiveMenus.main() };
+      const profileComplete = this.isProfileComplete(this.consultationManager.getSession(phoneNumber));
+      return { nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete) };
     }
     const cancerMap = {
       '1': 'lung',
@@ -1597,7 +1633,13 @@ async handlePaymentStatusCheck(phoneNumber, session) {
       return { nextState: FlowStates.PROFILE_DISCOUNT_CATEGORY, response: InteractiveMenus.discountCategories };
     }
     if (selection === '0') {
-      return { nextState: FlowStates.WELCOME, response: this.getWelcomeMenu(phoneNumber) };
+      // Was going to WELCOME while option '2' (Check Payment Status) on this
+      // exact same screen already correctly went to CONSULTATION - an
+      // internal inconsistency, not a deliberate "abort wizard" choice.
+      // Billing is reached from the Consultations menu (via Cancer
+      // Type/Report Upload); its real parent is CONSULTATION.
+      const profileComplete = this.isProfileComplete(this.consultationManager.getSession(phoneNumber));
+      return { nextState: FlowStates.CONSULTATION, response: InteractiveMenus.consultation(profileComplete) };
     }
     return { nextState: FlowStates.BILLING, response: `❌ Invalid selection.\n\n${InteractiveMenus.billing}` };
   }

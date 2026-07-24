@@ -41,7 +41,7 @@ const payloadMap = {
   },
   [FlowStates.SUPER_ADMIN_MANAGE_ADMINS]: { 'add_admin': '1', 'remove_admin': '2', 'back_to_menu': '0' },
   [FlowStates.PROFILE_VIEW]: { 'view_profile': '1', 'edit_profile': '2', 'apply_role': '3', 'my_roles': '4', 'remove_role': '5', 'main_menu': '0' },
-  [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '4' },
+  [FlowStates.CONSULTATION]: { 'start_consultation': '1', 'payment_status': '2', 'withdraw': '3', 'main_menu': '0' },
   [FlowStates.CONSULTATION_WITHDRAW]: { 'withdraw_confirm': '1', 'withdraw_cancel': '0' },
   [FlowStates.ADMIN_ROLE_APPROVALS]: { 'view_role_apps': '1', 'approve_doctor': '2', 'approve_caregiver': '3', 'approve_support': '4', 'menu_system': '0' },
   [FlowStates.ADMIN_DOCTOR_MANAGEMENT]: { 'view_doctors': '1', 'invite_doctor': '2', 'register_doctor': '3', 'assign_doctor': '4', 'remove_doctor': '5', 'reject_doctor': '6', 'message_doctor': '7', 'reassign_doctor': '8', 'menu_system': '0' },

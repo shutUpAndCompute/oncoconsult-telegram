@@ -336,15 +336,18 @@ test.describe('Response Validation', () => {
     assert.strictEqual(typeof result.response, 'string', 'Response should be a string');
   });
 
-  test('Consultation menu option 4 returns to persona select', async () => {
-    cm.updateSession('pt_test', { 
+  test('Consultation menu option 0 returns to WELCOME (its real parent)', async () => {
+    // Was digit '4', and despite being labeled "Back to Menu", actually
+    // routed to PERSONA_SELECT instead - neither the standard digit
+    // (submenus use 0) nor the destination the label promised.
+    cm.updateSession('pt_test', {
       patientProfile: { name: 'Test', age: 30, gender: 'M', cancerType: 'breast' },
       confirmedConsents: { teleconsultation: true, dataSharing: true, dpdp: true },
       selectedPersona: 'patient',
-      flowState: FlowStates.CONSULTATION 
+      flowState: FlowStates.CONSULTATION
     });
-    const result = await flow.parseMenuSelection('4', FlowStates.CONSULTATION, 'pt_test', { selectedPersona: 'patient' });
-    assert.strictEqual(result.nextState, FlowStates.PERSONA_SELECT, 'Option 4 should go to PERSONA_SELECT');
+    const result = await flow.parseMenuSelection('0', FlowStates.CONSULTATION, 'pt_test', { selectedPersona: 'patient' });
+    assert.strictEqual(result.nextState, FlowStates.WELCOME, 'Option 0 should go back to WELCOME');
     assert.strictEqual(typeof result.response, 'string', 'Response should be a string');
   });
 

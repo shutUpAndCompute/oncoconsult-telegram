@@ -223,7 +223,8 @@ class TelegramAdapter {
         .find(c => c.doctorId === doctor?.id && c.status === 'active');
       const pendingActions = consultationManager.getPendingActionsForDoctor(doctor?.id) || 0;
       consultationManager.updateSession(chatId, { flowState: FlowStates.DOCTOR_MENU });
-      const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions);
+      const hasOtherRoles = persona.availableRoles?.length > 1;
+      const keyboard = telegramKeyboards.buildDoctorMenu(doctor?.name || 'Doctor', !!hasActive, pendingActions, hasOtherRoles);
       await this.bot.sendMessage(chatId, keyboard.text || `👨⚕️ *Doctor Menu*\n\nHi ${doctor?.name || 'Doctor'}`, { parse_mode: 'Markdown', reply_markup: keyboard.reply_markup });
       return;
     }
@@ -288,6 +289,7 @@ class TelegramAdapter {
     }
     if (menuTree.DOCTOR_STATE_NODES[state]) {
       const facts = menuFacts.computeDoctorFacts(chatId, { consultationManager, doctorPersistence });
+      facts.hasOtherRoles = persona.availableRoles?.length > 1;
       return renderKeyboard(menuTree.DOCTOR_STATE_NODES[state], facts);
     }
 

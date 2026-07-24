@@ -1,5 +1,99 @@
 # To-Fix Gaps — Menu / Navigation / State / Persistence Audit
 
+## 2026-07-24: universal navigation standard defined and enforced
+
+Trigger: "There should be universal navigation standards, up/down/back/forth, universal back to
+main menu etc for all roles as per ui ux best practices." Wrote `NAVIGATION_STANDARD.md` as the
+concrete, checkable standard (digit-0 convention, back-buttons-name-their-destination, confirm+
+return-to-parent, one rendering path per menu, facts computed fresh not defaulted, cross-role
+consistency) and audited every role's menu tree against it. It explicitly supersedes
+`NAVIGATION_AUDIT_REPORT.md` (2026-07-15), which predates the admin submenu split and is stale in
+places (e.g. it documents Set Fee/Verify Payment's back button as "Admin Menu," correct when those
+were flat children of Admin Menu, wrong now that they're children of Finances Menu).
+
+Found and fixed, all live/real bugs, not just documentation drift:
+
+1. **Patient's Switch Role was digit `3`**, the only role that broke the "Switch Role always sits at
+   0" convention every other role (Admin, Caregiver, and now Doctor) follows. Moved to `0`
+   (`menuTree.js`'s `patientRoot`); `1`/`2` (My Consultations/Profile & Roles) unaffected.
+
+2. **Doctor's menu tree had no Switch Role node at all** - the text screen said "0️⃣ Switch Role" and
+   typing "0" worked (handled directly in `handleDoctorMenuSelection`), but the real tap-able
+   keyboard had no such button; a doctor navigating by tapping had no way to switch role. Added the
+   node to `doctorRoot`, wired `hasOtherRoles` into `computeDoctorFacts`/`buildKeyboardForState`/
+   `sendRoleHomeMenu`/`InteractiveMenus.doctorMenu` (previously not computed for doctors at all;
+   `buildDoctorMenu`/`InteractiveMenus.doctorMenu` default it to `true` for the several internal
+   call sites that don't have it handy, matching the always-shown behavior that already existed).
+
+3. **The Consultation menu's "4️⃣ Back to Menu" didn't go back to the menu.** It went to Switch Role
+   (`PERSONA_SELECT`) - both the wrong digit (submenus use `0`) and, independent of the digit, simply
+   not what a button labeled "Back to Menu" should do. Live, user-facing, on a screen every patient
+   with an active or pending consultation sees. Fixed the tree (digit `4`→`0`), `payloadMap.js`, and
+   `handleConsultationMenuSelection` together so it now actually returns to `WELCOME`.
+
+4. **`getWelcomeMenu`'s `profileComplete` parameter defaulted to `true`, and every one of its ~15
+   call sites omitted it.** This is the single highest-traffic patient screen (shown by `/start`,
+   `/menu`, `/resume`, `/clear`, idle-recovery, and as the fallback after most WELCOME-state actions)
+   - its "Profile & Roles" 🔴 indicator was structurally incapable of ever firing, for any patient,
+   regardless of actual profile completeness, for as long as this parameter has existed. Same bug,
+   independently, in `getMessageOptions`'s `WELCOME`/`CONSULTATION` cases (a hardcoded
+   `profileComplete = true` constant at the top of the function, with a comment rationalizing it as
+   intentional). Fixed both to compute real completeness from the live session every call, matching
+   how every other role's home-menu renderer already worked.
+
+5. **`InteractiveMenus.main` (WELCOME) and `InteractiveMenus.consultation` (My Consultations) were
+   never migrated onto the tree** in the earlier architectural-rewrite pass - both still hand-computed
+   badges from a `hasPendingPayment` boolean that the tree/live buttons have *never* used for either
+   screen (My Consultations is deliberately informational-only; Start Consultation/Payment Status are
+   both driven by profile completeness, not payment state). Migrated both onto
+   `renderMenuText(menuTree.patientRoot/patientConsultationMenu, ...)`, closing the last two patient-
+   facing text/button divergence gaps from that pass.
+
+6. **`adminProfileEdit`'s back button said "Back to Profile"** - stale since an earlier fix in this
+   same file changed its actual destination to the admin's main menu. Relabeled to match.
+
+Verified live (keyboard-rendering scripts confirming Patient/Doctor Switch Role placement and
+visibility gating, a WELCOME-screen simulation with a deliberately incomplete profile showing the
+🔴 that was previously impossible, and a Consultation-menu "0" simulation confirming it now reaches
+WELCOME) + full suite, 271/271 - two pre-existing tests that encoded the old digit-4/no-completeness-
+check behavior (`comprehensive_audit.test.js`, `navigation.test.js`) were updated to assert the
+corrected behavior.
+
+## 2026-07-24: same sweep, extended to patient/caregiver/doctor/support
+
+Explicit follow-up to the admin-side sweep below: "is the same class of bug fixed for every role
+across the whole lifecycle, not just admin?" Answer required actually re-walking every non-admin
+`FlowState`'s handler (~30 of them: onboarding, patient profile/roles, the consultation-request
+wizard, discount eligibility wizard, withdrawal, caregiver auth/link/menu, doctor menu/profile/
+patients/message-admin, support menu) against its structural parent in `menuTree.js`, not assuming
+parity from the admin fix.
+
+**Result: the admin-specific bug (wrong destination role's menu tree, false completion messages,
+skipped-parent-with-no-consistency) does not recur elsewhere** - patient profile edit, doctor
+profile edit, "Remove Role", "Apply for Role", the entire discount-eligibility wizard
+(Category → Economic/Profession/Social → Documents), caregiver patient-link, and every doctor-menu
+action already had correct confirm-and-return-to-real-parent behavior before this pass. These were
+spot-verified, not just assumed, by reading each handler against the tree.
+
+**One real, distinct bug found**: the "Start Consultation" wizard (Cancer Type → Report Upload →
+Billing), reached exclusively via My Consultations → "Start New Consultation"
+(`handleStartConsultation`), had every step's cancel/back go to `WELCOME` (the patient root),
+skipping its actual immediate parent, `CONSULTATION` (My Consultations). This wasn't a deliberate
+"abort the whole wizard" design either - `handleBillingSelection`'s own option `'2'` (Check Payment
+Status) on the *same screen* already correctly returned to `CONSULTATION`, while option `'0'`
+(Cancel) on that identical screen went to `WELCOME` - an internal inconsistency within one menu, not
+a consistent policy. `handleWithdrawalRequest`'s "nothing to withdraw" fallback had the same
+skipped-parent bug. Fixed all four (`handleCancerTypeSelection`, the `REPORT_UPLOAD` case in the
+dispatcher, `handleBillingSelection`, `handleWithdrawalRequest`) to return to `CONSULTATION`;
+relabeled Billing's "0️⃣ Main Menu" button/text to "0️⃣ Back to Consultations" (both
+`telegramKeyboards.js`'s keyboard and `conversationFlow.js`'s text twin) since the label was already
+inaccurate even before the fix - it said "Main Menu" while actually behaving like an abort-to-root,
+neither of which matched the two other exits on the same screen.
+
+Verified live (simulation script asserting each of the four now lands on `CONSULTATION`) + full
+suite, 271/271, no regressions - none of the 271 pre-existing tests were asserting the old `WELCOME`
+destination for any of these four, so nothing needed updating to match.
+
 ## 2026-07-24: universal post-action navigation — "confirm the change, return to the actual parent"
 
 Trigger: a real transcript (`/start` → Edit Admin Profile → Edit Name → type a name) where the

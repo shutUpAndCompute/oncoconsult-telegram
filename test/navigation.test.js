@@ -15,7 +15,7 @@ test.after(() => {
 test('Navigation Principle 2: Menu text uses emoji format', () => {
   assert.ok(InteractiveMenus.adminMenu(0, 0).includes('0️⃣'), 'Admin menu should use emoji format');
   assert.ok(InteractiveMenus.billing.includes('2️⃣'), 'Billing menu should use emoji format');
-  assert.ok(InteractiveMenus.consultation(true).includes('4️⃣'), 'Consultation menu should use emoji format');
+  assert.ok(InteractiveMenus.consultation(true).includes('1️⃣'), 'Consultation menu should use emoji format');
   assert.ok(InteractiveMenus.profileMenu({}).includes('0️⃣'), 'Profile menu should use emoji format');
 });
 

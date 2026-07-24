@@ -354,15 +354,18 @@ const buildBillingMenu = () => ({
     [{ text: '1️⃣ Request Payment Link', callback_data: 'request_payment_link' }],
     [{ text: '2️⃣ Check Payment Status', callback_data: 'payment_status' }],
     [{ text: '3️⃣ Apply for Fee Discount', callback_data: 'apply_discount' }],
-    [{ text: '0️⃣ Main Menu', callback_data: 'main_menu' }]
+    [{ text: '0️⃣ Back to Consultations', callback_data: 'main_menu' }]
   ]}
 });
 
 const buildAdminDoctorManagement = (pendingDocs = 0) =>
   renderKeyboard(menuTree.adminDoctorManagement, adminMenuFacts(0, 0, true, false, false, 0, pendingDocs, false));
 
-const buildDoctorMenu = (name = 'Doctor', hasActive = false, pendingActions = 0) =>
-  renderKeyboard(menuTree.doctorRoot, { hasActiveConsultation: hasActive, pendingActions });
+// hasOtherRoles defaults to true (always show Switch Role) for the many
+// call sites that don't have it handy - only the two live-rendering paths
+// (buildKeyboardForState, sendRoleHomeMenu) pass the real computed value.
+const buildDoctorMenu = (name = 'Doctor', hasActive = false, pendingActions = 0, hasOtherRoles = true) =>
+  renderKeyboard(menuTree.doctorRoot, { hasActiveConsultation: hasActive, pendingActions, hasOtherRoles });
 
 module.exports = {
   buildMainMenu,

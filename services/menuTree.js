@@ -142,7 +142,11 @@ const adminProfileEdit = {
       isPending: f => f.adminMissingFields.some(x => x.toLowerCase() === 'phone' || x.toLowerCase() === 'phonenumber')
     },
     { id: 'view_admin_profile', callbackData: 'view_profile', label: 'View Profile' },
-    { id: 'profile_edit_back', callbackData: 'cancel', label: 'Back to Profile', digit: 0 }
+    // Label was "Back to Profile", stale since the actual handler
+    // (handleAdminProfileEditInput) returns to the admin's main menu -
+    // "My Profile"'s real structural parent per this tree - not some other
+    // "Profile" screen.
+    { id: 'profile_edit_back', callbackData: 'cancel', label: 'Back to Admin Menu', digit: 0 }
   ]
 };
 
@@ -189,7 +193,12 @@ const patientConsultationMenu = {
     { id: 'start_consultation', callbackData: 'start_consultation', label: 'Start New Consultation', isPending: f => !f.isProfileComplete },
     { id: 'payment_status', callbackData: 'payment_status', label: 'Check Payment Status', isPending: f => !f.isProfileComplete },
     { id: 'withdraw', callbackData: 'withdraw', label: 'Withdraw Consultation' },
-    { id: 'consultation_back', callbackData: 'main_menu', label: 'Back to Menu', digit: 4 }
+    // digit 0, matching every other submenu's back-button convention - was
+    // digit 4, and the handler for that digit didn't even go "back to
+    // menu" as labeled, it went to Switch Role (PERSONA_SELECT) instead.
+    // A submenu doesn't get its own Switch Role shortcut (only role-home
+    // menus do); this now actually does what its label says.
+    { id: 'consultation_back', callbackData: 'main_menu', label: 'Back to Menu', digit: 0 }
   ]
 };
 
@@ -227,7 +236,10 @@ const patientRoot = {
   children: [
     myConsultationsButton,
     patientProfileMenu,
-    { id: 'patient_switch_role', callbackData: 'switch_role', label: 'Switch Role', digit: 3, visible: f => f.hasOtherRoles }
+    // digit 0, matching every other role's "Switch Role sits at 0" convention
+    // (admin, caregiver) - this used to be digit 3, the only role that broke
+    // the pattern.
+    { id: 'patient_switch_role', callbackData: 'switch_role', label: 'Switch Role', digit: 0, visible: f => f.hasOtherRoles }
   ]
 };
 
@@ -263,7 +275,14 @@ const doctorRoot = {
       id: 'message_admin', callbackData: 'message_admin',
       label: f => f.pendingActions > 0 ? `Message Admin (${f.pendingActions} unread)` : 'Message Admin',
       isPending: f => f.pendingActions > 0
-    }
+    },
+    // Was missing from the tree entirely even though the text screen and
+    // payloadMap.js/handleDoctorMenuSelection both already treat "0" as
+    // Switch Role - the real tap-able keyboard had no such button at all,
+    // only reachable by typing "0". Matches every other role's convention
+    // of Switch Role at digit 0 (visible only when another approved role
+    // exists, same as patient/caregiver).
+    { id: 'doctor_switch_role', callbackData: 'switch_role', label: 'Switch Role', digit: 0, visible: f => f.hasOtherRoles }
   ]
 };
 
